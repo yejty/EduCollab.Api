@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace EduCollab.Application.Models
+namespace EduCollab.Application.Models.Users
 {
-    public class User 
+    public class User
     {
         [MaxLength(100), Required]
         public string FirstName { get; set; } = string.Empty;
@@ -18,7 +13,6 @@ namespace EduCollab.Application.Models
         [EmailAddress, Required]
         public string? Email { get; set; }
 
-        public string FullName => $"{this.FirstName} {this.LastName}";
-
+        public string FullName => $"{FirstName} {LastName}";
     }
 }

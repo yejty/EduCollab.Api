@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace EduCollab.Contracts.Requests
+namespace EduCollab.Contracts.Requests.Users
 {
-
     public class ChangePasswordRequest
     {
         [Required]

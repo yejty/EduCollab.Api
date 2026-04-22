@@ -1,22 +1,22 @@
+using EduCollab.Api.Config;
+using EduCollab.Api.Extensions;
 using EduCollab.Application;
 using EduCollab.Application.Database;
 
 var builder = WebApplication.CreateBuilder(args);
-var config = builder.Configuration;
 
-// Add services to the container.
+var databaseOptions = builder.Configuration
+    .GetSection(DatabaseOptions.SectionName)
+    .Get<DatabaseOptions>()
+    ?? throw new InvalidOperationException($"Configuration section '{DatabaseOptions.SectionName}' is missing.");
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
+builder.Services.AddApiHost();
 builder.Services.AddApplication();
-builder.Services.AddDatabase(config["Database:ConnectionString"]!);
+builder.Services.AddDatabase(databaseOptions);
+builder.Services.AddJwtOptions(builder.Configuration);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -29,7 +29,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-var dbInitializer = app.Services.GetRequiredService<DbInitializer>();
-await dbInitializer.InitializeAsync();
+await app.Services.InitializeDatabaseAsync();
 
 app.Run();

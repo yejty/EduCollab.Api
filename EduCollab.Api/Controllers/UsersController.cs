@@ -1,4 +1,4 @@
-﻿using EduCollab.Application.Services;
+﻿using EduCollab.Application.Services.Users;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EduCollab.Api.Controllers
