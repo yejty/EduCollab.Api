@@ -1,23 +1,26 @@
 ---
+
 name: Educollab Api Plan
 overview: Plan the `EduCollab.Api` architecture and first-version endpoint surface for an education collaboration platform built around Unity scenes and smart 3D assets. Adapt proven patterns from `AssetManagement.API` while focusing v1 on auth/users, workspaces as tenant boundaries, user groups, and collaborative scene/asset flows.
 todos:
-  - id: confirm-foundation
-    content: Adopt controller-based architecture, JWT auth, Swagger, exception handling, and health checks based on the AssetManagement template, without API versioning for v1.
-    status: pending
-  - id: design-auth-users
-    content: Define the full auth and user management contract, persistence fields, and controller/service/repository flow for `Users`.
-    status: pending
-  - id: design-workspace-model
-    content: Model workspace tenancy, membership, user groups, and group-based sharing rules with workspace-scoped authorization.
-    status: pending
-  - id: design-scenes-assets
-    content: Define the scene JSON model, asset library tree, ownership model, contextual asset visibility, and endpoint surface within a workspace.
-    status: pending
-  - id: design-sharing-access
-    content: Specify how users discover and access scenes and assets through user groups while preserving user ownership and scene-scoped asset visibility.
-    status: pending
+
+- id: confirm-foundation
+content: Adopt controller-based architecture, JWT auth, Swagger, exception handling, and health checks based on the AssetManagement template, without API versioning for v1.
+status: pending
+- id: design-auth-users
+content: Define the full auth and user management contract, persistence fields, and controller/service/repository flow for `Users`.
+status: pending
+- id: design-workspace-model
+content: Model workspace tenancy, membership, user groups, and group-based sharing rules with workspace-scoped authorization.
+status: pending
+- id: design-scenes-assets
+content: Define the scene JSON model, asset library tree, ownership model, contextual asset visibility, and endpoint surface within a workspace.
+status: pending
+- id: design-sharing-access
+content: Specify how users discover and access scenes and assets through user groups while preserving user ownership and scene-scoped asset visibility.
+status: pending
 isProject: false
+
 ---
 
 # EduCollab.Api Architecture And Endpoint Plan
@@ -1286,4 +1289,50 @@ The clearest template-aligned path is:
 - Model the scene itself as JSON and resolve its usable assets through a dedicated scene endpoint rather than relaxing permissions on the standalone asset viewer.
 - Keep the folder hierarchy only for the asset library and keep scenes completely outside that hierarchy.
 - Keep the product language centered on educational collaboration with Unity scenes and smart 3D assets, so future modules stay aligned with the real app vision.
+
+## Deployment Target: Hetzner (API, PostgreSQL, Asset Files)
+
+This section records a concrete hosting direction: **API and PostgreSQL on Hetzner Cloud VPS**, **binary assets on S3-compatible object storage** (recommended: **Hetzner Object Storage**), matching the plan’s external `storage_provider` / `storage_key` model.
+
+**Orchestration preference:** run the API and PostgreSQL with **Docker Compose** on the VPS (see below). Asset storage in production remains **Hetzner Object Storage** (not a Compose service), unless you deliberately add **MinIO** (or similar) in Compose for **local/dev parity** only.
+
+### Docker Compose on the VPS
+
+- Use **one `docker-compose.yml`** (and optionally `compose.override.yml` for dev) that defines:
+  - `**api`:** image built from the `EduCollab.Api` Dockerfile (multi-stage build publishing the ASP.NET app).
+  - `**postgres`:** official `postgres` image with a **named volume** mounted for data (`/var/lib/postgresql/data`), not a bind mount to the repo.
+  - `**reverse-proxy`:** **Caddy** or **Nginx** container terminating HTTPS and proxying to the API container (or run the reverse proxy on the host if you prefer fewer moving parts; both are valid).
+- Pass **connection strings, JWT settings, and object-storage credentials** via **environment** or an `**.env` file** present on the server only (never committed).
+- On the Hetzner VPS, install **Docker Engine + Compose plugin** (or Docker Desktop’s compose equivalent on Linux); deploy by pulling the repo or CI-pushed images and running `docker compose up -d`.
+- **Backups:** schedule `pg_dump` from a sidecar/cron container or host cron, targeting the `postgres` service network.
+
+### Recommended layout
+
+**Option A — Single VPS (simplest, fine for early pilot)**
+
+- One **Hetzner Cloud** server (Linux) runs **Docker Compose** with API + Postgres (+ reverse proxy container optional).
+- **Asset files** go to **Hetzner Object Storage** (S3-compatible API), not to Postgres and not as the only copy on the VPS disk (easier scaling and backup story for large `.glb` files).
+
+**Option B — Split (better isolation as you grow)**
+
+- **VPS 1:** Docker Compose with **API + reverse proxy** only.
+- **VPS 2:** Docker Compose or single **Postgres** container with volume, reachable on **private network** from VPS 1.
+- **Object Storage:** same as Option A for binaries.
+
+### Asset storage implementation notes
+
+- Implement a small **storage abstraction** in the app (upload, delete, **presigned GET/PUT** URLs) using an **S3-compatible SDK** configured with the Hetzner Object Storage endpoint, bucket, and credentials.
+- Return **time-limited URLs** to clients for downloads/uploads so the API does not proxy large files by default (saves CPU and bandwidth on the VPS).
+- Keep **only metadata** (including `storage_key`) in PostgreSQL, per existing schema intent.
+
+### Operations checklist
+
+- **Backups:** automated Postgres dumps (e.g. daily) to Object Storage or off-server; test restores.
+- **TLS:** Let’s Encrypt via Caddy/Nginx; Hetzner **Load Balancer** only if you outgrow one machine.
+- **Secrets:** connection strings and object-storage keys via environment or a secrets file not committed to git.
+
+### What not to do
+
+- Do not store large 3D binaries in PostgreSQL.
+- Avoid relying on a single VPS disk as the only copy of user assets in production (use object storage + lifecycle rules as appropriate).
 
