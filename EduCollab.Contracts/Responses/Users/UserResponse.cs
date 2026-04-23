@@ -1,4 +1,6 @@
-﻿namespace EduCollab.Contracts.Responses.Users
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace EduCollab.Contracts.Responses.Users
 {
     public class UserResponse
     {

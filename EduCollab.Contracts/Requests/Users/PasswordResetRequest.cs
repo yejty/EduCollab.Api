@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EduCollab.Contracts.Requests.Users
 {
-    public class RequestPasswordResetRequest
+    public class PasswordResetRequest
     {
         [Required]
         [EmailAddress]
