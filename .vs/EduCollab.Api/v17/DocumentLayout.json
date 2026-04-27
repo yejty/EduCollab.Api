@@ -3,12 +3,24 @@
   "WorkspaceRootPath": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.contracts\\responses\\workspaces\\workspaceuserresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|solutionrelative:educollab.contracts\\responses\\workspaces\\workspaceuserresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|solutionrelative:educollab.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.api\\health\\databasehealthcheck.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|solutionrelative:educollab.api\\health\\databasehealthcheck.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.application\\database\\idbconnectionfactory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\database\\idbconnectionfactory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.contracts\\responses\\workspaces\\workspaceusersresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|solutionrelative:educollab.contracts\\responses\\workspaces\\workspaceusersresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.contracts\\responses\\workspaces\\workspaceuserresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{FA290F3F-203E-48B8-AE55-FBBA14BF120E}|EduCollab.Contracts\\EduCollab.Contracts.csproj|solutionrelative:educollab.contracts\\responses\\workspaces\\workspaceuserresponse.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.api\\controllers\\workspacescontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -87,10 +99,6 @@
       "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\models\\users\\user.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|solutionrelative:educollab.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.application\\database\\databaseoptions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\database\\databaseoptions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -123,10 +131,6 @@
       "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\applicationservicecollectionextensions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.application\\database\\idbconnectionfactory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\database\\idbconnectionfactory.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.application\\database\\dbinitializer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}|EduCollab.Application\\EduCollab.Application.csproj|solutionrelative:educollab.application\\database\\dbinitializer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -142,11 +146,24 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 6,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
+              "Title": "DatabaseHealthCheck.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Health\\DatabaseHealthCheck.cs",
+              "RelativeDocumentMoniker": "EduCollab.Api\\Health\\DatabaseHealthCheck.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Health\\DatabaseHealthCheck.cs",
+              "RelativeToolTip": "EduCollab.Api\\Health\\DatabaseHealthCheck.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAuAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-27T11:25:25.197Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
               "Title": "WorkspaceUserResponse.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUserResponse.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUserResponse.cs",
@@ -159,7 +176,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "WorkspaceUsersResponse.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUsersResponse.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUsersResponse.cs",
@@ -172,46 +189,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "IWorkspaceService.cs",
-              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
-              "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
-              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
-              "RelativeToolTip": "EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:30:42.909Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "WorkspaceService.cs",
-              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
-              "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
-              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
-              "RelativeToolTip": "EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:30:37.182Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "WorkspacesController.cs",
-              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Controllers\\WorkspacesController.cs",
-              "RelativeDocumentMoniker": "EduCollab.Api\\Controllers\\WorkspacesController.cs",
-              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Controllers\\WorkspacesController.cs",
-              "RelativeToolTip": "EduCollab.Api\\Controllers\\WorkspacesController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACEAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:30:18.977Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 12,
               "Title": "CreateUserRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\CreateUserRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\CreateUserRequest.cs",
@@ -219,12 +197,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\CreateUserRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:02:04.72Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:02:04.72Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 14,
               "Title": "InviteUserRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\InviteUserRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\InviteUserRequest.cs",
@@ -232,12 +209,73 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\InviteUserRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAD2AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T14:09:27.484Z",
+              "WhenOpened": "2026-04-23T14:09:27.484Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "IDbConnectionFactory.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\IDbConnectionFactory.cs",
+              "RelativeDocumentMoniker": "EduCollab.Application\\Database\\IDbConnectionFactory.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\IDbConnectionFactory.cs",
+              "RelativeToolTip": "EduCollab.Application\\Database\\IDbConnectionFactory.cs",
+              "ViewState": "AgIAAAUAAAAAAAAAAAAowAkAAAApAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-10T15:06:23.506Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Program.cs",
+              "RelativeDocumentMoniker": "EduCollab.Api\\Program.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Program.cs",
+              "RelativeToolTip": "EduCollab.Api\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB0AAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-10T15:29:58.134Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "WorkspacesController.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Controllers\\WorkspacesController.cs",
+              "RelativeDocumentMoniker": "EduCollab.Api\\Controllers\\WorkspacesController.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Controllers\\WorkspacesController.cs",
+              "RelativeToolTip": "EduCollab.Api\\Controllers\\WorkspacesController.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACEAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:30:18.977Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "WorkspaceService.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
+              "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
+              "RelativeToolTip": "EduCollab.Application\\Services\\Workspaces\\WorkspaceService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:30:37.182Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "IWorkspaceService.cs",
+              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
+              "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
+              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
+              "RelativeToolTip": "EduCollab.Application\\Services\\Workspaces\\IWorkspaceService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-23T15:30:42.909Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 13,
               "Title": "ChangePasswordRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\ChangePasswordRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\ChangePasswordRequest.cs",
@@ -245,12 +283,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\ChangePasswordRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:01:49.312Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:01:49.312Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 7,
               "Title": "UsersController.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Controllers\\UsersController.cs",
               "RelativeDocumentMoniker": "EduCollab.Api\\Controllers\\UsersController.cs",
@@ -258,12 +295,11 @@
               "RelativeToolTip": "EduCollab.Api\\Controllers\\UsersController.cs",
               "ViewState": "AgIAAMAAAAAAAAAAAAAkwFcAAAB9AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T14:25:32.009Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T14:25:32.009Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 6,
               "Title": "ErrorResponse.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Responses\\ErrorResponse.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Responses\\ErrorResponse.cs",
@@ -271,12 +307,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Responses\\ErrorResponse.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:02:17.502Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:02:17.502Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 15,
               "Title": "LoginRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\LoginRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\LoginRequest.cs",
@@ -284,12 +319,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\LoginRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:01:56.293Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:01:56.293Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 11,
               "Title": "ConfirmPasswordResetRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\ConfirmPasswordResetRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\ConfirmPasswordResetRequest.cs",
@@ -297,12 +331,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\ConfirmPasswordResetRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T14:59:07.468Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T14:59:07.468Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 10,
               "Title": "UpdateUserRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\UpdateUserRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\UpdateUserRequest.cs",
@@ -310,12 +343,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\UpdateUserRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:12:53.457Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T15:12:53.457Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 16,
               "Title": "PasswordResetRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\PasswordResetRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\PasswordResetRequest.cs",
@@ -323,12 +355,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\PasswordResetRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:02:06.92Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:02:06.92Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 17,
               "Title": "RefreshTokenRequest.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Requests\\Users\\RefreshTokenRequest.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Requests\\Users\\RefreshTokenRequest.cs",
@@ -336,12 +367,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Requests\\Users\\RefreshTokenRequest.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T14:01:57.266Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T14:01:57.266Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 21,
               "Title": "TokensResponse.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Responses\\Users\\TokensResponse.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Responses\\Users\\TokensResponse.cs",
@@ -349,12 +379,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Responses\\Users\\TokensResponse.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T12:46:29.082Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T12:46:29.082Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 19,
               "Title": "UserResponse.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Contracts\\Responses\\Users\\UserResponse.cs",
               "RelativeDocumentMoniker": "EduCollab.Contracts\\Responses\\Users\\UserResponse.cs",
@@ -362,12 +391,11 @@
               "RelativeToolTip": "EduCollab.Contracts\\Responses\\Users\\UserResponse.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAA5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-22T12:46:28.025Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-22T12:46:28.025Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 18,
               "Title": "UserService.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Users\\UserService.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Users\\UserService.cs",
@@ -375,12 +403,11 @@
               "RelativeToolTip": "EduCollab.Application\\Services\\Users\\UserService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAACQAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T13:16:18.894Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T13:16:18.894Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 20,
               "Title": "IUserService.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Services\\Users\\IUserService.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Services\\Users\\IUserService.cs",
@@ -388,12 +415,11 @@
               "RelativeToolTip": "EduCollab.Application\\Services\\Users\\IUserService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T13:16:14.201Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T13:16:14.201Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 22,
               "Title": "JwtOptions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Config\\JwtOptions.cs",
               "RelativeDocumentMoniker": "EduCollab.Api\\Config\\JwtOptions.cs",
@@ -401,12 +427,11 @@
               "RelativeToolTip": "EduCollab.Api\\Config\\JwtOptions.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T13:28:12.717Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T13:28:12.717Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 23,
               "Title": "User.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Models\\Users\\User.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Models\\Users\\User.cs",
@@ -414,12 +439,11 @@
               "RelativeToolTip": "EduCollab.Application\\Models\\Users\\User.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T13:16:06.474Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T13:16:06.474Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 26,
               "Title": "JwtServiceCollectionExtensions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Config\\JwtServiceCollectionExtensions.cs",
               "RelativeDocumentMoniker": "EduCollab.Api\\Config\\JwtServiceCollectionExtensions.cs",
@@ -431,7 +455,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 27,
               "Title": "DatabaseServiceCollectionExtensions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\DatabaseServiceCollectionExtensions.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Database\\DatabaseServiceCollectionExtensions.cs",
@@ -443,7 +467,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 24,
               "Title": "DatabaseOptions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\DatabaseOptions.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Database\\DatabaseOptions.cs",
@@ -455,7 +479,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 26,
+              "DocumentIndex": 28,
               "Title": "ApiHostServiceCollectionExtensions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Extensions\\ApiHostServiceCollectionExtensions.cs",
               "RelativeDocumentMoniker": "EduCollab.Api\\Extensions\\ApiHostServiceCollectionExtensions.cs",
@@ -467,7 +491,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 25,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\appsettings.json",
               "RelativeDocumentMoniker": "EduCollab.Api\\appsettings.json",
@@ -479,19 +503,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
-              "Title": "Program.cs",
-              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Program.cs",
-              "RelativeDocumentMoniker": "EduCollab.Api\\Program.cs",
-              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Program.cs",
-              "RelativeToolTip": "EduCollab.Api\\Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAeAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T15:29:58.134Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 28,
+              "DocumentIndex": 30,
               "Title": "EduCollab.Application.csproj",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\EduCollab.Application.csproj",
               "RelativeDocumentMoniker": "EduCollab.Application\\EduCollab.Application.csproj",
@@ -503,7 +515,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 27,
+              "DocumentIndex": 29,
               "Title": "appsettings.Development.json",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\appsettings.Development.json",
               "RelativeDocumentMoniker": "EduCollab.Api\\appsettings.Development.json",
@@ -515,7 +527,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 29,
+              "DocumentIndex": 31,
               "Title": "ApplicationServiceCollectionExtensions.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\ApplicationServiceCollectionExtensions.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\ApplicationServiceCollectionExtensions.cs",
@@ -527,19 +539,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 30,
-              "Title": "IDbConnectionFactory.cs",
-              "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\IDbConnectionFactory.cs",
-              "RelativeDocumentMoniker": "EduCollab.Application\\Database\\IDbConnectionFactory.cs",
-              "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\IDbConnectionFactory.cs",
-              "RelativeToolTip": "EduCollab.Application\\Database\\IDbConnectionFactory.cs",
-              "ViewState": "AgIAAAUAAAAAAAAAAAAowBkAAAAMAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T15:06:23.506Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 31,
+              "DocumentIndex": 32,
               "Title": "DbInitializer.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Application\\Database\\DbInitializer.cs",
               "RelativeDocumentMoniker": "EduCollab.Application\\Database\\DbInitializer.cs",
@@ -551,7 +551,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 32,
+              "DocumentIndex": 33,
               "Title": "EduCollab.Api.csproj",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\EduCollab.Api.csproj",
               "RelativeDocumentMoniker": "EduCollab.Api\\EduCollab.Api.csproj",

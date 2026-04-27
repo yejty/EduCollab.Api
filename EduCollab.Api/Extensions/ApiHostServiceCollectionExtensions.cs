@@ -1,3 +1,4 @@
+using EduCollab.Api.ExceptionHandlers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EduCollab.Api.Extensions
@@ -6,6 +7,8 @@ namespace EduCollab.Api.Extensions
     {
         public static IServiceCollection AddApiHost(this IServiceCollection services)
         {
+            services.AddExceptionHandler<ApiExceptionHandler>();
+            services.AddProblemDetails();
             services.AddControllers();
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen();
