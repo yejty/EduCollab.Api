@@ -1,6 +1,5 @@
 using EduCollab.Api.Config;
 using EduCollab.Api.Extensions;
-using EduCollab.Api.Health;
 using EduCollab.Application;
 using EduCollab.Application.Database;
 
@@ -15,7 +14,6 @@ builder.Services.AddApiHost();
 builder.Services.AddApplication();
 builder.Services.AddDatabase(databaseOptions);
 builder.Services.AddJwtOptions(builder.Configuration);
-builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name);
 
 var app = builder.Build();
 
@@ -32,7 +30,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("_health");
+app.MapHealthChecks("/_health");
 
 await app.Services.InitializeDatabaseAsync();
 

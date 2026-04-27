@@ -1,4 +1,5 @@
 using EduCollab.Api.ExceptionHandlers;
+using EduCollab.Api.Health;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EduCollab.Api.Extensions
@@ -9,6 +10,8 @@ namespace EduCollab.Api.Extensions
         {
             services.AddExceptionHandler<ApiExceptionHandler>();
             services.AddProblemDetails();
+            services.AddHealthChecks()
+                .AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name);
             services.AddControllers();
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen();

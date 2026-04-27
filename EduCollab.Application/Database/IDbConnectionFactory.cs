@@ -9,7 +9,7 @@ namespace EduCollab.Application.Database
 {
     public interface IDbConnectionFactory
     {
-        Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken);
+        Task<IDbConnection> CreateConnectionAsync();
     }
 
     public class NpqsqlConnectionFactory : IDbConnectionFactory

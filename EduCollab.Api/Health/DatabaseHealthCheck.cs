@@ -1,5 +1,4 @@
 ﻿using EduCollab.Application.Database;
-using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace EduCollab.Api.Health
@@ -16,17 +15,17 @@ namespace EduCollab.Api.Health
             _logger = logger;
         }
 
-        public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+        public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = new())
         {
             try
             {
-                _ = await _dbconnectionFactory.CreateConnectionAsync(cancellationToken);
+                _ = await _dbconnectionFactory.CreateConnectionAsync();
                 return HealthCheckResult.Healthy();
             }
             catch (Exception ex)
             {
                 const string errorMessage = "Database is unhealthy";
-                _logger.LogError(errorMessage, ex);
+                _logger.LogError(ex, errorMessage);
                 return HealthCheckResult.Unhealthy(errorMessage, ex);
             }
         }
