@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: educollab-postgres
+    environment:
+      POSTGRES_DB: EduCollab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d EduCollab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: EduCollab.Api/Dockerfile
+    container_name: educollab-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      Database__ConnectionString: Server=postgres;Port=5432;Database=EduCollab;User Id=postgres;Password=postgres;
+      Jwt__Issuer: EduCollab.Api
+      Jwt__Audience: EduCollab.Client
+      Jwt__SecretKey: replace-this-with-a-long-dev-secret-key
+      Jwt__ExpirationMinutes: 60
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres-data:

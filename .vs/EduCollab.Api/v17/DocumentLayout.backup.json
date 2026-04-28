@@ -162,8 +162,7 @@
               "RelativeToolTip": "EduCollab.Api\\Health\\DatabaseHealthCheck.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAzAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-27T11:25:25.197Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-27T11:25:25.197Z"
             },
             {
               "$type": "Document",
@@ -175,8 +174,7 @@
               "RelativeToolTip": "EduCollab.Application\\Database\\IDbConnectionFactory.cs",
               "ViewState": "AgIAAAkAAAAAAAAAAAAywAwAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T15:06:23.506Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T15:06:23.506Z"
             },
             {
               "$type": "Document",
@@ -188,8 +186,7 @@
               "RelativeToolTip": "EduCollab.Api\\Program.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAbAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T15:29:58.134Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T15:29:58.134Z"
             },
             {
               "$type": "Document",
@@ -201,8 +198,7 @@
               "RelativeToolTip": "EduCollab.Api\\Controllers\\UsersController.cs",
               "ViewState": "AgIAAMMAAAAAAAAAAAAkwM8AAABBAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T14:25:32.009Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T14:25:32.009Z"
             },
             {
               "$type": "Document",
@@ -214,8 +210,7 @@
               "RelativeToolTip": "EduCollab.Api\\Controllers\\WorkspacesController.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:30:18.977Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T15:30:18.977Z"
             },
             {
               "$type": "Document",
@@ -227,8 +222,7 @@
               "RelativeToolTip": "EduCollab.Application\\Database\\DbInitializer.cs",
               "ViewState": "AgIAAAMAAAAAAAAAAADwvxMAAAA+AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-10T15:44:19.524Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-10T15:44:19.524Z"
             },
             {
               "$type": "Document",
@@ -238,7 +232,7 @@
               "RelativeDocumentMoniker": "EduCollab.Api\\Extensions\\ApiHostServiceCollectionExtensions.cs",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\Extensions\\ApiHostServiceCollectionExtensions.cs",
               "RelativeToolTip": "EduCollab.Api\\Extensions\\ApiHostServiceCollectionExtensions.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAuwA8AAAAvAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwBAAAAAlAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-22T13:09:46.265Z",
               "EditorCaption": ""
@@ -253,8 +247,7 @@
               "RelativeToolTip": "EduCollab.Application\\Database\\DatabaseInitializationExtensions.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAIwA8AAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-27T11:43:24.878Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-27T11:43:24.878Z"
             },
             {
               "$type": "Document",
@@ -266,8 +259,7 @@
               "RelativeToolTip": "EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUsersResponse.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:35:54.478Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T15:35:54.478Z"
             },
             {
               "$type": "Document",
@@ -279,8 +271,7 @@
               "RelativeToolTip": "EduCollab.Contracts\\Responses\\Workspaces\\WorkspaceUserResponse.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-23T15:31:21.782Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-23T15:31:21.782Z"
             },
             {
               "$type": "Document",

@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/TestResults/
+**/node_modules/
+.git/
+.gitignore
+README*
+Plans/
