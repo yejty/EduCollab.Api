@@ -19,7 +19,20 @@ namespace EduCollab.Application.Database
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             await connection.ExecuteAsync("CREATE TABLE IF NOT EXISTS Users (Id SERIAL PRIMARY KEY, FirstName VARCHAR(100), LastName VARCHAR(100), Email VARCHAR(255));");
-          
+            await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS PasswordHash TEXT;");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS UserRefreshTokens (
+                    Id BIGSERIAL PRIMARY KEY,
+                    UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    ExpiresAt TIMESTAMPTZ NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    RevokedAt TIMESTAMPTZ NULL);
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_UserRefreshTokens_UserId ON UserRefreshTokens (UserId);");
+
         }
     }
 }

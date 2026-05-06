@@ -1,8 +1,9 @@
-﻿using EduCollab.Application.Models.Users;
+﻿using EduCollab.Api.Security;
 using EduCollab.Application.Services.Users;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Users;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EduCollab.Api.Controllers
@@ -11,10 +12,12 @@ namespace EduCollab.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IJwtAccessTokenGenerator _jwtAccessTokenGenerator;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, IJwtAccessTokenGenerator jwtAccessTokenGenerator)
         {
             _userService = userService;
+            _jwtAccessTokenGenerator = jwtAccessTokenGenerator;
         }
 
         /// <summary>
@@ -41,6 +44,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
+        [Authorize]
         [HttpPost]
         [Route("api/users/invite")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -87,9 +91,13 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> Login(LoginRequest loginRequest, CancellationToken cancellationToken)
         {
-            await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
-            // TODO: ProducesResponseType documents TokensResponse, but Ok() sends no body — return Ok(tokens) once IUserService returns tokens.
-            return Ok();
+            var user = await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
+            if (user is null)
+                return Unauthorized();
+
+            var accessToken = _jwtAccessTokenGenerator.CreateAccessToken(user.Id, user.Email);
+            var refreshToken = await _userService.CreateRefreshTokenAsync(user.Id, cancellationToken);
+            return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = refreshToken });
         }
 
         /// <summary>
@@ -104,9 +112,12 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> RefreshToken(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
         {
-            await _userService.RefreshTokenAsync(refreshTokenRequest.RefreshToken, cancellationToken);
-            // TODO: ProducesResponseType documents TokensResponse, but Ok() sends no body — return Ok(tokens) once IUserService returns tokens.
-            return Ok();
+            var session = await _userService.RefreshSessionAsync(refreshTokenRequest.RefreshToken, cancellationToken);
+            if (session is null)
+                return Unauthorized();
+
+            var accessToken = _jwtAccessTokenGenerator.CreateAccessToken(session.User.Id, session.User.Email);
+            return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = session.RefreshToken });
         }
 
         /// <summary>
@@ -116,6 +127,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="200">Returns the current user's information.</response>
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
+        [Authorize]
         [HttpGet]
         [Route("api/users/me")]
         [ProducesResponseType(typeof(UserResponse),StatusCodes.Status200OK)]
@@ -207,6 +219,7 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Password was changed.</response>
         /// <response code="400">Bad request.</response>
+        [Authorize]
         [HttpPost]
         [Route("api/users/change-password")]
         [ProducesResponseType(StatusCodes.Status200OK)]

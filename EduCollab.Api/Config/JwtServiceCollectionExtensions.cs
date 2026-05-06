@@ -1,7 +1,7 @@
+using EduCollab.Api.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -12,13 +12,13 @@ namespace EduCollab.Api.Config
        public static IServiceCollection AddJwtOptions(this IServiceCollection services, IConfiguration configuration)
         {
               services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
-                services
+              services.AddSingleton<IJwtAccessTokenGenerator, JwtAccessTokenGenerator>();
+              services
                     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                    .AddJwtBearer((serviceProvider, options) =>
+                    .AddJwtBearer(options =>
                     {
-                        var jwtOptions = serviceProvider
-                            .GetRequiredService<IOptions<JwtOptions>>()
-                            .Value;
+                        var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+                            ?? throw new InvalidOperationException("JWT options are not configured.");
                         options.TokenValidationParameters = new TokenValidationParameters
                         {
                             ValidateIssuer = true,

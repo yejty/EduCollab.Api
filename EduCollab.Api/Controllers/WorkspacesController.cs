@@ -1,6 +1,7 @@
 using EduCollab.Application.Services.Workspaces;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Workspaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EduCollab.Api.Controllers
@@ -24,6 +25,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access this workspace.</response>
         /// <response code="404">Workspace not found.</response>
+        [Authorize]
         [HttpGet]
         [Route("api/workspaces/{workspaceId:long}/users")]
         [ProducesResponseType(typeof(WorkspaceUsersResponse), StatusCodes.Status200OK)]

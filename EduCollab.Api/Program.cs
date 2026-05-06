@@ -11,7 +11,7 @@ var databaseOptions = builder.Configuration
     ?? throw new InvalidOperationException($"Configuration section '{DatabaseOptions.SectionName}' is missing.");
 
 builder.Services.AddApiHost();
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddDatabase(databaseOptions);
 builder.Services.AddJwtOptions(builder.Configuration);
 
@@ -27,6 +27,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
