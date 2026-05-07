@@ -5,7 +5,7 @@ using EduCollab.Api.Config;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
-namespace EduCollab.Api.Security
+namespace EduCollab.Api.Security.AccessToken
 {
     public sealed class AccessTokenService : IAccessTokenService
     {

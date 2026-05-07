@@ -1,5 +1,5 @@
-﻿using EduCollab.Api.Security;
-using EduCollab.Application.Auth;
+﻿using EduCollab.Api.Security.AccessToken;
+using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Users;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Responses;

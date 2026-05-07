@@ -1,4 +1,4 @@
-namespace EduCollab.Api.Security
+namespace EduCollab.Api.Security.AccessToken
 {
     public interface IAccessTokenService
     {

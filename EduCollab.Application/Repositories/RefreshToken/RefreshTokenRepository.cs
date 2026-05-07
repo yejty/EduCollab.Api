@@ -1,7 +1,8 @@
 using Dapper;
 using EduCollab.Application.Database;
+using EduCollab.Application.Repositories.Users;
 
-namespace EduCollab.Application.Repositories.Users
+namespace EduCollab.Application.Repositories.RefreshToken
 {
     public class RefreshTokenRepository : IRefreshTokenRepository
     {
@@ -12,16 +13,16 @@ namespace EduCollab.Application.Repositories.Users
             _dbConnectionFactory = dbConnectionFactory;
         }
 
-        public async Task InsertAsync(int userId, string tokenHashSha256Hex, DateTimeOffset expiresAtUtc, CancellationToken cancellationToken)
+        public async Task InsertAsync(int userId, string tokenHashSha256Hex, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, CancellationToken cancellationToken)
         {
             const string sql = """
-                INSERT INTO UserRefreshTokens (UserId, TokenHash, ExpiresAt)
-                VALUES (@UserId, @TokenHash, @ExpiresAt);
+                INSERT INTO UserRefreshTokens (UserId, TokenHash, ExpiresAt, CreatedAt)
+                VALUES (@UserId, @TokenHash, @ExpiresAt, @CreatedAt);
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             await connection.ExecuteAsync(
-                new CommandDefinition(sql, new { UserId = userId, TokenHash = tokenHashSha256Hex, ExpiresAt = expiresAtUtc }, cancellationToken: cancellationToken));
+                new CommandDefinition(sql, new { UserId = userId, TokenHash = tokenHashSha256Hex, ExpiresAt = expiresAtUtc, CreatedAt = createdAtUtc }, cancellationToken: cancellationToken));
         }
 
         public async Task<StoredRefreshTokenRecord?> GetActiveByHashAsync(string tokenHashSha256Hex, CancellationToken cancellationToken)

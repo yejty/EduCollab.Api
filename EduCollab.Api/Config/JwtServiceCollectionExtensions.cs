@@ -1,4 +1,4 @@
-using EduCollab.Api.Security;
+using EduCollab.Api.Security.AccessToken;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,16 +1,16 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace EduCollab.Application.Auth
+namespace EduCollab.Application.Services.Auth
 {
     public static class RefreshTokenGenerator
     {
-        public static (string Plaintext, string Sha256Hex) Create()
+        public static string Create()
         {
             var bytes = new byte[32];
             RandomNumberGenerator.Fill(bytes);
             var plaintext = Base64UrlEncode(bytes);
-            return (plaintext, HashPlaintext(plaintext));
+            return plaintext;
         }
 
         public static string HashPlaintext(string plaintext)

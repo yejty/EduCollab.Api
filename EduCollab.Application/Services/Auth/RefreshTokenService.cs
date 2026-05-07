@@ -1,8 +1,9 @@
 using EduCollab.Application.Models.Users;
+using EduCollab.Application.Repositories.RefreshToken;
 using EduCollab.Application.Repositories.Users;
 using Microsoft.Extensions.Options;
 
-namespace EduCollab.Application.Auth
+namespace EduCollab.Application.Services.Auth
 {
     public sealed class RefreshTokenService : IRefreshTokenService
     {
@@ -22,10 +23,12 @@ namespace EduCollab.Application.Auth
 
         public async Task<string> CreateAsync(int userId, CancellationToken cancellationToken)
         {
-            var (plaintext, hash) = RefreshTokenGenerator.Create();
-            var expires = DateTimeOffset.UtcNow.AddDays(_refreshTokenSettings.Value.RefreshTokenExpirationDays);
-            await _refreshTokenRepository.InsertAsync(userId, hash, expires, cancellationToken);
-            return plaintext;
+            var plainText = RefreshTokenGenerator.Create();
+            var hash = RefreshTokenGenerator.HashPlaintext(plainText);
+            var createdAt = DateTimeOffset.UtcNow;
+            var expiresAt = DateTimeOffset.UtcNow.AddDays(_refreshTokenSettings.Value.RefreshTokenExpirationDays);
+            await _refreshTokenRepository.InsertAsync(userId, hash, expiresAt, createdAt, cancellationToken);
+            return plainText;
         }
 
         public async Task<RefreshSessionResult?> RefreshAsync(string refreshToken, CancellationToken cancellationToken)

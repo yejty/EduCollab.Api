@@ -1,6 +1,6 @@
 using EduCollab.Application.Models.Users;
 
-namespace EduCollab.Application.Auth
+namespace EduCollab.Application.Services.Auth
 {
     public interface IRefreshTokenService
     {
