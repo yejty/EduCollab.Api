@@ -7,16 +7,16 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace EduCollab.Api.Security
 {
-    public sealed class JwtAccessTokenGenerator : IJwtAccessTokenGenerator
+    public sealed class AccessTokenService : IAccessTokenService
     {
         private readonly JwtOptions _options;
 
-        public JwtAccessTokenGenerator(IOptions<JwtOptions> options)
+        public AccessTokenService(IOptions<JwtOptions> options)
         {
             _options = options.Value;
         }
 
-        public string CreateAccessToken(int userId, string email)
+        public string Create(int userId, string email)
         {
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
             var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

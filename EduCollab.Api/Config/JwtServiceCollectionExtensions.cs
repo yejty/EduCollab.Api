@@ -12,7 +12,7 @@ namespace EduCollab.Api.Config
        public static IServiceCollection AddJwtOptions(this IServiceCollection services, IConfiguration configuration)
         {
               services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
-              services.AddSingleton<IJwtAccessTokenGenerator, JwtAccessTokenGenerator>();
+              services.AddSingleton<IAccessTokenService, AccessTokenService>();
               services
                     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     .AddJwtBearer(options =>

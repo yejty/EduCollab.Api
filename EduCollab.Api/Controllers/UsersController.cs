@@ -1,4 +1,5 @@
 ﻿using EduCollab.Api.Security;
+using EduCollab.Application.Auth;
 using EduCollab.Application.Services.Users;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Responses;
@@ -12,12 +13,17 @@ namespace EduCollab.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly IJwtAccessTokenGenerator _jwtAccessTokenGenerator;
+        private readonly IAccessTokenService _accessTokenService;
+        private readonly IRefreshTokenService _refreshTokenService;
 
-        public UsersController(IUserService userService, IJwtAccessTokenGenerator jwtAccessTokenGenerator)
+        public UsersController(
+            IUserService userService,
+            IAccessTokenService accessTokenService,
+            IRefreshTokenService refreshTokenService)
         {
             _userService = userService;
-            _jwtAccessTokenGenerator = jwtAccessTokenGenerator;
+            _accessTokenService = accessTokenService;
+            _refreshTokenService = refreshTokenService;
         }
 
         /// <summary>
@@ -95,8 +101,8 @@ namespace EduCollab.Api.Controllers
             if (user is null)
                 return Unauthorized();
 
-            var accessToken = _jwtAccessTokenGenerator.CreateAccessToken(user.Id, user.Email);
-            var refreshToken = await _userService.CreateRefreshTokenAsync(user.Id, cancellationToken);
+            var accessToken = _accessTokenService.Create(user.Id, user.Email);
+            var refreshToken = await _refreshTokenService.CreateAsync(user.Id, cancellationToken);
             return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = refreshToken });
         }
 
@@ -112,11 +118,11 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> RefreshToken(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
         {
-            var session = await _userService.RefreshSessionAsync(refreshTokenRequest.RefreshToken, cancellationToken);
+            var session = await _refreshTokenService.RefreshAsync(refreshTokenRequest.RefreshToken, cancellationToken);
             if (session is null)
                 return Unauthorized();
 
-            var accessToken = _jwtAccessTokenGenerator.CreateAccessToken(session.User.Id, session.User.Email);
+            var accessToken = _accessTokenService.Create(session.User.Id, session.User.Email);
             return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = session.RefreshToken });
         }
 
