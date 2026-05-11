@@ -4,6 +4,8 @@ namespace EduCollab.Application.Models.Users
 {
     public class User
     {
+        public int Id { get; set; }
+
         [MaxLength(100), Required]
         public string FirstName { get; set; } = string.Empty;
 
@@ -11,8 +13,10 @@ namespace EduCollab.Application.Models.Users
         public string LastName { get; set; } = string.Empty;
 
         [EmailAddress, Required]
-        public string? Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
-        public string FullName => $"{FirstName} {LastName}";
+        public string FullName => $"{this.FirstName} {this.LastName}";
+
+        public int WorkspaceId { get; set; }
     }
 }

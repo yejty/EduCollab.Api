@@ -6,13 +6,13 @@ namespace EduCollab.Application.Services.Users
     {
         Task ChangePasswordAsync(string password, string newPassword, CancellationToken cancellationToken);
         Task ConfirmResetPasswordAsync(string email, string token, string newPassword, CancellationToken cancellationToken);
-        Task CreateAsync(string firstName, string lastName, string email, string password, string invitationToken, CancellationToken cancellationToken);
-        Task GetCurrentUserAsync(CancellationToken cancellationToken);
-        Task GetUserByIdAsync(int id, string token, CancellationToken cancellationToken);
+        Task CreateAsync(User user, string password, string invitationToken, CancellationToken cancellationToken);
+        Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken);
+        Task<User?> GetUserByIdAsync(int id, string token, CancellationToken cancellationToken);
         Task InviteAsync(string email, CancellationToken cancellationToken);
-        Task<AuthenticatedUser?> LoginAsync(string email, string password, CancellationToken cancellationToken);
-        Task RegisterAsync(string firstName, string lastName, string email, string password, CancellationToken cancellationToken);
+        Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken);
+        Task RegisterAsync(User user, string password, CancellationToken cancellationToken);
         Task ResetPasswordAsync(string email, CancellationToken cancellationToken);
-        Task UpdateUserByIdAsync(int id, string token, CancellationToken cancellationToken);
+        Task<User?> UpdateUserByIdAsync(User user, CancellationToken cancellationToken);
     }
 }

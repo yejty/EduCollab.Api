@@ -27,17 +27,7 @@ namespace EduCollab.Application.Services.Users
             throw new NotImplementedException();
         }
 
-        public Task CreateAsync(string firstName, string lastName, string email, string password, string invitationToken, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task GetCurrentUserAsync(CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task GetUserByIdAsync(int id, string token, CancellationToken cancellationToken)
+        public Task CreateAsync(User user, string password, string invitationToken, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
@@ -47,29 +37,46 @@ namespace EduCollab.Application.Services.Users
             throw new NotImplementedException();
         }
 
-        public async Task<AuthenticatedUser?> LoginAsync(string email, string password, CancellationToken cancellationToken)
+        public async Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken)
         {
-            var record = await _userRepository.GetCredentialByEmailAsync(email, cancellationToken);
-            if (record is null || string.IsNullOrEmpty(record.PasswordHash))
+            if (string.IsNullOrEmpty(email))
+                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
+
+            if (string.IsNullOrEmpty(password))
+                throw new ArgumentException($"'{nameof(password)}' cannot be null or empty.", nameof(password));
+
+            var userCredentialRecord = await _userRepository.GetCredentialByEmailAsync(email, cancellationToken);
+            if (userCredentialRecord is null || string.IsNullOrEmpty(userCredentialRecord.PasswordHash))
                 return null;
 
-            var hashingUser = new PasswordHasherUser { Id = record.Id.ToString() };
-            var verification = _passwordHasher.VerifyHashedPassword(hashingUser, record.PasswordHash, password);
+            var hashingUser = new PasswordHasherUser { Id = userCredentialRecord.Id.ToString() };
+            var verification = _passwordHasher.VerifyHashedPassword(hashingUser, userCredentialRecord.PasswordHash, password);
             if (verification == PasswordVerificationResult.Failed)
                 return null;
 
-            return new AuthenticatedUser(record.Id, record.Email);
-        }
+            return new User
+            {
+                Id = userCredentialRecord.Id,
+                Email = userCredentialRecord.Email
+            };
+        } 
 
-        public async Task RegisterAsync(string firstName, string lastName, string email, string password, CancellationToken cancellationToken)
+        public async Task RegisterAsync(User user, string password, CancellationToken cancellationToken)
         {
-            var existing = await _userRepository.GetCredentialByEmailAsync(email, cancellationToken);
+            ArgumentNullException.ThrowIfNull(user);
+
+            var existing = await _userRepository.GetCredentialByEmailAsync(user.Email, cancellationToken);
             if (existing is not null)
                 throw new ArgumentException("A user with this email already exists.");
 
-            var hashingUser = new PasswordHasherUser { Id = email };
+            var hashingUser = new PasswordHasherUser { Id = user.Email };
             var hash = _passwordHasher.HashPassword(hashingUser, password);
-            await _userRepository.InsertRegisteredUserAsync(firstName, lastName, email, hash, cancellationToken);
+            user.Id = await _userRepository.InsertRegisteredUserAsync(
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                hash,
+                cancellationToken);
         }
 
         public Task ResetPasswordAsync(string email, CancellationToken cancellationToken)
@@ -77,7 +84,23 @@ namespace EduCollab.Application.Services.Users
             throw new NotImplementedException();
         }
 
-        public Task UpdateUserByIdAsync(int id, string token, CancellationToken cancellationToken)
+        public async Task<User?> UpdateUserByIdAsync(User user, CancellationToken cancellationToken)
+        {
+            var userExists = await _userRepository.ExistsByIdAsync(user.Id, cancellationToken);
+            if (!userExists)
+            {
+                return null;
+            }
+            await _userRepository.UpdateAsync(user, cancellationToken);
+            return user;
+        }
+
+        public Task<User?> GetUserByIdAsync(int id, string token, CancellationToken cancellationToken)
+        {
+            return _userRepository.GetUserByIdAsync(id, cancellationToken);
+        }
+
+        public Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

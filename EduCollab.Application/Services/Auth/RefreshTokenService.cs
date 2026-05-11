@@ -50,7 +50,11 @@ namespace EduCollab.Application.Services.Auth
 
             return new RefreshSessionResult
             {
-                User = new AuthenticatedUser(userRecord.Id, userRecord.Email),
+                User = new User
+                {
+                    Id = userRecord.Id,
+                    Email = userRecord.Email
+                },
                 RefreshToken = newRefreshToken,
             };
         }

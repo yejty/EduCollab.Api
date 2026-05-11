@@ -1,4 +1,6 @@
-﻿using EduCollab.Api.Security.AccessToken;
+﻿using EduCollab.Api.Mapping;
+using EduCollab.Api.Security.AccessToken;
+using EduCollab.Application.Models.Users;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Users;
 using EduCollab.Contracts.Requests.Users;
@@ -6,6 +8,7 @@ using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace EduCollab.Api.Controllers
 {
@@ -32,14 +35,14 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="201">User registered successfully.</response>
         /// <response code="400">Invalid registration attempt. Returns an error message.</response>
-        [HttpPost]
-        [Route("api/users/register")]
+        [HttpPost(ApiEndpoints.Users.Register)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult> Register(CreateUserRequest registerUserRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> Register([FromBody]CreateUserRequest request, CancellationToken cancellationToken)
         {
-            await _userService.RegisterAsync(registerUserRequest.FirstName, registerUserRequest.LastName, registerUserRequest.Email, registerUserRequest.Password, cancellationToken);
-            return CreatedAtAction(nameof(GetCurrentUser), routeValues: null, value: null);
+            var user = request.MapToUser();
+            await _userService.RegisterAsync(user, request.Password, cancellationToken);
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
         }
 
         /// <summary>
@@ -51,13 +54,12 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
         [Authorize]
-        [HttpPost]
-        [Route("api/users/invite")]
+        [HttpPost(ApiEndpoints.Users.Invite)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> Invite(InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> Invite([FromBody]InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
             await _userService.InviteAsync(inviteUserRequest.Email, cancellationToken);
             return Ok();
@@ -73,16 +75,16 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
-        [HttpPost]
-        [Route("api/users/{invitationToken}")]
+        [HttpPost(ApiEndpoints.Users.Accept)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult> Create(CreateUserRequest createUserRequest, string invitationToken, CancellationToken cancellationToken)
+        public async Task<ActionResult<UserResponse>> Create([FromBody]CreateUserRequest request,[FromRoute] string invitationToken, CancellationToken cancellationToken)
         {
-            await _userService.CreateAsync(createUserRequest.FirstName, createUserRequest.LastName, createUserRequest.Email, createUserRequest.Password, invitationToken, cancellationToken);
-            return CreatedAtAction(nameof(GetCurrentUser), routeValues: null, value: null);
+            var user = request.MapToUser();
+            await _userService.CreateAsync(user, request.Password, invitationToken, cancellationToken);
+            return CreatedAtAction(nameof(GetCurrentUser), new { id = user.Id }, user);
         }
 
         /// <summary>
@@ -91,8 +93,7 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">User logged in. Returns a new access token.</response>
         /// <response code="401">Invalid login attempt. Returns an error message.</response>
-        [HttpPost]
-        [Route("api/users/login")]
+        [HttpPost(ApiEndpoints.Users.Login)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> Login(LoginRequest loginRequest, CancellationToken cancellationToken)
@@ -103,7 +104,8 @@ namespace EduCollab.Api.Controllers
 
             var accessToken = _accessTokenService.Create(user.Id, user.Email);
             var refreshToken = await _refreshTokenService.CreateAsync(user.Id, cancellationToken);
-            return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = refreshToken });
+            var response = (accessToken, refreshToken).MapToResponse();
+            return Ok(response);
         }
 
         /// <summary>
@@ -112,8 +114,7 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns a new access token.</response>
         /// <response code="401">Invalid refresh token or user is unauthorized.</response>
-        [HttpPost]
-        [Route("api/users/token")]
+        [HttpPost(ApiEndpoints.Users.Token)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> RefreshToken(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
@@ -123,7 +124,8 @@ namespace EduCollab.Api.Controllers
                 return Unauthorized();
 
             var accessToken = _accessTokenService.Create(session.User.Id, session.User.Email);
-            return Ok(new TokensResponse { AccessToken = accessToken, RefreshToken = session.RefreshToken });
+            var response = (accessToken, session.RefreshToken).MapToResponse();
+            return Ok(response);
         }
 
         /// <summary>
@@ -134,16 +136,19 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
         [Authorize]
-        [HttpGet]
-        [Route("api/users/me")]
+        [HttpGet(ApiEndpoints.Users.Me)]
         [ProducesResponseType(typeof(UserResponse),StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<UserResponse>> GetCurrentUser(CancellationToken cancellationToken)
         {
-            await _userService.GetCurrentUserAsync(cancellationToken);
-            // TODO: ProducesResponseType documents UserResponse, but Ok() sends no body — return Ok(user) once IUserService returns UserResponse.
-            return Ok();
+            var user = await _userService.GetCurrentUserAsync(cancellationToken);
+            if (user is null)
+            {
+                return Unauthorized();
+            }
+            var response = user.MapToResponse();
+            return Ok(response);
         }
 
         /// <summary>
@@ -154,15 +159,18 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the user information.</response>
         /// <response code="400">Bad request.</response>
-        [HttpGet]
-        [Route("api/users/{id}")]
+        [HttpGet(ApiEndpoints.Users.Get)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<UserResponse>> GetUserById(int id, string token, CancellationToken cancellationToken)
         {
-            await _userService.GetUserByIdAsync(id, token, cancellationToken);
-            // TODO: ProducesResponseType documents UserResponse, but Ok() sends no body — return Ok(user) once IUserService returns UserResponse.
-            return Ok();
+            var user = await _userService.GetUserByIdAsync(id, token, cancellationToken);
+            if (user is null)
+            {
+                return NotFound();
+            }
+            var response = user.MapToResponse();    
+            return Ok(response);
         }
 
         /// <summary>
@@ -173,15 +181,19 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the user information.</response>
         /// <response code="400">Bad request.</response>
-        [HttpPut]
-        [Route("api/users/{id}")]
+        [HttpPut(ApiEndpoints.Users.Update)]        
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<UserResponse>> UpdateUserById(int id, string token, UpdateUserRequest updateUserRequest, CancellationToken cancellationToken)
+        public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, string token, [FromBody]UpdateUserRequest request, CancellationToken cancellationToken)
         {
-            await _userService.UpdateUserByIdAsync(id, token, cancellationToken);
-            // TODO: ProducesResponseType documents UserResponse, but Ok() sends no body — return Ok(user) once IUserService returns UserResponse (and pass updateUserRequest into the service).
-            return Ok();
+            var user = request.MapToUser(id);
+            var updatedUser = await _userService.UpdateUserByIdAsync(user, cancellationToken);
+            if (updatedUser is null)
+            {
+                return NotFound();
+            }
+            var response = updatedUser.MapToResponse();
+            return Ok(response);
         }
 
         /// <summary>
@@ -191,8 +203,7 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Password reset confirmed.</response>
         /// <response code="400">Bad request.</response>
-        [HttpPost]
-        [Route("api/users/reset-confirm")]
+        [HttpPost(ApiEndpoints.Users.ResetConfirm)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ResetPasswordConfirm(ConfirmPasswordResetRequest confirmPasswordResetRequest, CancellationToken cancellationToken)
@@ -208,8 +219,7 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Requested for reset password.</response>
         /// <response code="400">Bad request.</response>
-        [HttpPost]
-        [Route("api/users/reset")]
+        [HttpPost(ApiEndpoints.Users.Reset)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ResetPassword(PasswordResetRequest passwordResetRequest, CancellationToken cancellationToken)
@@ -226,8 +236,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="200">Password was changed.</response>
         /// <response code="400">Bad request.</response>
         [Authorize]
-        [HttpPost]
-        [Route("api/users/change-password")]
+        [HttpPost(ApiEndpoints.Users.ChangePassword)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ChangePassword(ChangePasswordRequest changePasswordRequest, CancellationToken cancellationToken)

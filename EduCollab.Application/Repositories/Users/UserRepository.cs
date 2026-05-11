@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using EduCollab.Application.Database;
+using EduCollab.Application.Models.Users;
 
 namespace EduCollab.Application.Repositories.Users
 {
@@ -12,7 +13,17 @@ namespace EduCollab.Application.Repositories.Users
             _dbConnectionFactory = dbConnectionFactory;
         }
 
-        public async Task<UserCredentialRecord?> GetCredentialByEmailAsync(string email, CancellationToken cancellationToken)
+        public async Task<bool> ExistsByIdAsync(int id, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(
+                    "SELECT EXISTS(SELECT 1 FROM Users WHERE Id = @Id);",
+                    new { Id = id },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<UserCredentialRecordDto?> GetCredentialByEmailAsync(string email, CancellationToken cancellationToken)
         {
             const string sql = """
                 SELECT Id, Email, PasswordHash
@@ -22,11 +33,11 @@ namespace EduCollab.Application.Repositories.Users
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QuerySingleOrDefaultAsync<UserCredentialRecord>(
+            return await connection.QuerySingleOrDefaultAsync<UserCredentialRecordDto>(
                 new CommandDefinition(sql, new { Email = email }, cancellationToken: cancellationToken));
         }
 
-        public async Task<UserCredentialRecord?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken)
+        public async Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken)
         {
             const string sql = """
                 SELECT Id, Email, PasswordHash
@@ -36,8 +47,23 @@ namespace EduCollab.Application.Repositories.Users
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QuerySingleOrDefaultAsync<UserCredentialRecord>(
+            return await connection.QuerySingleOrDefaultAsync<UserCredentialRecordDto>(
                 new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
+        }
+
+        public async Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<User>(
+                new CommandDefinition(
+                    """
+                    SELECT Id, FirstName, LastName, Email
+                    FROM Users
+                    WHERE Id = @Id
+                    LIMIT 1;
+                    """,
+                    new { Id = id },
+                    cancellationToken: cancellationToken));
         }
 
         public async Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, CancellationToken cancellationToken)
@@ -51,6 +77,29 @@ namespace EduCollab.Application.Repositories.Users
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             return await connection.QuerySingleAsync<int>(
                 new CommandDefinition(sql, new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = passwordHash }, cancellationToken: cancellationToken));
+        }
+
+        public async Task<bool> UpdateAsync(User user, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var result = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Users
+                    SET FirstName = @FirstName,
+                        LastName = @LastName,
+                        Email = @Email
+                    WHERE Id = @Id;
+                    """,
+                    new
+                    {
+                        user.FirstName,
+                        user.LastName,
+                        user.Email,
+                        user.Id
+                    },
+                    cancellationToken: cancellationToken));
+            return result > 0;
         }
     }
 }

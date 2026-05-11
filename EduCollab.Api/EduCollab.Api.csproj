@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <Folder Include="Authorization\" />
-    <Folder Include="Mapping\" />
   </ItemGroup>
 
 </Project>
