@@ -1,11 +1,14 @@
 using EduCollab.Api.Mapping;
+using EduCollab.Application.Models.Users;
 using EduCollab.Application.Services.Workspaces;
 using EduCollab.Contracts.Requests.Users;
+using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 namespace EduCollab.Api.Controllers
 {
     [ApiController]
@@ -34,7 +37,7 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            //await _userService.InviteAsync(inviteUserRequest.Email, cancellationToken);
+            await _workspaceService.InviteUserToWorkspaceAsync(inviteUserRequest.Email, cancellationToken);
             return Ok();
         }
 
@@ -53,49 +56,52 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<UserResponse>> CreateWorkspaceUser([FromBody] CreateUserRequest request, [FromRoute] string invitationToken, CancellationToken cancellationToken)
+        public async Task<ActionResult<UserResponse>> CreateWorkspaceUser([FromRoute] int id, [FromBody] CreateUserRequest request, [FromRoute] string invitationToken, CancellationToken cancellationToken)
         {
             var user = request.MapToUser();
-            //await _userService.CreateAsync(user, request.Password, invitationToken, cancellationToken);
-            return CreatedAtAction(nameof(GetWorkspaceUser), new { id = user.Id }, user);
+            var created = await _workspaceService.CreateUserInWorkspaceAsync(user, request.Password, invitationToken, cancellationToken);
+            if (!created)
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "creation_failed",
+                    ErrorDescription = "Creation of user could not be completed.",
+                });
+            return CreatedAtAction(nameof(GetWorkspaceUser), new { id, userId = user.Id }, user.MapToResponse());
         }
 
         /// <summary>
-        /// List users that belong to a workspace (with membership role).
+        /// Get one workspace member (membership projection: role, groups, etc.).
         /// </summary>
-        /// <param name="workspaceId">Workspace identifier.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Users in the workspace.</response>
-        /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="403">Caller cannot access this workspace.</response>
-        /// <response code="404">Workspace not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspaces.GetMember)]
-        [ProducesResponseType(typeof(WorkspaceUsersResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<UserResponse>> GetWorkspaceUser(int id, int userId, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceMemberResponse>> GetWorkspaceUser(int id, int userId, CancellationToken cancellationToken)
         {
-            return Ok();
+            var member = await _workspaceService.GetWorkspaceMemberAsync(id, userId, cancellationToken);
+            if (member is null)
+                return NotFound();
+            return Ok(member);
         }
 
         /// <summary>
-        /// List users that belong to a workspace (with membership role).
+        /// List members of a workspace (profile summary plus role, groups, join metadata).
         /// </summary>
         /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Users in the workspace.</response>
+        /// <response code="200">Members in the workspace.</response>
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access this workspace.</response>
         /// <response code="404">Workspace not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspaces.GetMembers)]
-        [ProducesResponseType(typeof(WorkspaceUsersResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(WorkspaceMembersResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceUsersResponse>> GetWorkspaceUsers(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceMembersResponse>> GetWorkspaceUsers(int id, CancellationToken cancellationToken)
         {
             var result = await _workspaceService.GetWorkspaceUsersAsync(id, cancellationToken);
             return Ok(result);
@@ -103,15 +109,26 @@ namespace EduCollab.Api.Controllers
 
         [Authorize]
         [HttpPost(ApiEndpoints.Workspaces.Create)]
-        [ProducesResponseType(typeof(WorkspaceUsersResponse), StatusCodes.Status201Created)]
-        public async Task<IActionResult> CreateWorkspace(CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CreateWorkspace([FromBody] CreateWorkspaceRequest request, CancellationToken cancellationToken)
         {
-            //return CreatedAtAction(nameof(GetWorkspace), new { id = id }, result);
-            return Ok();
+            var workspace = request.MapToWorkspace();
+            var created = await _workspaceService.CreateWorkspaceAsync(workspace, cancellationToken);
+            if (!created)
+            {
+                return BadRequest(new ErrorResponse 
+                { 
+                    Error = "creation_failed",
+                    ErrorDescription = "Creation of user could not be completed."
+                });
+
+            }
+            return CreatedAtAction(nameof(GetWorkspace), new { id = workspace.Id }, workspace);
         }
 
         [Authorize]
-        [HttpPost(ApiEndpoints.Workspaces.Get)]
+        [HttpGet(ApiEndpoints.Workspaces.Get)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<WorkspaceResponse>> GetWorkspace(int id, CancellationToken cancellationToken)
         {

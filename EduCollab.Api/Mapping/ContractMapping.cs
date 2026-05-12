@@ -54,9 +54,11 @@ namespace EduCollab.Api.Mapping
                 Id = user.Id,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Email = user.Email
+                Email = user.Email,
+                WorkspaceId = user.WorkspaceId,
             };
         }
+
         public static TokensResponse MapToResponse(this (string AccessToken, string RefreshToken) tokens)
         {
             return new TokensResponse

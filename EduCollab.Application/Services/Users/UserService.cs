@@ -118,7 +118,7 @@ namespace EduCollab.Application.Services.Users
             };
         }
 
-        public async Task RegisterAsync(User user, string password, CancellationToken cancellationToken)
+        public async Task<bool> RegisterAsync(User user, string password, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(user);
 
@@ -135,9 +135,13 @@ namespace EduCollab.Application.Services.Users
                 hash,
                 cancellationToken);
 
+            if (user.Id <= 0)
+                return false;
+
             var hashingUserWithId = new PasswordHasherUser { Id = user.Id.ToString() };
             var hashForLogin = _passwordHasher.HashPassword(hashingUserWithId, password);
             await _userRepository.UpdatePasswordHashAsync(user.Id, hashForLogin, cancellationToken);
+            return true;
         }
 
         public async Task ResetPasswordAsync(string email, CancellationToken cancellationToken)

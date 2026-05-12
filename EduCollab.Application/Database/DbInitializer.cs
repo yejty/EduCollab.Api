@@ -18,7 +18,23 @@ namespace EduCollab.Application.Database
         public async Task InitializeAsync()
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Workspaces (
+                    Id SERIAL PRIMARY KEY,
+                    Name VARCHAR(200) NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
             await connection.ExecuteAsync("CREATE TABLE IF NOT EXISTS Users (Id SERIAL PRIMARY KEY, FirstName VARCHAR(100), LastName VARCHAR(100), Email VARCHAR(255));");
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE Users
+                ADD COLUMN IF NOT EXISTS WorkspaceId INT NULL
+                REFERENCES Workspaces(Id) ON DELETE SET NULL;
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Users_WorkspaceId ON Users (WorkspaceId) WHERE WorkspaceId IS NOT NULL;");
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS PasswordHash TEXT;");
             await connection.ExecuteAsync(
                 """

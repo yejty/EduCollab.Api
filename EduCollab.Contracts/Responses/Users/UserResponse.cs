@@ -12,5 +12,7 @@ namespace EduCollab.Contracts.Responses.Users
 
         public string Email { get; set; } = string.Empty;
 
+        /// <summary>When null, the user is not assigned to a workspace yet.</summary>
+        public int? WorkspaceId { get; set; }
     }
 }

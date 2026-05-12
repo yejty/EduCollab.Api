@@ -186,7 +186,7 @@ namespace EduCollab.Application.Repositories.Users
             return await connection.QuerySingleOrDefaultAsync<User>(
                 new CommandDefinition(
                     """
-                    SELECT Id, FirstName, LastName, Email
+                    SELECT Id, FirstName, LastName, Email, WorkspaceId
                     FROM Users
                     WHERE Id = @Id
                     LIMIT 1;
@@ -233,6 +233,14 @@ namespace EduCollab.Application.Repositories.Users
                         user.Id
                     },
                     cancellationToken: cancellationToken));
+            return result > 0;
+        }
+
+        public async Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var result = await connection.ExecuteAsync(
+                new CommandDefinition("DELETE FROM Users WHERE Id = @Id;", new { Id = id }, cancellationToken: cancellationToken));
             return result > 0;
         }
     }

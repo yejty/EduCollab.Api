@@ -6,9 +6,11 @@ namespace EduCollab.Application.Services.Workspaces
 {
     public interface IWorkspaceService
     {
-        Task CreateUserAsync(User user, string password, string invitationToken, CancellationToken cancellationToken);
-        Task InviteAsync(string email, CancellationToken cancellationToken);
+        Task<bool> CreateUserInWorkspaceAsync(User user, string password, string invitationToken, CancellationToken cancellationToken);
+        Task InviteUserToWorkspaceAsync(string email, CancellationToken cancellationToken);
         Task<Workspace> GetWorkspaceAsync(int id, CancellationToken cancellationToken);
-        Task<WorkspaceUsersResponse> GetWorkspaceUsersAsync(int id, CancellationToken cancellationToken); //TODO change return type to WorkspaceUsers, avoid using Response objects in Application layer
+        Task<WorkspaceMembersResponse> GetWorkspaceUsersAsync(int id, CancellationToken cancellationToken);
+        Task<WorkspaceMemberResponse?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+        Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken);
     }
 }

@@ -41,7 +41,14 @@ namespace EduCollab.Api.Controllers
         public async Task<IActionResult> Register([FromBody]CreateUserRequest request, CancellationToken cancellationToken)
         {
             var user = request.MapToUser();
-            await _userService.RegisterAsync(user, request.Password, cancellationToken);
+            var registered = await _userService.RegisterAsync(user, request.Password, cancellationToken);
+            if (!registered)
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "registration_failed",
+                    ErrorDescription = "Registration could not be completed.",
+                });
+
             return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
         }
 
@@ -179,7 +186,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this user.</response>
         /// <response code="404">User not found.</response>
         [Authorize]
-        [HttpPut(ApiEndpoints.Users.Delete)]
+        [HttpDelete(ApiEndpoints.Users.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
