@@ -45,27 +45,7 @@ namespace EduCollab.Api.Controllers
             return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
         }
 
-        /// <summary>
-        /// Creates a new user in the workspace based on the provided token.
-        /// </summary>
-        /// <param name="createUserRequest">Request body containing the user details.</param>
-        /// <param name="invitationToken">Invitation token.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="201">User created.</response>
-        /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
-        /// <response code="401">User is unauthorized.</response>
-        /// <response code="403">User is forbidden from accessing this resource.</response>
-        [HttpPost(ApiEndpoints.Users.Accept)]
-        [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<UserResponse>> Create([FromBody]CreateUserRequest request,[FromRoute] string invitationToken, CancellationToken cancellationToken)
-        {
-            var user = request.MapToUser();
-            await _userService.CreateAsync(user, request.Password, invitationToken, cancellationToken);
-            return CreatedAtAction(nameof(GetCurrentUser), new { id = user.Id }, user);
-        }
+
 
         /// <summary>
         /// Log in a user with provided credentials.
@@ -186,6 +166,33 @@ namespace EduCollab.Api.Controllers
             }
             var response = updatedUser.MapToResponse();
             return Ok(response);
+        }
+
+        /// <summary>
+        /// Delete user by user Id.
+        /// </summary>
+        /// <param name="id">User Id.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">User deleted successfully.</response>
+        /// <response code="400">Bad request.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot delete this user.</response>
+        /// <response code="404">User not found.</response>
+        [Authorize]
+        [HttpPut(ApiEndpoints.Users.Delete)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken cancellationToken)
+        {
+            var deleted = await _userService.DeleteUserByIdAsync(id, cancellationToken);
+            if (!deleted)
+            {
+                return NotFound();
+            }
+            return NoContent();
         }
 
         /// <summary>

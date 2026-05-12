@@ -1,6 +1,9 @@
-﻿using EduCollab.Application.Models.Users;
+﻿using EduCollab.Application.Models;
+using EduCollab.Application.Models.Users;
 using EduCollab.Contracts.Requests.Users;
+using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Users;
+using EduCollab.Contracts.Responses.Workspaces;
 
 namespace EduCollab.Api.Mapping
 {
@@ -27,6 +30,23 @@ namespace EduCollab.Api.Mapping
             };
         }
 
+        public static Workspace MapToWorkspace(this CreateWorkspaceRequest request)
+        {
+            return new Workspace
+            {
+                Name = request.Name
+            };
+        }
+
+        public static Workspace MapToWorkspace(this UpdateWorkspaceRequest request, int id)
+        {
+            return new Workspace
+            {
+                Id = id,
+                Name = request.Name
+            };
+        }
+
         public static UserResponse MapToResponse(this User user)
         {
             return new UserResponse
@@ -43,6 +63,14 @@ namespace EduCollab.Api.Mapping
             {
                 AccessToken = tokens.AccessToken,
                 RefreshToken = tokens.RefreshToken
+            };
+        }
+        public static WorkspaceResponse MapToResponse(this Workspace workspace)
+        {
+            return new WorkspaceResponse
+            {
+                Id = workspace.Id,
+                Name = workspace.Name
             };
         }
     }

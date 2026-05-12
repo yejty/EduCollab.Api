@@ -3,6 +3,7 @@ using EduCollab.Application.Identity;
 using EduCollab.Application.Models.Users;
 using EduCollab.Application.Repositories.Users;
 using EduCollab.Application.Services.Auth;
+using EduCollab.Application.Services.Notifications;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace EduCollab.Application.Services.Users
         private readonly ICurrentUser _currentUser;
         private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
         private readonly IHostEnvironment _hostEnvironment;
+        private readonly IEmailSender _emailSender;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
@@ -25,6 +27,7 @@ namespace EduCollab.Application.Services.Users
             ICurrentUser currentUser,
             IOptions<PasswordResetSettings> passwordResetSettings,
             IHostEnvironment hostEnvironment,
+            IEmailSender emailSender,
             ILogger<UserService> logger)
         {
             _userRepository = userRepository;
@@ -32,6 +35,7 @@ namespace EduCollab.Application.Services.Users
             _currentUser = currentUser;
             _passwordResetSettings = passwordResetSettings;
             _hostEnvironment = hostEnvironment;
+            _emailSender = emailSender;
             _logger = logger;
         }
 
@@ -57,6 +61,8 @@ namespace EduCollab.Application.Services.Users
 
             var newHash = _passwordHasher.HashPassword(hashingUser, newPassword);
             await _userRepository.UpdatePasswordHashAsync(userId.Value, newHash, cancellationToken);
+
+            await NotifyPasswordChangedAsync(userCredRecord.Email, cancellationToken);
         }
 
         public async Task ConfirmResetPasswordAsync(string email, string token, string newPassword, CancellationToken cancellationToken)
@@ -84,20 +90,8 @@ namespace EduCollab.Application.Services.Users
             var userId = await _userRepository.CompletePasswordResetAsync(normalizedEmail, tokenHash, newHash, now, cancellationToken);
             if (userId is null)
                 throw new ArgumentException("Invalid or expired password reset token.");
-        }
 
-        public Task CreateAsync(User user, string password, string invitationToken, CancellationToken cancellationToken)
-        {
-            // TODO : workspace
-            return _userRepository.CreateAsync(user, password, invitationToken, cancellationToken);
-        }
-
-        public Task InviteAsync(string email, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(email))
-                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
-            // TODO : workspace
-            return _userRepository.InviteAsync(email, cancellationToken);
+            await NotifyPasswordChangedAsync(normalizedEmail, cancellationToken);
         }
 
         public async Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken)
@@ -165,6 +159,10 @@ namespace EduCollab.Application.Services.Users
             var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
             await _userRepository.InsertPasswordResetTokenAsync(cred.Id, tokenHash, expiresAt, now, cancellationToken);
 
+            var hours = _passwordResetSettings.Value.TokenExpirationHours;
+            var resetMail = EduCollabEmailTemplates.PasswordResetRequest(plainToken, hours);
+            await _emailSender.SendAsync(normalizedEmail, resetMail, cancellationToken);
+
             if (_hostEnvironment.IsDevelopment() && _passwordResetSettings.Value.LogPlaintextTokenInDevelopment)
                 _logger.LogInformation("Password reset token for {Email}: {Token}", normalizedEmail, plainToken);
         }
@@ -179,7 +177,11 @@ namespace EduCollab.Application.Services.Users
                 return null;
             }
 
-            await _userRepository.UpdateAsync(user, cancellationToken);
+            var updated = await _userRepository.UpdateAsync(user, cancellationToken);
+            if (!updated)
+                return null;
+
+            await NotifyProfileUpdatedAsync(user, cancellationToken);
             return user;
         }
 
@@ -206,6 +208,24 @@ namespace EduCollab.Application.Services.Users
 
             if (callerId.Value != userId)
                 throw new AccessDeniedException("You can only access or change your own user record.");
+        }
+
+        private Task NotifyProfileUpdatedAsync(User user, CancellationToken cancellationToken)
+        {
+            var mail = EduCollabEmailTemplates.ProfileUpdated(user);
+            return _emailSender.SendAsync(user.Email, mail, cancellationToken);
+        }
+
+        private Task NotifyPasswordChangedAsync(string email, CancellationToken cancellationToken)
+        {
+            var mail = EduCollabEmailTemplates.PasswordChanged();
+            return _emailSender.SendAsync(email, mail, cancellationToken);
+        }
+
+        public async Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken)
+        {
+            EnsureCallerOwnsUser(id);
+            return await _userRepository.DeleteUserByIdAsync(id, cancellationToken);
         }
     }
 }

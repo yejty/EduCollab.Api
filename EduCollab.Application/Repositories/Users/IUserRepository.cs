@@ -30,5 +30,6 @@ namespace EduCollab.Application.Repositories.Users
         Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, CancellationToken cancellationToken);
         Task InviteAsync(string email, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
+        Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);
     }
 }
