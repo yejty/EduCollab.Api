@@ -46,26 +46,6 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Invite a new user.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">User invited successfully.</response>
-        /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
-        /// <response code="401">User is unauthorized.</response>
-        /// <response code="403">User is forbidden from accessing this resource.</response>
-        [Authorize]
-        [HttpPost(ApiEndpoints.Users.Invite)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> Invite([FromBody]InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
-        {
-            await _userService.InviteAsync(inviteUserRequest.Email, cancellationToken);
-            return Ok();
-        }
-
-        /// <summary>
         /// Creates a new user in the workspace based on the provided token.
         /// </summary>
         /// <param name="createUserRequest">Request body containing the user details.</param>
@@ -152,19 +132,25 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Retrieve user information needed to complete registration after creating a user. 
+        /// Retrieve the authenticated user's profile by id. The id must match the caller (JWT subject).
         /// </summary>
         /// <param name="id">User Id.</param>
-        /// <param name="token">A token to authorize the request.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the user information.</response>
         /// <response code="400">Bad request.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this user id.</response>
+        /// <response code="404">User not found.</response>
+        [Authorize]
         [HttpGet(ApiEndpoints.Users.Get)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<UserResponse>> GetUserById(int id, string token, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UserResponse>> GetUserById(int id, CancellationToken cancellationToken)
         {
-            var user = await _userService.GetUserByIdAsync(id, token, cancellationToken);
+            var user = await _userService.GetUserByIdAsync(id, cancellationToken);
             if (user is null)
             {
                 return NotFound();
@@ -174,17 +160,23 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Update user information by user Id.
+        /// Update user information by user Id. The id must match the authenticated user (JWT subject).
         /// </summary>
         /// <param name="id">User Id.</param>
-        /// <param name="token">A token to authorize the request.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the user information.</response>
         /// <response code="400">Bad request.</response>
-        [HttpPut(ApiEndpoints.Users.Update)]        
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this user id.</response>
+        /// <response code="404">User not found.</response>
+        [Authorize]
+        [HttpPut(ApiEndpoints.Users.Update)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, string token, [FromBody]UpdateUserRequest request, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, [FromBody]UpdateUserRequest request, CancellationToken cancellationToken)
         {
             var user = request.MapToUser(id);
             var updatedUser = await _userService.UpdateUserByIdAsync(user, cancellationToken);

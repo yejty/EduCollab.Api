@@ -1,6 +1,8 @@
 using EduCollab.Api.ExceptionHandlers;
 using EduCollab.Api.Health;
+using EduCollab.Api.Security.CurrentUser;
 using EduCollab.Api.Swagger;
+using EduCollab.Application.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 
@@ -10,6 +12,9 @@ namespace EduCollab.Api.Extensions
     {
         public static IServiceCollection AddApiHost(this IServiceCollection services)
         {
+            services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+
             services.AddExceptionHandler<ApiExceptionHandler>();
             services.AddProblemDetails();
             services.AddHealthChecks()

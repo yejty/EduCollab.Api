@@ -33,6 +33,21 @@ namespace EduCollab.Application.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_UserRefreshTokens_UserId ON UserRefreshTokens (UserId);");
 
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS UserPasswordResetTokens (
+                    Id BIGSERIAL PRIMARY KEY,
+                    UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    TokenHash VARCHAR(64) NOT NULL,
+                    ExpiresAt TIMESTAMPTZ NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UsedAt TIMESTAMPTZ NULL);
+                """);
+            await connection.ExecuteAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_UserPasswordResetTokens_TokenHash ON UserPasswordResetTokens (TokenHash);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_UserPasswordResetTokens_UserId ON UserPasswordResetTokens (UserId);");
+
         }
     }
 }

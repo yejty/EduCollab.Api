@@ -1,3 +1,4 @@
+using EduCollab.Application.Exceptions;
 using EduCollab.Contracts.Responses;
 using Microsoft.AspNetCore.Diagnostics;
 
@@ -54,6 +55,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status401Unauthorized,
                     "unauthorized",
                     "Authentication is required for this operation."),
+                AccessDeniedException => (
+                    StatusCodes.Status403Forbidden,
+                    "forbidden",
+                    "You are not allowed to perform this operation."),
                 KeyNotFoundException => (
                     StatusCodes.Status404NotFound,
                     "not_found",

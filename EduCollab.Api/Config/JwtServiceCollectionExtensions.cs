@@ -1,9 +1,8 @@
 using EduCollab.Api.Security.AccessToken;
+using EduCollab.Api.Security.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 namespace EduCollab.Api.Config
 {
@@ -19,18 +18,7 @@ namespace EduCollab.Api.Config
                     {
                         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                             ?? throw new InvalidOperationException("JWT options are not configured.");
-                        options.TokenValidationParameters = new TokenValidationParameters
-                        {
-                            ValidateIssuer = true,
-                            ValidIssuer = jwtOptions.Issuer,
-                            ValidateAudience = true,
-                            ValidAudience = jwtOptions.Audience,
-                            ValidateIssuerSigningKey = true,
-                            IssuerSigningKey = new SymmetricSecurityKey(
-                                Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
-                            ValidateLifetime = true,
-                            ClockSkew = TimeSpan.Zero
-                        };
+                        options.TokenValidationParameters = JwtTokenValidationParametersFactory.Create(jwtOptions);
                     });
                 services.AddAuthorization();
                 return services;

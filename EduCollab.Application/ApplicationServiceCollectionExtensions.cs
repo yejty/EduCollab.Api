@@ -14,6 +14,7 @@ namespace EduCollab.Application
         public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<RefreshTokenSettings>(configuration.GetSection("Jwt"));
+            services.Configure<PasswordResetSettings>(configuration.GetSection(PasswordResetSettings.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
