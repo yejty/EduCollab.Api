@@ -13,22 +13,22 @@ namespace EduCollab.Application.Services.Workspaces
         {
             _userRepository = userRepository;
         }
-        public Task<Workspace> GetWorkspaceAsync(int id, CancellationToken cancellationToken)
+        public Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public Task<WorkspaceMembersResponse> GetWorkspaceUsersAsync(int id, CancellationToken cancellationToken)
+        public Task<List<WorkspaceMember>> GetWorkspaceUsersAsync(int id, CancellationToken cancellationToken)
         {
-            // TODO: Load workspace_members joined with Users when workspaces schema exists; return 404 from controller if workspace missing.
-            var response = new WorkspaceMembersResponse { Members = new List<WorkspaceMemberResponse>() };
+            // TODO: Load workspace users with role/groups/join metadata; return 404 from controller if workspace is missing.
+            var response = new List<WorkspaceMember>();
             return Task.FromResult(response);
         }
 
-        public Task<WorkspaceMemberResponse?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
+        public Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
         {
             // TODO: Resolve membership by workspace + user; map role, groups, JoinedAt from persistence.
-            return Task.FromResult<WorkspaceMemberResponse?>(null);
+            return Task.FromResult<WorkspaceMember?>(null);
         }
 
         public Task<bool> CreateUserInWorkspaceAsync(User user, string password, string invitationToken, CancellationToken cancellationToken)

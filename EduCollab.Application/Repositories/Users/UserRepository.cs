@@ -176,8 +176,13 @@ namespace EduCollab.Application.Repositories.Users
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QuerySingleOrDefaultAsync<UserCredentialRecordDto>(
+            var record = await connection.QuerySingleOrDefaultAsync<UserCredentialRecordDto>(
                 new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
+            if (record is null)
+            {
+                return null;
+            }
+            return record;
         }
 
         public async Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken)

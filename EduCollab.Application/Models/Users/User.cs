@@ -18,7 +18,7 @@ namespace EduCollab.Application.Models.Users
         public string FullName => $"{this.FirstName} {this.LastName}";
 
         /// <summary>
-        /// At most one workspace per user: when set, this user belongs only to this workspace (no separate membership row yet).
+        /// At most one workspace per user: when set, this user belongs only to this workspace.
         /// </summary>
         public int? WorkspaceId { get; set; }
     }

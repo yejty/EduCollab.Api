@@ -1,4 +1,5 @@
 using EduCollab.Api.Mapping;
+using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
 using EduCollab.Application.Services.Workspaces;
 using EduCollab.Contracts.Requests.Users;
@@ -101,10 +102,15 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceMembersResponse>> GetWorkspaceUsers(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<List<WorkspaceMember>>> GetWorkspaceUsers(int id, CancellationToken cancellationToken)
         {
-            var result = await _workspaceService.GetWorkspaceUsersAsync(id, cancellationToken);
-            return Ok(result);
+            var members = await _workspaceService.GetWorkspaceUsersAsync(id, cancellationToken);
+            if (members is null)
+            {
+                return NotFound();
+            }
+            //var response = members.MapToResponse();
+            return Ok();
         }
 
         [Authorize]
