@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EduCollab.Application.Database
+namespace EduCollab.Infrastructure.Database
 {
     public static class DatabaseInitializationExtensions
     {

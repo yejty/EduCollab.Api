@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EduCollab.Application\EduCollab.Application.csproj" />
     <ProjectReference Include="..\EduCollab.Contracts\EduCollab.Contracts.csproj" />
+    <ProjectReference Include="..\EduCollab.Infrastructure\EduCollab.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

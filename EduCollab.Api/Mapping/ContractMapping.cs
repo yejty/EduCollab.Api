@@ -1,4 +1,5 @@
-﻿using EduCollab.Application.Models;
+﻿using System.Linq;
+using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
@@ -73,6 +74,24 @@ namespace EduCollab.Api.Mapping
             {
                 Id = workspace.Id,
                 Name = workspace.Name
+            };
+        }
+
+        public static WorkspaceMemberResponse MapToResponse(this WorkspaceMember workspaceMember)
+        {
+            return new WorkspaceMemberResponse
+            {
+                UserId = workspaceMember.UserId,
+                Role = workspaceMember.Role,
+                JoinedAt = workspaceMember.JoinedAtUtc
+            };
+        }
+
+        public static WorkspaceMembersResponse MapToResponse(this List<WorkspaceMember> workspaceMembers)
+        {
+            return new WorkspaceMembersResponse
+            {
+                Members = workspaceMembers.Select(m => m.MapToResponse()).ToList(),
             };
         }
     }

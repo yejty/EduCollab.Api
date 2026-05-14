@@ -1,8 +1,9 @@
 using Dapper;
-using EduCollab.Application.Database;
+using EduCollab.Application.Repositories.RefreshToken;
 using EduCollab.Application.Repositories.Users;
+using EduCollab.Infrastructure.Database;
 
-namespace EduCollab.Application.Repositories.RefreshToken
+namespace EduCollab.Infrastructure.Repositories.RefreshToken
 {
     public class RefreshTokenRepository : IRefreshTokenRepository
     {

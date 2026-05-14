@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Services.Notifications
+namespace EduCollab.Infrastructure.Services.Notifications
 {
     public sealed class EmailSettings
     {

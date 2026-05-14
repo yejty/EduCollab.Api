@@ -1,18 +1,13 @@
 using EduCollab.Api.Config;
 using EduCollab.Api.Extensions;
 using EduCollab.Application;
-using EduCollab.Application.Database;
+using EduCollab.Infrastructure.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var databaseOptions = builder.Configuration
-    .GetSection(DatabaseOptions.SectionName)
-    .Get<DatabaseOptions>()
-    ?? throw new InvalidOperationException($"Configuration section '{DatabaseOptions.SectionName}' is missing.");
-
 builder.Services.AddApiHost();
 builder.Services.AddApplication(builder.Configuration);
-builder.Services.AddDatabase(databaseOptions);
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddJwtOptions(builder.Configuration);
 
 var app = builder.Build();

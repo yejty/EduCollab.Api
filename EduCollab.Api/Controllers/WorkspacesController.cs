@@ -102,15 +102,11 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<List<WorkspaceMember>>> GetWorkspaceUsers(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<List<WorkspaceMember>>> GetWorkspaceMembers(int id, CancellationToken cancellationToken)
         {
-            var members = await _workspaceService.GetWorkspaceUsersAsync(id, cancellationToken);
-            if (members is null)
-            {
-                return NotFound();
-            }
-            //var response = members.MapToResponse();
-            return Ok();
+            var members = await _workspaceService.GetWorkspaceMembersAsync(id, cancellationToken);
+            var response = members.MapToResponse();
+            return Ok(response);
         }
 
         [Authorize]

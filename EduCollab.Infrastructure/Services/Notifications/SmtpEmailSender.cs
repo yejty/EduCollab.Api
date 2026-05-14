@@ -1,10 +1,11 @@
+using EduCollab.Application.Services.Notifications;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace EduCollab.Application.Services.Notifications
+namespace EduCollab.Infrastructure.Services.Notifications
 {
     public sealed class SmtpEmailSender : IEmailSender
     {
@@ -53,7 +54,9 @@ namespace EduCollab.Application.Services.Notifications
                 };
             }
             else
+            {
                 message.Body = new TextPart("plain") { Text = content.PlainText };
+            }
 
             try
             {
@@ -62,7 +65,9 @@ namespace EduCollab.Application.Services.Notifications
                 await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort, secure, cancellationToken).ConfigureAwait(false);
 
                 if (!string.IsNullOrEmpty(settings.UserName))
+                {
                     await client.AuthenticateAsync(settings.UserName, settings.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+                }
 
                 await client.SendAsync(message, cancellationToken).ConfigureAwait(false);
                 await client.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);

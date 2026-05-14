@@ -1,9 +1,11 @@
-﻿using Dapper;
-using System.Data.Common;
-using EduCollab.Application.Database;
+using Dapper;
+using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
+using EduCollab.Application.Repositories.Users;
+using EduCollab.Infrastructure.Database;
+using System.Data.Common;
 
-namespace EduCollab.Application.Repositories.Users
+namespace EduCollab.Infrastructure.Repositories.Users
 {
     public class UserRepository : IUserRepository
     {
@@ -71,7 +73,9 @@ namespace EduCollab.Application.Repositories.Users
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             if (connection is not DbConnection dbConnection)
+            {
                 throw new InvalidOperationException("Database connection must support transactions.");
+            }
 
             await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
 
@@ -182,6 +186,7 @@ namespace EduCollab.Application.Repositories.Users
             {
                 return null;
             }
+
             return record;
         }
 
@@ -247,6 +252,69 @@ namespace EduCollab.Application.Repositories.Users
             var result = await connection.ExecuteAsync(
                 new CommandDefinition("DELETE FROM Users WHERE Id = @Id;", new { Id = id }, cancellationToken: cancellationToken));
             return result > 0;
+        }
+
+        public async Task<Workspace?> GetWorkspaceByIdAsync(int id, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<Workspace>(
+                 new CommandDefinition(
+                     """
+                    SELECT
+                        Id,
+                        Name,
+                        Description,
+                        CreatedAtUtc,
+                        UpdatedAtUtc,
+                        COALESCE(CreatedByUserId, 0) AS CreatedByUserId,
+                        IsArchived
+                    FROM Workspaces
+                    WHERE Id = @Id
+                    LIMIT 1;
+                    """,
+                     new { Id = id },
+                     cancellationToken: cancellationToken));
+        }
+
+        public async Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<WorkspaceMember>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        WorkspaceId,
+                        UserId,
+                        Role,
+                        JoinedAtUtc
+                    FROM WorkspaceMembers
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND UserId = @UserId
+                    LIMIT 1;
+                    """,
+                    new { UserId = userId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var members = await connection.QueryAsync<WorkspaceMember>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        WorkspaceId,
+                        UserId,
+                        Role,
+                        JoinedAtUtc
+                    FROM WorkspaceMembers
+                    WHERE WorkspaceId = @WorkspaceId
+                    ORDER BY JoinedAtUtc, UserId;
+                    """,
+                    new { WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return members.AsList();
         }
     }
 }

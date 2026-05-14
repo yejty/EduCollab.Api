@@ -1,4 +1,4 @@
-﻿using EduCollab.Application.Database;
+﻿using EduCollab.Infrastructure.Database;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace EduCollab.Api.Health

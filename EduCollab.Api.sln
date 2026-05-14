@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EduCollab.Contracts", "EduC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EduCollab.Application", "EduCollab.Application\EduCollab.Application.csproj", "{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EduCollab.Infrastructure", "EduCollab.Infrastructure\EduCollab.Infrastructure.csproj", "{8D795EE8-775E-42AA-A166-5D6E3AA3266B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F7EFF198-2864-48C5-B9E3-BB91A54F5D12}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D795EE8-775E-42AA-A166-5D6E3AA3266B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D795EE8-775E-42AA-A166-5D6E3AA3266B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D795EE8-775E-42AA-A166-5D6E3AA3266B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D795EE8-775E-42AA-A166-5D6E3AA3266B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

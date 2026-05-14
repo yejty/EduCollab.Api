@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Database
+namespace EduCollab.Infrastructure.Database
 {
     public class DatabaseOptions
     {

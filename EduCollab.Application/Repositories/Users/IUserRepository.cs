@@ -1,4 +1,5 @@
-﻿using EduCollab.Application.Models.Users;
+﻿using EduCollab.Application.Models;
+using EduCollab.Application.Models.Users;
 
 namespace EduCollab.Application.Repositories.Users
 {
@@ -24,12 +25,14 @@ namespace EduCollab.Application.Repositories.Users
 
         Task<bool> ExistsByIdAsync(int id, CancellationToken cancellationToken);
         Task<UserCredentialRecordDto?> GetCredentialByEmailAsync(string email, CancellationToken cancellationToken);
-
         Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken);
         Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken);
         Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, CancellationToken cancellationToken);
         Task InviteAsync(string email, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
         Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);
+        Task<Workspace?> GetWorkspaceByIdAsync(int id, CancellationToken cancellationToken);
+        Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int workspaceId, CancellationToken cancellationToken);
+        Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
     }
 }
