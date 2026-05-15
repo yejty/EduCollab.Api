@@ -73,6 +73,37 @@ namespace EduCollab.Application.Services.Notifications
                 WrapLayout("Password reset", innerHtml));
         }
 
+        public static EmailContent WorkspaceInvitation(int workspaceId, string invitationToken, int validForHours)
+        {
+            var workspaceEncoded = WebUtility.HtmlEncode(workspaceId.ToString());
+            var tokenEncoded = WebUtility.HtmlEncode(invitationToken);
+            var plain =
+                "You have been invited to join a workspace on EduCollab." + Environment.NewLine + Environment.NewLine +
+                $"Workspace ID: {workspaceId}" + Environment.NewLine + Environment.NewLine +
+                $"Accept using this invitation token (valid for {validForHours} hour(s)):" + Environment.NewLine + Environment.NewLine +
+                invitationToken + Environment.NewLine + Environment.NewLine +
+                $"Then register via POST api/workspaces/{workspaceId}/invite/<token>/accept with your details." + Environment.NewLine + Environment.NewLine +
+                "If you did not expect this invitation, you can ignore this email.";
+
+            var innerHtml =
+                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
+                "You have been invited to join a workspace.</p>" +
+                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Workspace ID</p>" +
+                "<p style=\"margin:0 0 16px;font-size:15px;font-weight:600;color:#111827;\">" + workspaceEncoded + "</p>" +
+                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Invitation token (expires in " + validForHours + " hour(s))</p>" +
+                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
+                "font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:#111827;white-space:pre-wrap;word-break:break-all;\">" +
+                tokenEncoded + "</pre>" +
+                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">Use your API client to complete signup at " +
+                "<code style=\"font-size:12px;background:#f3f4f6;padding:2px 6px;border-radius:4px;\">POST …/workspaces/{id}/invite/{token}/accept</code>. " +
+                "If you did not expect this, ignore this email.</p>";
+
+            return new EmailContent(
+                $"Invitation to a {BrandName} workspace",
+                plain,
+                WrapLayout("Workspace invitation", innerHtml));
+        }
+
         private static string WrapLayout(string headline, string innerHtml)
         {
             var h = WebUtility.HtmlEncode(headline);

@@ -12,6 +12,7 @@ namespace EduCollab.Application.Models
     public class Workspace
     {
         public int Id { get; set; }
+
         public string Name { get; set; } = null!;
 
         public string? Description { get; set; }
@@ -23,5 +24,6 @@ namespace EduCollab.Application.Models
         public int CreatedByUserId { get; set; }
 
         public bool IsArchived { get; set; }
+
     }
 }

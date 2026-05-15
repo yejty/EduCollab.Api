@@ -1,18 +1,48 @@
+using EduCollab.Application.Exceptions;
+using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
 using EduCollab.Application.Repositories.Users;
-using EduCollab.Contracts.Responses.Workspaces;
+using EduCollab.Application.Services.Auth;
+using EduCollab.Application.Services.Notifications;
+using EduCollab.Contracts.Workspaces;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace EduCollab.Application.Services.Workspaces
 {
     public class WorkspaceService : IWorkspaceService
     {
         private readonly IUserRepository _userRepository;
+        private readonly ICurrentUser _currentUser;
+        private readonly IOptions<WorkspaceInvitationSettings> _invitationSettings;
+        private readonly IEmailSender _emailSender;
+        private readonly IHostEnvironment _hostEnvironment;
+        private readonly ILogger<WorkspaceService> _logger;
 
-        public WorkspaceService(IUserRepository userRepository)
+        public WorkspaceService(
+            IUserRepository userRepository,
+            ICurrentUser currentUser,
+            IOptions<WorkspaceInvitationSettings> invitationSettings,
+            IEmailSender emailSender,
+            IHostEnvironment hostEnvironment,
+            ILogger<WorkspaceService> logger)
         {
             _userRepository = userRepository;
+            _currentUser = currentUser;
+            _invitationSettings = invitationSettings;
+            _emailSender = emailSender;
+            _hostEnvironment = hostEnvironment;
+            _logger = logger;
         }
+
+        private int RequireCurrentUserId()
+        {
+            return _currentUser.UserId
+                ?? throw new UnauthorizedAccessException("Authentication is required for this operation.");
+        }
+
         public async Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken)
         {
             return await _userRepository.GetWorkspaceByIdAsync(id, cancellationToken);
@@ -28,23 +58,296 @@ namespace EduCollab.Application.Services.Workspaces
             return await _userRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
         }
 
-        public Task<bool> CreateUserInWorkspaceAsync(User user, string password, string invitationToken, CancellationToken cancellationToken)
+        public async Task<WorkspaceMember?> GetCurrentUserWorkspaceMemberAsync(int workspaceId, CancellationToken cancellationToken)
         {
-            // TODO : workspace
-            return Task.FromResult(true);
+            if (_currentUser.UserId is not int userId)
+            {
+                return null;
+            }
+
+            return await _userRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
         }
 
-        public Task InviteUserToWorkspaceAsync(string email, CancellationToken cancellationToken)
+        public async Task<bool> CreateUserInWorkspaceAsync(int workspaceId, User user, string password, string invitationToken, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(email))
+            ArgumentNullException.ThrowIfNull(user);
+
+            if (string.IsNullOrWhiteSpace(password))
+                throw new ArgumentException($"'{nameof(password)}' cannot be null or empty.", nameof(password));
+
+            if (string.IsNullOrWhiteSpace(invitationToken))
+                throw new ArgumentException($"'{nameof(invitationToken)}' cannot be null or empty.", nameof(invitationToken));
+
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            var normalizedEmail = user.Email.Trim();
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(invitationToken.Trim());
+            var now = DateTimeOffset.UtcNow;
+
+            var userId = await _userRepository.AcceptWorkspaceInvitationAndRegisterUserAsync(
+                workspaceId,
+                tokenHash,
+                normalizedEmail,
+                user.FirstName.Trim(),
+                user.LastName.Trim(),
+                password,
+                now,
+                cancellationToken);
+
+            if (userId is null)
+                return false;
+
+            user.Id = userId.Value;
+            user.WorkspaceId = workspaceId;
+            user.Email = normalizedEmail;
+            return true;
+        }
+
+        public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
                 throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
-            // TODO : workspace
-            return Task.CompletedTask;
+
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            var inviterUserId = RequireCurrentUserId();
+
+            var normalizedEmail = email.Trim();
+
+            var workspace = await _userRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
+            if (workspace is null)
+                throw new ArgumentException("Workspace not found.");
+
+            var inviterMember = await _userRepository.GetWorkspaceMemberAsync(workspaceId, inviterUserId, cancellationToken);
+            if (inviterMember is null)
+                throw new UnauthorizedAccessException("You are not a member of this workspace.");
+
+            if (inviterMember.Role == WorkspaceRole.Member)
+                throw new UnauthorizedAccessException("Only workspace owners and admins can send invitations.");
+
+            var existingCred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
+            if (existingCred is not null)
+                throw new ArgumentException("A user with this email is already registered.");
+
+            var alreadyMember = await _userRepository.IsEmailMemberOfWorkspaceAsync(workspaceId, normalizedEmail, cancellationToken);
+            if (alreadyMember)
+                throw new ArgumentException("This user is already a member of the workspace.");
+
+            var now = DateTimeOffset.UtcNow;
+            var expiresAt = now.AddHours(_invitationSettings.Value.TokenExpirationHours);
+
+            await _userRepository.RevokePendingWorkspaceInvitationsAsync(workspaceId, normalizedEmail, now, cancellationToken);
+
+            var plainToken = RefreshTokenGenerator.Create();
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
+
+            await _userRepository.InsertWorkspaceInvitationAsync(
+                workspaceId,
+                normalizedEmail,
+                tokenHash,
+                expiresAt,
+                now,
+                inviterUserId,
+                cancellationToken);
+
+            var hours = _invitationSettings.Value.TokenExpirationHours;
+            var mail = EduCollabEmailTemplates.WorkspaceInvitation(workspaceId, plainToken, hours);
+            await _emailSender.SendAsync(normalizedEmail, mail, cancellationToken);
+
+            if (_hostEnvironment.IsDevelopment() && _invitationSettings.Value.LogPlaintextTokenInDevelopment)
+            {
+                _logger.LogInformation(
+                    "Workspace invitation token for {Email} workspace {WorkspaceId}: {Token}",
+                    normalizedEmail,
+                    workspaceId,
+                    plainToken);
+            }
         }
 
-        public Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
+        public async Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            ArgumentNullException.ThrowIfNull(workspace);
+
+            if (workspace.Id != 0)
+                throw new ArgumentException("Workspace Id must not be set when creating.", nameof(workspace));
+
+            var creatorUserId = RequireCurrentUserId();
+
+            var alreadyInWorkspace = await _userRepository.IsUserInAnyWorkspaceAsync(creatorUserId, cancellationToken);
+            if (alreadyInWorkspace)
+                throw new ArgumentException("You already belong to a workspace.");
+
+            var now = DateTimeOffset.UtcNow;
+            workspace.CreatedByUserId = creatorUserId;
+            workspace.CreatedAtUtc = now.UtcDateTime;
+            workspace.UpdatedAtUtc = now.UtcDateTime;
+            workspace.IsArchived = false;
+
+            var id = await _userRepository.CreateWorkspaceWithOwnerAsync(workspace, creatorUserId, now, cancellationToken);
+            if (id <= 0)
+                return false;
+
+            workspace.Id = id;
+            return true;
+        }
+
+        public async Task<bool> UpdateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(workspace);
+
+            var userId = RequireCurrentUserId();
+
+            var existing = await _userRepository.GetWorkspaceByIdAsync(workspace.Id, cancellationToken);
+            if (existing is null)
+            {
+                return false;
+            }
+
+            var membership = await _userRepository.GetWorkspaceMemberAsync(workspace.Id, userId, cancellationToken);
+            if (membership is null)
+            {
+                return false;
+            }
+
+            if (membership.Role == WorkspaceRole.Member)
+            {
+                throw new AccessDeniedException("Only workspace owners and admins can update the workspace.");
+            }
+
+            var isLikelyPartialRequest = workspace.CreatedAtUtc == default;
+
+            if (isLikelyPartialRequest)
+            {
+                if (!string.IsNullOrWhiteSpace(workspace.Name))
+                {
+                    existing.Name = workspace.Name.Trim();
+                }
+
+                existing.Description = workspace.Description ?? existing.Description;
+            }
+            else
+            {
+                existing.Name = string.IsNullOrWhiteSpace(workspace.Name) ? existing.Name : workspace.Name.Trim();
+                existing.Description = workspace.Description;
+                existing.IsArchived = workspace.IsArchived;
+            }
+
+            existing.UpdatedAtUtc = DateTime.UtcNow;
+
+            var updated = await _userRepository.UpdateWorkspaceAsync(existing, userId, cancellationToken);
+            if (updated is null)
+            {
+                return false;
+            }
+
+            workspace.Name = updated.Name;
+            workspace.Description = updated.Description;
+            workspace.UpdatedAtUtc = updated.UpdatedAtUtc;
+            workspace.IsArchived = updated.IsArchived;
+            workspace.CreatedAtUtc = updated.CreatedAtUtc;
+            workspace.CreatedByUserId = updated.CreatedByUserId;
+            return true;
+        }
+
+        public async Task RemoveWorkspaceMemberAsync(int workspaceId, int targetUserId, CancellationToken cancellationToken)
+        {
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            if (targetUserId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(targetUserId));
+
+            var actorUserId = RequireCurrentUserId();
+
+            var workspace = await _userRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
+            if (workspace is null)
+                throw new KeyNotFoundException("Workspace not found.");
+
+            var targetMember = await _userRepository.GetWorkspaceMemberAsync(workspaceId, targetUserId, cancellationToken);
+            if (targetMember is null)
+                throw new KeyNotFoundException("That user is not a member of this workspace.");
+
+            var actorMember = await _userRepository.GetWorkspaceMemberAsync(workspaceId, actorUserId, cancellationToken);
+            if (actorMember is null)
+                throw new AccessDeniedException("You are not a member of this workspace.");
+
+            var self = actorUserId == targetUserId;
+            if (self)
+            {
+                if (targetMember.Role == WorkspaceRole.Owner)
+                    throw new InvalidOperationException("Workspace owners cannot leave via this endpoint; transfer ownership or delete the workspace.");
+
+                var removed = await _userRepository.RemoveWorkspaceMemberAsync(workspaceId, targetUserId, cancellationToken);
+                if (!removed)
+                    throw new KeyNotFoundException("That user is not a member of this workspace.");
+
+                return;
+            }
+
+            if (actorMember.Role == WorkspaceRole.Member)
+                throw new AccessDeniedException("Only workspace owners and admins can remove other members.");
+
+            if (targetMember.Role == WorkspaceRole.Owner)
+                throw new AccessDeniedException("The workspace owner cannot be removed.");
+
+            if (actorMember.Role == WorkspaceRole.Admin && targetMember.Role != WorkspaceRole.Member)
+                throw new AccessDeniedException("Admins can only remove members with the Member role.");
+
+            var ok = await _userRepository.RemoveWorkspaceMemberAsync(workspaceId, targetUserId, cancellationToken);
+            if (!ok)
+                throw new KeyNotFoundException("That user is not a member of this workspace.");
+        }
+
+        public async Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken)
+        {
+            if (id <= 0)
+                throw new ArgumentOutOfRangeException(nameof(id));
+
+            if (userId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(userId));
+
+            ArgumentNullException.ThrowIfNull(member);
+
+            var actorId = RequireCurrentUserId();
+
+            var existingMember = await _userRepository.GetWorkspaceMemberAsync(id, userId, cancellationToken);
+            if (existingMember is null)
+            {
+                throw new KeyNotFoundException("That user is not a member of this workspace.");
+            }
+
+            var actorMember = await _userRepository.GetWorkspaceMemberAsync(id, actorId, cancellationToken);
+            if (actorMember is null)
+            {
+                throw new AccessDeniedException("You are not a member of this workspace.");
+            }
+
+            if (actorMember.Role == WorkspaceRole.Member)
+            {
+                throw new AccessDeniedException("Only workspace owners and admins can change member roles.");
+            }
+
+            if (member.Role == WorkspaceRole.Owner && actorMember.Role != WorkspaceRole.Owner)
+            {
+                throw new AccessDeniedException("Only the workspace owner can assign the Owner role.");
+            }
+
+            if (actorMember.Role == WorkspaceRole.Admin)
+            {
+                if (existingMember.Role != WorkspaceRole.Member)
+                {
+                    throw new AccessDeniedException("Admins can only edit members with the Member role.");
+                }
+
+                if (member.Role == WorkspaceRole.Owner)
+                {
+                    throw new AccessDeniedException("Admins cannot assign the Owner role.");
+                }
+            }
+
+            return await _userRepository.UpdateWorkspaceMemberAsync(id, userId, member, cancellationToken);
         }
     }
 }

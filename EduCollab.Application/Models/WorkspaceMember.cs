@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using EduCollab.Contracts.Workspaces;
 
 namespace EduCollab.Application.Models
 {
@@ -10,7 +6,8 @@ namespace EduCollab.Application.Models
     {
         public int UserId { get; set; }
         public int WorkspaceId { get; set; }
-        public string Role { get; set; } = null!;
+        public WorkspaceRole Role { get; set; }
         public DateTime JoinedAtUtc { get; set; }
     }
 }
+

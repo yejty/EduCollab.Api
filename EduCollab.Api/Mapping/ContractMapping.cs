@@ -48,6 +48,8 @@ namespace EduCollab.Api.Mapping
             };
         }
 
+
+
         public static UserResponse MapToResponse(this User user)
         {
             return new UserResponse
@@ -92,6 +94,16 @@ namespace EduCollab.Api.Mapping
             return new WorkspaceMembersResponse
             {
                 Members = workspaceMembers.Select(m => m.MapToResponse()).ToList(),
+            };
+        }
+
+        public static WorkspaceMember MapToWorkspaceMember(this UpdateWorkspaceMemberRequest request, int id)
+        {
+            return new WorkspaceMember
+            {
+                UserId = request.UserId,
+                WorkspaceId = id,
+                Role = request.Role
             };
         }
     }

@@ -13,6 +13,7 @@ namespace EduCollab.Application
         {
             services.Configure<RefreshTokenSettings>(configuration.GetSection("Jwt"));
             services.Configure<PasswordResetSettings>(configuration.GetSection(PasswordResetSettings.SectionName));
+            services.Configure<WorkspaceInvitationSettings>(configuration.GetSection(WorkspaceInvitationSettings.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<IUserService, UserService>();

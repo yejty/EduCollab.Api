@@ -19,7 +19,12 @@ namespace EduCollab.Api.Extensions
             services.AddProblemDetails();
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name);
-            services.AddControllers();
+            services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(
+                        new System.Text.Json.Serialization.JsonStringEnumConverter());
+                });
             services.AddEndpointsApiExplorer();
             services.AddSwaggerGen(options =>
             {

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EduCollab.Application\EduCollab.Application.csproj" />
+    <ProjectReference Include="..\EduCollab.Contracts\EduCollab.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

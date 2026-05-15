@@ -5,8 +5,6 @@ namespace EduCollab.Application.Repositories.Users
 {
     public interface IUserRepository
     {
-        Task CreateAsync(User user, string password, string invitationToken, CancellationToken cancellationToken);
-
         /// <summary>
         /// Marks unused password reset tokens for the user as used so only the latest flow applies.
         /// </summary>
@@ -28,11 +26,48 @@ namespace EduCollab.Application.Repositories.Users
         Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken);
         Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken);
         Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, CancellationToken cancellationToken);
-        Task InviteAsync(string email, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
         Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);
         Task<Workspace?> GetWorkspaceByIdAsync(int id, CancellationToken cancellationToken);
+        Task<Workspace?> UpdateWorkspaceAsync(Workspace workspace, int userId, CancellationToken cancellationToken);
         Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int workspaceId, CancellationToken cancellationToken);
         Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+        Task<int> CreateWorkspaceWithOwnerAsync(Workspace workspace, int ownerUserId, DateTimeOffset now, CancellationToken cancellationToken);
+
+        Task<bool> IsUserInAnyWorkspaceAsync(int userId, CancellationToken cancellationToken);
+
+        Task<bool> IsUserWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+
+        Task<bool> IsEmailMemberOfWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken);
+
+        Task RevokePendingWorkspaceInvitationsAsync(int workspaceId, string email, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken);
+
+        Task InsertWorkspaceInvitationAsync(
+            int workspaceId,
+            string email,
+            string tokenHashSha256Hex,
+            DateTimeOffset expiresAtUtc,
+            DateTimeOffset createdAtUtc,
+            int invitedByUserId,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Validates token, creates user with password, adds workspace membership, sets WorkspaceId, consumes invitation. Returns null if invalid.
+        /// </summary>
+        Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(
+            int workspaceId,
+            string tokenHashSha256Hex,
+            string email,
+            string firstName,
+            string lastName,
+            string plainPassword,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Removes the user from the workspace (membership row and clears <c>Users.WorkspaceId</c> when it matches). Returns false if the user was not a member.
+        /// </summary>
+        Task<bool> RemoveWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+        Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken);
     }
 }

@@ -1,3 +1,4 @@
+using Dapper;
 using EduCollab.Application.Repositories.RefreshToken;
 using EduCollab.Application.Repositories.Users;
 using EduCollab.Application.Services.Notifications;
@@ -13,6 +14,8 @@ namespace EduCollab.Infrastructure.Database
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
+            SqlMapper.AddTypeHandler(new WorkspaceRoleTypeHandler());
+
             var databaseOptions = configuration
                 .GetSection(DatabaseOptions.SectionName)
                 .Get<DatabaseOptions>()

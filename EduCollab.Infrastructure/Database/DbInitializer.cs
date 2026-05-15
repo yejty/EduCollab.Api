@@ -93,6 +93,29 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE UNIQUE INDEX IF NOT EXISTS IX_UserPasswordResetTokens_TokenHash ON UserPasswordResetTokens (TokenHash);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_UserPasswordResetTokens_UserId ON UserPasswordResetTokens (UserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceInvitations (
+                    Id BIGSERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    Email VARCHAR(255) NOT NULL,
+                    TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    ExpiresAt TIMESTAMPTZ NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UsedAt TIMESTAMPTZ NULL,
+                    InvitedByUserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL);
+                """);
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE WorkspaceInvitations
+                ADD COLUMN IF NOT EXISTS InvitedByUserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL;
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_WorkspaceId ON WorkspaceInvitations (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkspaceInvitations_TokenHash ON WorkspaceInvitations (TokenHash);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_Email ON WorkspaceInvitations (Email);");
         }
     }
 }
