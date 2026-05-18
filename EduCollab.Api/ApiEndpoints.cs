@@ -13,13 +13,17 @@
             public const string Delete = $"{Base}/{{id}}";
 
             public const string Register = $"{Base}/register";
-        
+
+            public const string ConfirmEmail = $"{Base}/registration-confirm";
+
             public const string Login = $"{Base}/login"; 
+            public const string LoginRequestCode = $"{Base}/login/request-code";
+            public const string LoginConfirmCode = $"{Base}/login/confirm-code";
             public const string Token = $"{Base}/token";
             public const string Me = $"{Base}/me";
 
-            public const string ResetConfirm = $"{Base}/reset-confirm";
-            public const string Reset = $"{Base}/reset";
+            public const string ResetConfirm = $"{Base}/reset-password-confirm";
+            public const string Reset = $"{Base}/reset-password";
             public const string ChangePassword = $"{Base}/change-password";
         }
 

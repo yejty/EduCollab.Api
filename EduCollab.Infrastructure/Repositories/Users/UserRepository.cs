@@ -146,6 +146,117 @@ namespace EduCollab.Infrastructure.Repositories.Users
                 new CommandDefinition(sql, new { UserId = userId, PasswordHash = passwordHash }, cancellationToken: cancellationToken));
         }
 
+        public async Task RevokeActiveLoginCodesForUserAsync(int userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken)
+        {
+            const string sql = """
+                UPDATE UserLoginCodes
+                SET UsedAt = @UsedAt
+                WHERE UserId = @UserId AND UsedAt IS NULL;
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                new CommandDefinition(sql, new { UserId = userId, UsedAt = revokedAtUtc }, cancellationToken: cancellationToken));
+        }
+
+        public async Task InsertLoginCodeAsync(int userId, string codeHashSha256Hex, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, CancellationToken cancellationToken)
+        {
+            const string sql = """
+                INSERT INTO UserLoginCodes (UserId, CodeHash, ExpiresAt, CreatedAt)
+                VALUES (@UserId, @CodeHash, @ExpiresAt, @CreatedAt);
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        UserId = userId,
+                        CodeHash = codeHashSha256Hex,
+                        ExpiresAt = expiresAtUtc,
+                        CreatedAt = createdAtUtc
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<LoginCodeConsumeResult> ConsumeLoginCodeAsync(string email, string codeHashSha256Hex, DateTimeOffset utcNow, int maxAttempts, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var row = await connection.QuerySingleOrDefaultAsync<LoginCodeRow>(
+                new CommandDefinition(
+                    """
+                    SELECT lc.Id, lc.UserId, lc.CodeHash, lc.FailedAttempts
+                    FROM UserLoginCodes lc
+                    INNER JOIN Users u ON u.Id = lc.UserId
+                    WHERE LOWER(u.Email) = LOWER(@Email)
+                      AND u.EmailConfirmedAtUtc IS NOT NULL
+                      AND lc.UsedAt IS NULL
+                      AND lc.ExpiresAt > @Now
+                    ORDER BY lc.Id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    new { Email = email, Now = utcNow },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (row is null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return new LoginCodeConsumeResult();
+            }
+
+            if (!string.Equals(row.CodeHash, codeHashSha256Hex, StringComparison.Ordinal))
+            {
+                var nextAttemptCount = row.FailedAttempts + 1;
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        UPDATE UserLoginCodes
+                        SET FailedAttempts = @FailedAttempts,
+                            UsedAt = CASE WHEN @FailedAttempts >= @MaxAttempts THEN @Now ELSE UsedAt END
+                        WHERE Id = @Id;
+                        """,
+                        new
+                        {
+                            FailedAttempts = nextAttemptCount,
+                            MaxAttempts = maxAttempts,
+                            Now = utcNow,
+                            row.Id
+                        },
+                        transaction: tx,
+                        cancellationToken: cancellationToken));
+
+                await tx.CommitAsync(cancellationToken);
+                return new LoginCodeConsumeResult
+                {
+                    IsLocked = nextAttemptCount >= maxAttempts,
+                    RemainingAttempts = Math.Max(0, maxAttempts - nextAttemptCount)
+                };
+            }
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    "UPDATE UserLoginCodes SET UsedAt = @Now WHERE Id = @Id;",
+                    new { Now = utcNow, row.Id },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await tx.CommitAsync(cancellationToken);
+            return new LoginCodeConsumeResult
+            {
+                UserId = row.UserId
+            };
+        }
+
         public async Task<bool> ExistsByIdAsync(int id, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -159,7 +270,7 @@ namespace EduCollab.Infrastructure.Repositories.Users
         public async Task<UserCredentialRecordDto?> GetCredentialByEmailAsync(string email, CancellationToken cancellationToken)
         {
             const string sql = """
-                SELECT Id, Email, PasswordHash
+                SELECT Id, Email, PasswordHash, EmailConfirmedAtUtc
                 FROM Users
                 WHERE LOWER(Email) = LOWER(@Email)
                 LIMIT 1;
@@ -173,7 +284,7 @@ namespace EduCollab.Infrastructure.Repositories.Users
         public async Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken)
         {
             const string sql = """
-                SELECT Id, Email, PasswordHash
+                SELECT Id, Email, PasswordHash, EmailConfirmedAtUtc
                 FROM Users
                 WHERE Id = @UserId
                 LIMIT 1;
@@ -205,17 +316,20 @@ namespace EduCollab.Infrastructure.Repositories.Users
                     cancellationToken: cancellationToken));
         }
 
-        public async Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, CancellationToken cancellationToken)
+        public async Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken)
         {
             const string sql = """
-                INSERT INTO Users (FirstName, LastName, Email, PasswordHash)
-                VALUES (@FirstName, @LastName, @Email, @PasswordHash)
+                INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc)
+                VALUES (@FirstName, @LastName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
                 RETURNING Id;
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             return await connection.QuerySingleAsync<int>(
-                new CommandDefinition(sql, new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = passwordHash }, cancellationToken: cancellationToken));
+                new CommandDefinition(
+                    sql,
+                    new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = passwordHash, EmailConfirmedAtUtc },
+                    cancellationToken: cancellationToken));
         }
 
         public async Task<bool> UpdateAsync(User user, CancellationToken cancellationToken)
@@ -226,15 +340,13 @@ namespace EduCollab.Infrastructure.Repositories.Users
                     """
                     UPDATE Users
                     SET FirstName = @FirstName,
-                        LastName = @LastName,
-                        Email = @Email
+                        LastName = @LastName
                     WHERE Id = @Id;
                     """,
                     new
                     {
                         user.FirstName,
                         user.LastName,
-                        user.Email,
                         user.Id
                     },
                     cancellationToken: cancellationToken));
@@ -265,6 +377,7 @@ namespace EduCollab.Infrastructure.Repositories.Users
                         IsArchived
                     FROM Workspaces
                     WHERE Id = @Id
+                      AND IsArchived = FALSE
                     LIMIT 1;
                     """,
                      new { Id = id },
@@ -518,11 +631,11 @@ namespace EduCollab.Infrastructure.Repositories.Users
             var userId = await connection.QuerySingleAsync<int>(
                 new CommandDefinition(
                     """
-                    INSERT INTO Users (FirstName, LastName, Email, PasswordHash)
-                    VALUES (@FirstName, @LastName, @Email, @PasswordHash)
+                    INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc)
+                    VALUES (@FirstName, @LastName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
                     RETURNING Id;
                     """,
-                    new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = initialHash },
+                    new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = initialHash, EmailConfirmedAtUtc = utcNow },
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
@@ -644,6 +757,77 @@ namespace EduCollab.Infrastructure.Repositories.Users
                     cancellationToken: cancellationToken));
         }
 
+        public async Task<bool> SoftDeleteWorkspaceAsync(int workspaceId, int userId, DateTimeOffset utcNow, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var archived = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Workspaces
+                    SET IsArchived = TRUE,
+                        UpdatedAtUtc = @Now
+                    WHERE Id = @WorkspaceId
+                      AND IsArchived = FALSE
+                      AND EXISTS (
+                          SELECT 1
+                          FROM WorkspaceMembers wm
+                          WHERE wm.WorkspaceId = @WorkspaceId AND wm.UserId = @UserId
+                      );
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId, Now = utcNow.UtcDateTime },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (archived == 0)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Users
+                    SET WorkspaceId = NULL
+                    WHERE WorkspaceId = @WorkspaceId;
+                    """,
+                    new { WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM WorkspaceMembers
+                    WHERE WorkspaceId = @WorkspaceId;
+                    """,
+                    new { WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE WorkspaceInvitations
+                    SET UsedAt = @Now
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND UsedAt IS NULL;
+                    """,
+                    new { WorkspaceId = workspaceId, Now = utcNow },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await tx.CommitAsync(cancellationToken);
+            return true;
+        }
+
         public async Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(member);
@@ -662,10 +846,134 @@ namespace EduCollab.Infrastructure.Repositories.Users
                     cancellationToken: cancellationToken));
         }
 
+        public async Task RevokeActiveEmailConfirmationTokensForUserAsync(int userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken)
+        {
+            const string sql = """
+                UPDATE UserEmailConfirmationTokens
+                SET UsedAt = @UsedAt
+                WHERE UserId = @UserId AND UsedAt IS NULL;
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                new CommandDefinition(sql, new { UserId = userId, UsedAt = revokedAtUtc }, cancellationToken: cancellationToken));
+        }
+
+        public async Task InsertEmailConfirmationTokenAsync(int userId, string tokenHashSha256Hex, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, CancellationToken cancellationToken)
+        {
+            const string sql = """
+                INSERT INTO UserEmailConfirmationTokens (UserId, TokenHash, ExpiresAt, CreatedAt)
+                VALUES (@UserId, @TokenHash, @ExpiresAt, @CreatedAt);
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        UserId = userId,
+                        TokenHash = tokenHashSha256Hex,
+                        ExpiresAt = expiresAtUtc,
+                        CreatedAt = createdAtUtc
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<int?> GetUserIdForActiveEmailConfirmationTokenAsync(string email, string tokenHashSha256Hex, DateTimeOffset utcNow, CancellationToken cancellationToken)
+        {
+            const string sql = """
+                SELECT t.UserId
+                FROM UserEmailConfirmationTokens t
+                INNER JOIN Users u ON u.Id = t.UserId
+                WHERE LOWER(u.Email) = LOWER(@Email)
+                  AND t.TokenHash = @TokenHash
+                  AND t.UsedAt IS NULL
+                  AND t.ExpiresAt > @Now
+                ORDER BY t.Id DESC
+                LIMIT 1;
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<int?>(
+                new CommandDefinition(sql, new { Email = email, TokenHash = tokenHashSha256Hex, Now = utcNow }, cancellationToken: cancellationToken));
+        }
+
+        public async Task<int?> ConfirmEmailAsync(string email, string tokenHashSha256Hex, DateTimeOffset utcNow, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var tokenId = await connection.QuerySingleOrDefaultAsync<long?>(
+                new CommandDefinition(
+                    """
+                    SELECT t.Id
+                    FROM UserEmailConfirmationTokens t
+                    INNER JOIN Users u ON u.Id = t.UserId
+                    WHERE LOWER(u.Email) = LOWER(@Email)
+                      AND t.TokenHash = @TokenHash
+                      AND t.UsedAt IS NULL
+                      AND t.ExpiresAt > @Now
+                    ORDER BY t.Id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    new { Email = email, TokenHash = tokenHashSha256Hex, Now = utcNow },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (tokenId is null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var userId = await connection.QuerySingleAsync<int>(
+                new CommandDefinition(
+                    "SELECT UserId FROM UserEmailConfirmationTokens WHERE Id = @Id;",
+                    new { Id = tokenId.Value },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    "UPDATE UserEmailConfirmationTokens SET UsedAt = @Now WHERE Id = @Id;",
+                    new { Now = utcNow, Id = tokenId.Value },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Users
+                    SET EmailConfirmedAtUtc = @Now
+                    WHERE Id = @UserId;
+                    """,
+                    new { Now = utcNow, UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await tx.CommitAsync(cancellationToken);
+            return userId;
+        }
+
         private sealed class LockedInvitationRow
         {
             public long Id { get; set; }
             public string Email { get; set; } = "";
+        }
+
+        private sealed class LoginCodeRow
+        {
+            public long Id { get; set; }
+            public int UserId { get; set; }
+            public string CodeHash { get; set; } = "";
+            public int FailedAttempts { get; set; }
         }
     }
 }

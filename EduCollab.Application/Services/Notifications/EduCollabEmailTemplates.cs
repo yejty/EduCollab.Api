@@ -104,6 +104,81 @@ namespace EduCollab.Application.Services.Notifications
                 WrapLayout("Workspace invitation", innerHtml));
         }
 
+        public static EmailContent EmailConfirmation(string confirmUrl, string plaintextTokenFallback, int validForHours)
+        {
+            var hoursText = validForHours.ToString();
+            var tokenEncoded = WebUtility.HtmlEncode(plaintextTokenFallback);
+
+            if (!string.IsNullOrWhiteSpace(confirmUrl))
+            {
+                var urlEncoded = WebUtility.HtmlEncode(confirmUrl);
+                var plain =
+                    "Welcome to EduCollab. Confirm your email address to finish setting up your account." + Environment.NewLine + Environment.NewLine +
+                    $"Open this link (valid for {hoursText} hour(s)):" + Environment.NewLine + Environment.NewLine +
+                    confirmUrl + Environment.NewLine + Environment.NewLine +
+                    "If you did not register, you can ignore this email.";
+
+                var innerHtml =
+                    "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
+                    "Thanks for signing up. Confirm your email address to activate your account.</p>" +
+                    "<p style=\"margin:0 0 20px;font-size:13px;color:#6b7280;\">This link expires in " + hoursText + " hour(s).</p>" +
+                    "<p style=\"margin:0 0 24px;\"><a href=\"" + urlEncoded + "\" style=\"display:inline-block;padding:12px 22px;background:#2563eb;" +
+                    "color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;\">Confirm email</a></p>" +
+                    "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Or paste this URL into your browser:</p>" +
+                    "<p style=\"margin:0 0 20px;font-size:13px;line-height:1.45;color:#374151;word-break:break-all;\">" + urlEncoded + "</p>" +
+                    "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">If you did not register, you can ignore this email.</p>";
+
+                return new EmailContent(
+                    $"Confirm your {BrandName} email",
+                    plain,
+                    WrapLayout("Confirm your email", innerHtml));
+            }
+
+            var plainTokenOnly =
+                "Welcome to EduCollab. Confirm your email address using the token below (valid for " + hoursText + " hour(s)):" +
+                Environment.NewLine + Environment.NewLine +
+                plaintextTokenFallback + Environment.NewLine + Environment.NewLine +
+                "Configure FrontendConfirmUrl in EmailConfirmation settings to send a clickable link instead.";
+
+            var innerTokenOnly =
+                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
+                "Thanks for signing up. Confirm your email using the token below.</p>" +
+                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Token (expires in " + hoursText + " hour(s))</p>" +
+                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
+                "font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:#111827;white-space:pre-wrap;word-break:break-all;\">" +
+                tokenEncoded + "</pre>" +
+                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">Set EmailConfirmation:FrontendConfirmUrl to receive a button link instead.</p>";
+
+            return new EmailContent(
+                $"Confirm your {BrandName} email",
+                plainTokenOnly,
+                WrapLayout("Confirm your email", innerTokenOnly));
+        }
+
+        public static EmailContent LoginCode(string code, int validForMinutes)
+        {
+            var encodedCode = WebUtility.HtmlEncode(code);
+            var plain =
+                "Use this 6-digit sign-in code to log in to EduCollab." + Environment.NewLine + Environment.NewLine +
+                $"Code (expires in {validForMinutes} minute(s)):" + Environment.NewLine + Environment.NewLine +
+                code + Environment.NewLine + Environment.NewLine +
+                "If you did not request this code, you can ignore this email.";
+
+            var innerHtml =
+                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
+                "Use this one-time code to sign in.</p>" +
+                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">6-digit code (expires in " + validForMinutes + " minute(s))</p>" +
+                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
+                "font-family:ui-monospace,Consolas,monospace;font-size:24px;font-weight:700;letter-spacing:4px;line-height:1.45;color:#111827;\">" +
+                encodedCode + "</pre>" +
+                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">If you did not request this code, you can ignore this email.</p>";
+
+            return new EmailContent(
+                $"Your {BrandName} sign-in code",
+                plain,
+                WrapLayout("Sign-in code", innerHtml));
+        }
+
         private static string WrapLayout(string headline, string innerHtml)
         {
             var h = WebUtility.HtmlEncode(headline);

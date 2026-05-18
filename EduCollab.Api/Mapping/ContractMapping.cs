@@ -10,7 +10,7 @@ namespace EduCollab.Api.Mapping
 {
     public static class ContractMapping
     {
-        public static User MapToUser(this CreateUserRequest request)
+        public static User MapToUser(this RegisterUserRequest request)
         {
             return new User
             {
@@ -20,14 +20,13 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static User MapToUser(this UpdateUserRequest request, int id)
+        public static User MapToUser(this UpdateUserProfileRequest request, int id)
         {
             return new User
             {
                 Id = id,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                Email = request.Email
             };
         }
 

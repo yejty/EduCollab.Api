@@ -30,44 +30,166 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Register a new user.
+        /// Register a new user. A confirmation email is sent; sign-in is blocked until email is confirmed.
         /// </summary>
+        /// <param name="request">Registration payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="201">User registered successfully.</response>
-        /// <response code="400">Invalid registration attempt. Returns an error message.</response>
+        /// <response code="201">Registration succeeded and a confirmation email was sent.</response>
+        /// <response code="400">Registration request was invalid.</response>
         [HttpPost(ApiEndpoints.Users.Register)]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(RegistrationSubmittedResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Register([FromBody]CreateUserRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> Register([FromBody] RegisterUserRequest request, CancellationToken cancellationToken)
         {
+            if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "password_mismatch",
+                    ErrorDescription = "Password and confirmation password do not match.",
+                });
+            }
+
             var user = request.MapToUser();
-            var registered = await _userService.RegisterAsync(user, request.Password, cancellationToken);
-            if (!registered)
+            try
+            {
+                var registered = await _userService.RegisterAsync(user, request.Password, cancellationToken);
+                if (!registered)
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "registration_failed",
+                        ErrorDescription = "Registration could not be completed.",
+                    });
+                }
+            }
+            catch (ArgumentException ex)
+            {
                 return BadRequest(new ErrorResponse
                 {
                     Error = "registration_failed",
-                    ErrorDescription = "Registration could not be completed.",
+                    ErrorDescription = ex.Message,
                 });
+            }
 
-            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+            return StatusCode(StatusCodes.Status201Created, new RegistrationSubmittedResponse());
         }
 
+        /// <summary>
+        /// Confirm email after registration; returns access and refresh tokens for immediate sign-in.
+        /// </summary>
+        /// <param name="request">Email confirmation payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Email was confirmed and tokens were issued.</response>
+        /// <response code="400">Confirmation token was invalid or expired.</response>
+        [HttpPost(ApiEndpoints.Users.ConfirmEmail)]
+        [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<TokensResponse>> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
+        {
+            User? user;
+            try
+            {
+                user = await _userService.ConfirmEmailAsync(request.Email, request.Token, cancellationToken);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "confirmation_failed",
+                    ErrorDescription = ex.Message,
+                });
+            }
 
+            if (user is null)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "confirmation_failed",
+                    ErrorDescription = "Invalid or expired confirmation token.",
+                });
+            }
+
+            var accessToken = _accessTokenService.Create(user.Id, user.Email);
+            var refreshToken = await _refreshTokenService.CreateAsync(user.Id, cancellationToken);
+            return Ok((accessToken, refreshToken).MapToResponse());
+        }
+
+        /// <summary>
+        /// Send a one-time 6-digit sign-in code to the confirmed email address.
+        /// </summary>
+        /// <param name="request">Sign-in code request payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">The request was accepted. For privacy, the same response is returned even when the email does not exist.</response>
+        [HttpPost(ApiEndpoints.Users.LoginRequestCode)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> RequestLoginCode([FromBody] RequestLoginCodeRequest request, CancellationToken cancellationToken)
+        {
+            await _userService.RequestLoginCodeAsync(request.Email, cancellationToken);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Log in a user with a previously sent 6-digit sign-in code.
+        /// </summary>
+        /// <param name="request">Email and one-time sign-in code.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">The sign-in code was valid and tokens were issued.</response>
+        /// <response code="401">The sign-in code was invalid, expired, or locked after too many attempts.</response>
+        [HttpPost(ApiEndpoints.Users.LoginConfirmCode)]
+        [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<TokensResponse>> LoginWithCode([FromBody] ConfirmLoginCodeRequest request, CancellationToken cancellationToken)
+        {
+            var result = await _userService.LoginWithCodeAsync(request.Email, request.Code, cancellationToken);
+            if (result.User is null)
+            {
+                if (result.IsLocked)
+                {
+                    return Unauthorized(new ErrorResponse
+                    {
+                        Error = "login_code_locked",
+                        ErrorDescription = "Too many incorrect attempts. Request a new sign-in code.",
+                    });
+                }
+
+                var description = result.RemainingAttempts is int attempts
+                    ? $"Invalid sign-in code. {attempts} attempt(s) remaining."
+                    : "Invalid or expired sign-in code.";
+
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "invalid_login_code",
+                    ErrorDescription = description,
+                });
+            }
+
+            var accessToken = _accessTokenService.Create(result.User.Id, result.User.Email);
+            var refreshToken = await _refreshTokenService.CreateAsync(result.User.Id, cancellationToken);
+            return Ok((accessToken, refreshToken).MapToResponse());
+        }
 
         /// <summary>
         /// Log in a user with provided credentials.
         /// </summary>
+        /// <param name="loginRequest">Login credentials.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">User logged in. Returns a new access token.</response>
         /// <response code="401">Invalid login attempt. Returns an error message.</response>
         [HttpPost(ApiEndpoints.Users.Login)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<TokensResponse>> Login(LoginRequest loginRequest, CancellationToken cancellationToken)
+        public async Task<ActionResult<TokensResponse>> Login([FromBody] LoginRequest loginRequest, CancellationToken cancellationToken)
         {
             var user = await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
             if (user is null)
-                return Unauthorized();
+            {
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "invalid_login",
+                    ErrorDescription = "Invalid credentials or the email address has not been confirmed.",
+                });
+            }
 
             var accessToken = _accessTokenService.Create(user.Id, user.Email);
             var refreshToken = await _refreshTokenService.CreateAsync(user.Id, cancellationToken);
@@ -78,17 +200,24 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Login with a refresh token to obtain a new access token.
         /// </summary>
+        /// <param name="refreshTokenRequest">Refresh token payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns a new access token.</response>
         /// <response code="401">Invalid refresh token or user is unauthorized.</response>
         [HttpPost(ApiEndpoints.Users.Token)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<TokensResponse>> RefreshToken(RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
+        public async Task<ActionResult<TokensResponse>> RefreshToken([FromBody] RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
         {
             var session = await _refreshTokenService.RefreshAsync(refreshTokenRequest.RefreshToken, cancellationToken);
             if (session is null)
-                return Unauthorized();
+            {
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "invalid_refresh_token",
+                    ErrorDescription = "Refresh token is invalid, expired, or revoked.",
+                });
+            }
 
             var accessToken = _accessTokenService.Create(session.User.Id, session.User.Email);
             var response = (accessToken, session.RefreshToken).MapToResponse();
@@ -112,7 +241,11 @@ namespace EduCollab.Api.Controllers
             var user = await _userService.GetCurrentUserAsync(cancellationToken);
             if (user is null)
             {
-                return Unauthorized();
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "unauthorized",
+                    ErrorDescription = "Authentication is required for this operation.",
+                });
             }
             var response = user.MapToResponse();
             return Ok(response);
@@ -150,6 +283,7 @@ namespace EduCollab.Api.Controllers
         /// Update user information by user Id. The id must match the authenticated user (JWT subject).
         /// </summary>
         /// <param name="id">User Id.</param>
+        /// <param name="request">Profile fields to update.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the user information.</response>
         /// <response code="400">Bad request.</response>
@@ -163,7 +297,7 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, [FromBody]UpdateUserRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, [FromBody]UpdateUserProfileRequest request, CancellationToken cancellationToken)
         {
             var user = request.MapToUser(id);
             var updatedUser = await _userService.UpdateUserByIdAsync(user, cancellationToken);
@@ -212,7 +346,7 @@ namespace EduCollab.Api.Controllers
         [HttpPost(ApiEndpoints.Users.ResetConfirm)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> ResetPasswordConfirm(ConfirmPasswordResetRequest confirmPasswordResetRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> ResetPasswordConfirm([FromBody] ConfirmPasswordResetRequest confirmPasswordResetRequest, CancellationToken cancellationToken)
         {
             await _userService.ConfirmResetPasswordAsync(confirmPasswordResetRequest.Email, confirmPasswordResetRequest.Token, confirmPasswordResetRequest.NewPassword, cancellationToken);
             return Ok();
@@ -228,7 +362,7 @@ namespace EduCollab.Api.Controllers
         [HttpPost(ApiEndpoints.Users.Reset)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> ResetPassword(PasswordResetRequest passwordResetRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> ResetPassword([FromBody] PasswordResetRequest passwordResetRequest, CancellationToken cancellationToken)
         {
             await _userService.ResetPasswordAsync(passwordResetRequest.Email, cancellationToken);
             return Ok();
@@ -241,11 +375,13 @@ namespace EduCollab.Api.Controllers
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Password was changed.</response>
         /// <response code="400">Bad request.</response>
+        /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
         [HttpPost(ApiEndpoints.Users.ChangePassword)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> ChangePassword(ChangePasswordRequest changePasswordRequest, CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest changePasswordRequest, CancellationToken cancellationToken)
         {
             await _userService.ChangePasswordAsync(changePasswordRequest.Password, changePasswordRequest.NewPassword, cancellationToken);
             return Ok();

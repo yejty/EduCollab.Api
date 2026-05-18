@@ -17,6 +17,8 @@ namespace EduCollab.Application.Models.Users
 
         public string FullName => $"{this.FirstName} {this.LastName}";
 
+        public DateTime? EmailConfirmedAtUtc { get; set; }
+
         /// <summary>
         /// At most one workspace per user: when set, this user belongs only to this workspace.
         /// </summary>

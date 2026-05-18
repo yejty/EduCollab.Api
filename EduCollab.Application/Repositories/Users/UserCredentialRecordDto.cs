@@ -7,5 +7,7 @@ namespace EduCollab.Application.Repositories.Users
         public string Email { get; init; } = string.Empty;
 
         public string? PasswordHash { get; init; }
+
+        public DateTime? EmailConfirmedAtUtc { get; init; }
     }
 }

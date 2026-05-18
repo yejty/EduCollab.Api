@@ -251,6 +251,27 @@ namespace EduCollab.Application.Services.Workspaces
             return true;
         }
 
+        public async Task<bool> DeleteWorkspaceAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            var userId = RequireCurrentUserId();
+
+            var workspace = await _userRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
+            if (workspace is null)
+                return false;
+
+            var membership = await _userRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
+            if (membership is null)
+                return false;
+
+            if (membership.Role == WorkspaceRole.Member)
+                throw new AccessDeniedException("Only workspace owners and admins can delete the workspace.");
+
+            return await _userRepository.SoftDeleteWorkspaceAsync(workspaceId, userId, DateTimeOffset.UtcNow, cancellationToken);
+        }
+
         public async Task RemoveWorkspaceMemberAsync(int workspaceId, int targetUserId, CancellationToken cancellationToken)
         {
             if (workspaceId <= 0)

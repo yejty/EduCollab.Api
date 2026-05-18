@@ -9,5 +9,7 @@ namespace EduCollab.Contracts.Requests.Workspaces
     public class UpdateWorkspaceRequest
     {
         public string Name { get; set; } = null!;
+
+        public string? Description { get; set; }
     }
 }

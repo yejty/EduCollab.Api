@@ -18,6 +18,7 @@ namespace EduCollab.Application.Services.Workspaces
 
         Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken);
         Task<bool> UpdateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken);
+        Task<bool> DeleteWorkspaceAsync(int workspaceId, CancellationToken cancellationToken);
         Task RemoveWorkspaceMemberAsync(int workspaceId, int targetUserId, CancellationToken cancellationToken);
         Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken);
     }

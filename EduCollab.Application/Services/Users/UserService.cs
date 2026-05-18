@@ -1,4 +1,7 @@
-﻿using EduCollab.Application.Exceptions;
+﻿using System;
+using System.Globalization;
+using System.Security.Cryptography;
+using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
 using EduCollab.Application.Models.Users;
 using EduCollab.Application.Repositories.Users;
@@ -17,6 +20,8 @@ namespace EduCollab.Application.Services.Users
         private readonly IPasswordHasher<PasswordHasherUser> _passwordHasher;
         private readonly ICurrentUser _currentUser;
         private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
+        private readonly IOptions<EmailConfirmationSettings> _emailConfirmationSettings;
+        private readonly IOptions<LoginCodeSettings> _loginCodeSettings;
         private readonly IHostEnvironment _hostEnvironment;
         private readonly IEmailSender _emailSender;
         private readonly ILogger<UserService> _logger;
@@ -26,6 +31,8 @@ namespace EduCollab.Application.Services.Users
             IPasswordHasher<PasswordHasherUser> passwordHasher,
             ICurrentUser currentUser,
             IOptions<PasswordResetSettings> passwordResetSettings,
+            IOptions<EmailConfirmationSettings> emailConfirmationSettings,
+            IOptions<LoginCodeSettings> loginCodeSettings,
             IHostEnvironment hostEnvironment,
             IEmailSender emailSender,
             ILogger<UserService> logger)
@@ -34,6 +41,8 @@ namespace EduCollab.Application.Services.Users
             _passwordHasher = passwordHasher;
             _currentUser = currentUser;
             _passwordResetSettings = passwordResetSettings;
+            _emailConfirmationSettings = emailConfirmationSettings;
+            _loginCodeSettings = loginCodeSettings;
             _hostEnvironment = hostEnvironment;
             _emailSender = emailSender;
             _logger = logger;
@@ -111,10 +120,71 @@ namespace EduCollab.Application.Services.Users
             if (verification == PasswordVerificationResult.Failed)
                 return null;
 
+            if (!userCredentialRecord.EmailConfirmedAtUtc.HasValue)
+                return null;
+
             return new User
             {
                 Id = userCredentialRecord.Id,
                 Email = userCredentialRecord.Email
+            };
+        }
+
+        public async Task RequestLoginCodeAsync(string email, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
+
+            var normalizedEmail = email.Trim();
+            var cred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
+            if (cred is null || !cred.EmailConfirmedAtUtc.HasValue)
+                return;
+
+            var now = DateTimeOffset.UtcNow;
+            var expiresAt = now.AddMinutes(_loginCodeSettings.Value.CodeExpirationMinutes);
+
+            await _userRepository.RevokeActiveLoginCodesForUserAsync(cred.Id, now, cancellationToken);
+
+            var plainCode = CreateLoginCode();
+            var codeHash = RefreshTokenGenerator.HashPlaintext(plainCode);
+            await _userRepository.InsertLoginCodeAsync(cred.Id, codeHash, expiresAt, now, cancellationToken);
+
+            var mail = EduCollabEmailTemplates.LoginCode(plainCode, _loginCodeSettings.Value.CodeExpirationMinutes);
+            await _emailSender.SendAsync(normalizedEmail, mail, cancellationToken);
+
+            if (_hostEnvironment.IsDevelopment() && _loginCodeSettings.Value.LogPlaintextCodeInDevelopment)
+                _logger.LogInformation("Login code for {Email}: {Code}", normalizedEmail, plainCode);
+        }
+
+        public async Task<LoginWithCodeResult> LoginWithCodeAsync(string email, string code, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
+
+            if (string.IsNullOrWhiteSpace(code))
+                throw new ArgumentException($"'{nameof(code)}' cannot be null or empty.", nameof(code));
+
+            var normalizedEmail = email.Trim();
+            var codeHash = RefreshTokenGenerator.HashPlaintext(code.Trim());
+            var result = await _userRepository.ConsumeLoginCodeAsync(
+                normalizedEmail,
+                codeHash,
+                DateTimeOffset.UtcNow,
+                _loginCodeSettings.Value.MaxAttempts,
+                cancellationToken);
+            if (result.UserId is null)
+            {
+                return new LoginWithCodeResult
+                {
+                    IsLocked = result.IsLocked,
+                    RemainingAttempts = result.RemainingAttempts
+                };
+            }
+
+            var user = await _userRepository.GetUserByIdAsync(result.UserId.Value, cancellationToken);
+            return new LoginWithCodeResult
+            {
+                User = user
             };
         }
 
@@ -133,6 +203,7 @@ namespace EduCollab.Application.Services.Users
                 user.LastName,
                 user.Email,
                 hash,
+                null,
                 cancellationToken);
 
             if (user.Id <= 0)
@@ -141,6 +212,32 @@ namespace EduCollab.Application.Services.Users
             var hashingUserWithId = new PasswordHasherUser { Id = user.Id.ToString() };
             var hashForLogin = _passwordHasher.HashPassword(hashingUserWithId, password);
             await _userRepository.UpdatePasswordHashAsync(user.Id, hashForLogin, cancellationToken);
+
+            var normalizedEmail = user.Email.Trim();
+            var now = DateTimeOffset.UtcNow;
+            var expiresAt = now.AddHours(_emailConfirmationSettings.Value.TokenExpirationHours);
+
+            await _userRepository.RevokeActiveEmailConfirmationTokensForUserAsync(user.Id, now, cancellationToken);
+
+            var plainToken = RefreshTokenGenerator.Create();
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
+            await _userRepository.InsertEmailConfirmationTokenAsync(user.Id, tokenHash, expiresAt, now, cancellationToken);
+
+            var hours = _emailConfirmationSettings.Value.TokenExpirationHours;
+            var baseUrl = _emailConfirmationSettings.Value.FrontendConfirmUrl?.Trim().TrimEnd('/') ?? string.Empty;
+            string? confirmUrl = null;
+            if (!string.IsNullOrEmpty(baseUrl))
+            {
+                confirmUrl =
+                    $"{baseUrl}?email={Uri.EscapeDataString(normalizedEmail)}&token={Uri.EscapeDataString(plainToken)}";
+            }
+
+            var confirmMail = EduCollabEmailTemplates.EmailConfirmation(confirmUrl ?? string.Empty, plainToken, hours);
+            await _emailSender.SendAsync(normalizedEmail, confirmMail, cancellationToken);
+
+            if (_hostEnvironment.IsDevelopment() && _emailConfirmationSettings.Value.LogPlaintextTokenInDevelopment)
+                _logger.LogInformation("Email confirmation token for {Email}: {Token}", normalizedEmail, plainToken);
+
             return true;
         }
 
@@ -175,11 +272,11 @@ namespace EduCollab.Application.Services.Users
         {
             EnsureCallerOwnsUser(user.Id);
 
-            var userExists = await _userRepository.ExistsByIdAsync(user.Id, cancellationToken);
-            if (!userExists)
-            {
+            var existing = await _userRepository.GetUserByIdAsync(user.Id, cancellationToken);
+            if (existing is null)
                 return null;
-            }
+
+            user.Email = existing.Email;
 
             var updated = await _userRepository.UpdateAsync(user, cancellationToken);
             if (!updated)
@@ -230,6 +327,31 @@ namespace EduCollab.Application.Services.Users
         {
             EnsureCallerOwnsUser(id);
             return await _userRepository.DeleteUserByIdAsync(id, cancellationToken);
+        }
+
+        public async Task<User?> ConfirmEmailAsync(string email, string token, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
+
+            if (string.IsNullOrWhiteSpace(token))
+                throw new ArgumentException($"'{nameof(token)}' cannot be null or empty.", nameof(token));
+
+            var normalizedEmail = email.Trim();
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(token.Trim());
+            var now = DateTimeOffset.UtcNow;
+
+            var userId = await _userRepository.ConfirmEmailAsync(normalizedEmail, tokenHash, now, cancellationToken);
+            if (userId is null)
+                return null;
+
+            return await _userRepository.GetUserByIdAsync(userId.Value, cancellationToken);
+        }
+
+        private static string CreateLoginCode()
+        {
+            var value = RandomNumberGenerator.GetInt32(0, 1_000_000);
+            return value.ToString("D6", CultureInfo.InvariantCulture);
         }
     }
 }

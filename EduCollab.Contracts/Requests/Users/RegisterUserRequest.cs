@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EduCollab.Contracts.Requests.Users
 {
-    public class UpdateUserRequest
+    public class RegisterUserRequest
     {
         [Required]
         public string FirstName { get; set; } = string.Empty;
@@ -17,5 +17,8 @@ namespace EduCollab.Contracts.Requests.Users
 
         [Required]
         public string Password { get; set; } = string.Empty;
+
+        [Required]
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }
