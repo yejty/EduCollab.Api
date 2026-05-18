@@ -288,7 +288,6 @@ namespace EduCollab.Application.Services.Users
 
         public async Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken)
         {
-            EnsureCallerOwnsUser(id);
             return await _userRepository.GetUserByIdAsync(id, cancellationToken);
         }
 
