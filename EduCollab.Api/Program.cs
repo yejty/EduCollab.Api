@@ -26,6 +26,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/_health");
 
-await app.Services.InitializeDatabaseAsync();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    await app.Services.InitializeDatabaseAsync();
+}
 
 app.Run();
+
+public partial class Program;
