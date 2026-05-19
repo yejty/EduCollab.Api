@@ -1,10 +1,10 @@
-﻿using EduCollab.Contracts.Workspaces;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace EduCollab.Contracts.Requests.Workspaces
 {
     public class UpdateWorkspaceMemberRequest
     {
-        public int UserId { get; set; }
-        public WorkspaceRole Role { get; set; }
+        [Required]
+        public string Role { get; set; } = string.Empty;
     }
 }

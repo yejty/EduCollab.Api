@@ -1,10 +1,10 @@
-using System.Net;
 using EduCollab.Application.Models.Users;
 
 namespace EduCollab.Application.Services.Notifications
 {
     /// <summary>
-    /// Transactional email bodies (plain + HTML) with a shared layout.
+    /// Transactional email bodies (plain + HTML) with a shared layout
+    /// aligned to <c>Helpers/design-tokens.md</c> and <c>Helpers/index.css</c>.
     /// </summary>
     public static class EduCollabEmailTemplates
     {
@@ -12,23 +12,21 @@ namespace EduCollab.Application.Services.Notifications
 
         public static EmailContent ProfileUpdated(User user)
         {
-            var first = WebUtility.HtmlEncode(user.FirstName);
+            var first = EmailHtmlBuilder.Encode(user.FirstName);
             var plain =
                 $"Hello {user.FirstName}," + Environment.NewLine + Environment.NewLine +
                 "Your profile details were updated in EduCollab." + Environment.NewLine + Environment.NewLine +
                 "If you did not make this change, contact support immediately.";
 
             var innerHtml =
-                $"<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">Hello <strong>{first}</strong>,</p>" +
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "Your profile details were updated.</p>" +
-                "<p style=\"margin:0;font-size:15px;line-height:1.5;color:#b45309;background:#fffbeb;padding:12px 14px;border-radius:6px;border:1px solid #fcd34d;\">" +
-                "<strong>Did not make this change?</strong> Contact support immediately.</p>";
+                EmailHtmlBuilder.Paragraph($"Hello <strong>{first}</strong>,") +
+                EmailHtmlBuilder.Paragraph("Your profile details were updated.") +
+                EmailHtmlBuilder.WarningCallout("<strong>Did not make this change?</strong> Contact support immediately.");
 
             return new EmailContent(
                 $"Your {BrandName} profile was updated",
                 plain,
-                WrapLayout("Profile updated", innerHtml));
+                EmailHtmlBuilder.WrapDocument(BrandName, "Profile updated", innerHtml));
         }
 
         public static EmailContent PasswordChanged()
@@ -38,165 +36,183 @@ namespace EduCollab.Application.Services.Notifications
                 "If you did not make this change, reset your password immediately and contact support.";
 
             var innerHtml =
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "Your password was successfully changed.</p>" +
-                "<p style=\"margin:0;font-size:15px;line-height:1.5;color:#b45309;background:#fffbeb;padding:12px 14px;border-radius:6px;border:1px solid #fcd34d;\">" +
-                "<strong>Did not make this change?</strong> Reset your password right away and contact support.</p>";
+                EmailHtmlBuilder.Paragraph("Your password was successfully changed.") +
+                EmailHtmlBuilder.WarningCallout(
+                    "<strong>Did not make this change?</strong> Reset your password right away and contact support.");
 
             return new EmailContent(
                 $"Your {BrandName} password was changed",
                 plain,
-                WrapLayout("Password changed", innerHtml));
+                EmailHtmlBuilder.WrapDocument(BrandName, "Password changed", innerHtml));
         }
 
-        public static EmailContent PasswordResetRequest(string resetToken, int validForHours)
+        public static EmailContent PasswordResetRequest(string resetToken, int validForMinutes)
         {
-            var tokenEncoded = WebUtility.HtmlEncode(resetToken);
+            var validityText = FormatValidityMinutes(validForMinutes);
             var plain =
                 "You requested a password reset for your EduCollab account." + Environment.NewLine + Environment.NewLine +
-                $"Use this token in the app (valid for {validForHours} hour(s)):" + Environment.NewLine + Environment.NewLine +
+                $"Use this token in the app (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
                 resetToken + Environment.NewLine + Environment.NewLine +
                 "If you did not request this, you can ignore this email.";
 
             var innerHtml =
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "You requested a password reset. Use the token below in the app to set a new password.</p>" +
-                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Token (expires in " + validForHours + " hour(s))</p>" +
-                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
-                "font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:#111827;white-space:pre-wrap;word-break:break-all;\">" +
-                tokenEncoded + "</pre>" +
-                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">If you did not request this, you can ignore this email.</p>";
+                EmailHtmlBuilder.Paragraph("You requested a password reset. Use the token below in the app to set a new password.") +
+                EmailHtmlBuilder.Label($"Token (expires in {validityText})") +
+                EmailHtmlBuilder.CodeBlock(resetToken) +
+                EmailHtmlBuilder.FinePrint("If you did not request this, you can ignore this email.");
 
             return new EmailContent(
                 $"Reset your {BrandName} password",
                 plain,
-                WrapLayout("Password reset", innerHtml));
+                EmailHtmlBuilder.WrapDocument(BrandName, "Password reset", innerHtml));
         }
 
-        public static EmailContent WorkspaceInvitation(int workspaceId, string invitationToken, int validForHours)
+        public static EmailContent WorkspaceInvitation(
+            string workspaceName,
+            string? acceptUrl,
+            string plaintextTokenFallback,
+            int validForHours)
         {
-            var workspaceEncoded = WebUtility.HtmlEncode(workspaceId.ToString());
-            var tokenEncoded = WebUtility.HtmlEncode(invitationToken);
-            var plain =
-                "You have been invited to join a workspace on EduCollab." + Environment.NewLine + Environment.NewLine +
-                $"Workspace ID: {workspaceId}" + Environment.NewLine + Environment.NewLine +
-                $"Accept using this invitation token (valid for {validForHours} hour(s)):" + Environment.NewLine + Environment.NewLine +
-                invitationToken + Environment.NewLine + Environment.NewLine +
-                $"Then register via POST api/workspaces/{workspaceId}/invite/<token>/accept with your details." + Environment.NewLine + Environment.NewLine +
-                "If you did not expect this invitation, you can ignore this email.";
+            var validityText = FormatValidityDaysFromHours(validForHours);
+            var hasWorkspaceName = !string.IsNullOrWhiteSpace(workspaceName);
+            var workspaceNameEncoded = EmailHtmlBuilder.Encode(workspaceName);
+            var workspaceLabel = hasWorkspaceName ? $"\"{workspaceName}\"" : "a workspace";
+            var inviteIntroHtml = hasWorkspaceName
+                ? "You have been invited to join the workspace <strong>" + workspaceNameEncoded + "</strong> on EduCollab."
+                : "You have been invited to join a workspace on EduCollab.";
 
-            var innerHtml =
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "You have been invited to join a workspace.</p>" +
-                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Workspace ID</p>" +
-                "<p style=\"margin:0 0 16px;font-size:15px;font-weight:600;color:#111827;\">" + workspaceEncoded + "</p>" +
-                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Invitation token (expires in " + validForHours + " hour(s))</p>" +
-                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
-                "font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:#111827;white-space:pre-wrap;word-break:break-all;\">" +
-                tokenEncoded + "</pre>" +
-                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">Use your API client to complete signup at " +
-                "<code style=\"font-size:12px;background:#f3f4f6;padding:2px 6px;border-radius:4px;\">POST …/workspaces/{id}/invite/{token}/accept</code>. " +
-                "If you did not expect this, ignore this email.</p>";
+            if (!string.IsNullOrWhiteSpace(acceptUrl))
+            {
+                var plain =
+                    $"You have been invited to join the workspace {workspaceLabel} on EduCollab." + Environment.NewLine + Environment.NewLine +
+                    $"Open this link to accept (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
+                    acceptUrl + Environment.NewLine + Environment.NewLine +
+                    "If you did not expect this invitation, you can ignore this email.";
+
+                var innerHtml =
+                    EmailHtmlBuilder.Paragraph(inviteIntroHtml) +
+                    EmailHtmlBuilder.Muted("This link expires in " + validityText + ".") +
+                    EmailHtmlBuilder.ActionList(new[]
+                    {
+                        new NotificationAction("Accept invitation", acceptUrl)
+                    }) +
+                    EmailHtmlBuilder.UrlFallback(acceptUrl) +
+                    EmailHtmlBuilder.FinePrint("If you did not expect this invitation, you can ignore this email.");
+
+                var subject = string.IsNullOrWhiteSpace(workspaceName)
+                    ? $"Invitation to a {BrandName} workspace"
+                    : $"Invitation to join {workspaceName} on {BrandName}";
+
+                return new EmailContent(
+                    subject,
+                    plain,
+                    EmailHtmlBuilder.WrapDocument(BrandName, "Workspace invitation", innerHtml));
+            }
+
+            var plainTokenOnly =
+                $"You have been invited to join the workspace {workspaceLabel} on EduCollab." + Environment.NewLine + Environment.NewLine +
+                $"Use this invitation token (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
+                plaintextTokenFallback + Environment.NewLine + Environment.NewLine +
+                "Configure WorkspaceInvitation:FrontendAcceptUrl to send a clickable link instead.";
+
+            var innerTokenOnly =
+                EmailHtmlBuilder.Paragraph(inviteIntroHtml) +
+                EmailHtmlBuilder.Label($"Invitation token (expires in {validityText})") +
+                EmailHtmlBuilder.CodeBlock(plaintextTokenFallback) +
+                EmailHtmlBuilder.FinePrint("Set WorkspaceInvitation:FrontendAcceptUrl to receive an accept button link instead.");
+
+            var subjectFallback = string.IsNullOrWhiteSpace(workspaceName)
+                ? $"Invitation to a {BrandName} workspace"
+                : $"Invitation to join {workspaceName} on {BrandName}";
 
             return new EmailContent(
-                $"Invitation to a {BrandName} workspace",
-                plain,
-                WrapLayout("Workspace invitation", innerHtml));
+                subjectFallback,
+                plainTokenOnly,
+                EmailHtmlBuilder.WrapDocument(BrandName, "Workspace invitation", innerTokenOnly));
         }
 
         public static EmailContent EmailConfirmation(string confirmUrl, string plaintextTokenFallback, int validForHours)
         {
-            var hoursText = validForHours.ToString();
-            var tokenEncoded = WebUtility.HtmlEncode(plaintextTokenFallback);
+            var validityText = FormatValidityDaysFromHours(validForHours);
 
             if (!string.IsNullOrWhiteSpace(confirmUrl))
             {
-                var urlEncoded = WebUtility.HtmlEncode(confirmUrl);
                 var plain =
                     "Welcome to EduCollab. Confirm your email address to finish setting up your account." + Environment.NewLine + Environment.NewLine +
-                    $"Open this link (valid for {hoursText} hour(s)):" + Environment.NewLine + Environment.NewLine +
+                    $"Open this link (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
                     confirmUrl + Environment.NewLine + Environment.NewLine +
                     "If you did not register, you can ignore this email.";
 
                 var innerHtml =
-                    "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                    "Thanks for signing up. Confirm your email address to activate your account.</p>" +
-                    "<p style=\"margin:0 0 20px;font-size:13px;color:#6b7280;\">This link expires in " + hoursText + " hour(s).</p>" +
-                    "<p style=\"margin:0 0 24px;\"><a href=\"" + urlEncoded + "\" style=\"display:inline-block;padding:12px 22px;background:#2563eb;" +
-                    "color:#ffffff;text-decoration:none;border-radius:8px;font-size:15px;font-weight:600;\">Confirm email</a></p>" +
-                    "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Or paste this URL into your browser:</p>" +
-                    "<p style=\"margin:0 0 20px;font-size:13px;line-height:1.45;color:#374151;word-break:break-all;\">" + urlEncoded + "</p>" +
-                    "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">If you did not register, you can ignore this email.</p>";
+                    EmailHtmlBuilder.Paragraph("Thanks for signing up. Confirm your email address to activate your account.") +
+                    EmailHtmlBuilder.Muted("This link expires in " + validityText + ".") +
+                    EmailHtmlBuilder.ActionList(new[]
+                    {
+                        new NotificationAction("Confirm email", confirmUrl)
+                    }) +
+                    EmailHtmlBuilder.UrlFallback(confirmUrl) +
+                    EmailHtmlBuilder.FinePrint("If you did not register, you can ignore this email.");
 
                 return new EmailContent(
                     $"Confirm your {BrandName} email",
                     plain,
-                    WrapLayout("Confirm your email", innerHtml));
+                    EmailHtmlBuilder.WrapDocument(BrandName, "Confirm your email", innerHtml));
             }
 
             var plainTokenOnly =
-                "Welcome to EduCollab. Confirm your email address using the token below (valid for " + hoursText + " hour(s)):" +
+                "Welcome to EduCollab. Confirm your email address using the token below (valid for " + validityText + "):" +
                 Environment.NewLine + Environment.NewLine +
                 plaintextTokenFallback + Environment.NewLine + Environment.NewLine +
                 "Configure FrontendConfirmUrl in EmailConfirmation settings to send a clickable link instead.";
 
             var innerTokenOnly =
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "Thanks for signing up. Confirm your email using the token below.</p>" +
-                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">Token (expires in " + hoursText + " hour(s))</p>" +
-                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
-                "font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:#111827;white-space:pre-wrap;word-break:break-all;\">" +
-                tokenEncoded + "</pre>" +
-                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">Set EmailConfirmation:FrontendConfirmUrl to receive a button link instead.</p>";
+                EmailHtmlBuilder.Paragraph("Thanks for signing up. Confirm your email using the token below.") +
+                EmailHtmlBuilder.Label($"Token (expires in {validityText})") +
+                EmailHtmlBuilder.CodeBlock(plaintextTokenFallback) +
+                EmailHtmlBuilder.FinePrint("Set EmailConfirmation:FrontendConfirmUrl to receive a button link instead.");
 
             return new EmailContent(
                 $"Confirm your {BrandName} email",
                 plainTokenOnly,
-                WrapLayout("Confirm your email", innerTokenOnly));
+                EmailHtmlBuilder.WrapDocument(BrandName, "Confirm your email", innerTokenOnly));
         }
 
         public static EmailContent LoginCode(string code, int validForMinutes)
         {
-            var encodedCode = WebUtility.HtmlEncode(code);
+            var validityText = FormatValidityMinutes(validForMinutes);
             var plain =
                 "Use this 6-digit sign-in code to log in to EduCollab." + Environment.NewLine + Environment.NewLine +
-                $"Code (expires in {validForMinutes} minute(s)):" + Environment.NewLine + Environment.NewLine +
+                $"Code (expires in {validityText}):" + Environment.NewLine + Environment.NewLine +
                 code + Environment.NewLine + Environment.NewLine +
                 "If you did not request this code, you can ignore this email.";
 
             var innerHtml =
-                "<p style=\"margin:0 0 16px;font-size:15px;line-height:1.5;color:#374151;\">" +
-                "Use this one-time code to sign in.</p>" +
-                "<p style=\"margin:0 0 8px;font-size:13px;color:#6b7280;\">6-digit code (expires in " + validForMinutes + " minute(s))</p>" +
-                "<pre style=\"margin:0 0 20px;padding:14px 16px;background:#f3f4f6;border-radius:8px;border:1px solid #e5e7eb;" +
-                "font-family:ui-monospace,Consolas,monospace;font-size:24px;font-weight:700;letter-spacing:4px;line-height:1.45;color:#111827;\">" +
-                encodedCode + "</pre>" +
-                "<p style=\"margin:0;font-size:14px;line-height:1.5;color:#6b7280;\">If you did not request this code, you can ignore this email.</p>";
+                EmailHtmlBuilder.Paragraph("Use this one-time code to sign in.") +
+                EmailHtmlBuilder.Label($"6-digit code (expires in {validityText})") +
+                EmailHtmlBuilder.CodeBlock(code, large: true) +
+                EmailHtmlBuilder.FinePrint("If you did not request this code, you can ignore this email.");
 
             return new EmailContent(
                 $"Your {BrandName} sign-in code",
                 plain,
-                WrapLayout("Sign-in code", innerHtml));
+                EmailHtmlBuilder.WrapDocument(BrandName, "Sign-in code", innerHtml));
         }
 
-        private static string WrapLayout(string headline, string innerHtml)
+        private static string FormatValidityDaysFromHours(int validForHours)
         {
-            var h = WebUtility.HtmlEncode(headline);
-            return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
-                "<title>" + h + "</title></head>" +
-                "<body style=\"margin:0;padding:0;background-color:#f4f4f5;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">" +
-                "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background-color:#f4f4f5;padding:28px 16px;\">" +
-                "<tr><td align=\"center\">" +
-                "<table role=\"presentation\" width=\"560\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:560px;width:100%;background:#ffffff;" +
-                "border-radius:10px;box-shadow:0 1px 3px rgba(15,23,42,.08);\">" +
-                "<tr><td style=\"padding:28px 32px 8px;\">" +
-                "<p style=\"margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:.04em;color:#2563eb;text-transform:uppercase;\">" + WebUtility.HtmlEncode(BrandName) + "</p>" +
-                "<h1 style=\"margin:0 0 20px;font-size:22px;line-height:1.3;color:#111827;font-weight:600;\">" + h + "</h1>" +
-                "</td></tr>" +
-                "<tr><td style=\"padding:0 32px 28px;\">" + innerHtml + "</td></tr>" +
-                "<tr><td style=\"padding:16px 32px 24px;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#9ca3af;\">" +
-                "This message was sent by " + WebUtility.HtmlEncode(BrandName) + ". Please do not reply to this email." +
-                "</td></tr></table></td></tr></table></body></html>";
+            if (validForHours <= 0)
+                return "1 day";
+
+            var days = (int)Math.Ceiling(validForHours / 24.0);
+            return days == 1 ? "1 day" : $"{days} days";
+        }
+
+        private static string FormatValidityMinutes(int validForMinutes)
+        {
+            if (validForMinutes <= 0)
+                return "1 minute";
+
+            return validForMinutes == 1 ? "1 minute" : $"{validForMinutes} minutes";
         }
     }
 }

@@ -7,7 +7,7 @@ namespace EduCollab.Application.Services.Auth
         /// <summary>
         /// Lifetime of a one-time sign-in code sent by email.
         /// </summary>
-        public int CodeExpirationMinutes { get; set; } = 10;
+        public int CodeExpirationMinutes { get; set; } = 3;
 
         /// <summary>
         /// When true and the host environment is Development, logs the plaintext sign-in code for local testing.

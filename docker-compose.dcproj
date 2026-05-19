@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" Sdk="Microsoft.Docker.Sdk">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>b84d5e6f-7c8a-4d2e-9f1a-3b4c5d6e7f8a</ProjectGuid>
+    <ProjectVersion>2.1</ProjectVersion>
+    <DockerTargetOS>Linux</DockerTargetOS>
+    <DockerPublishLocally>False</DockerPublishLocally>
+    <DockerComposeProjectPath>docker-compose.yml</DockerComposeProjectPath>
+    <DockerServiceName>api</DockerServiceName>
+    <DockerServiceUrl>http://localhost:8080/swagger</DockerServiceUrl>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="docker-compose.override.yml">
+      <DependentUpon>docker-compose.yml</DependentUpon>
+    </None>
+    <None Include="docker-compose.yml" />
+    <None Include=".dockerignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="EduCollab.Api\EduCollab.Api.csproj" />
+  </ItemGroup>
+</Project>

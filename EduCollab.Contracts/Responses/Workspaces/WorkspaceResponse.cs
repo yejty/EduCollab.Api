@@ -1,6 +1,4 @@
-﻿using EduCollab.Contracts.Workspaces;
-
-namespace EduCollab.Contracts.Responses.Workspaces
+﻿namespace EduCollab.Contracts.Responses.Workspaces
 {
     public class WorkspaceResponse
     {
@@ -11,7 +9,15 @@ namespace EduCollab.Contracts.Responses.Workspaces
         /// <summary>
         /// The authenticated user's role in this workspace, when known.
         /// </summary>
-        public WorkspaceRole? CurrentUserRole { get; set; }
+        public string? CurrentUserRole { get; set; }
+
+        public DateTime CreatedAtUtc { get; set; }
+
+        public DateTime UpdatedAtUtc { get; set; }
+
+        public int CreatedByUserId { get; set; }
+
+        public bool IsArchived { get; set; }
 
         public int UsersCount { get; set; }
     }

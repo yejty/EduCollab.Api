@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using EduCollab.Contracts.Validation;
 
 namespace EduCollab.Contracts.Requests.Users
 {
@@ -12,13 +13,18 @@ namespace EduCollab.Contracts.Requests.Users
 
         [Required]
         [EmailAddress]
-        [RegularExpression(@"\A(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\Z", ErrorMessage = "Invalid email address"), DataType(DataType.EmailAddress)]
+        [RegularExpression(ValidationPatterns.Email, ErrorMessage = ValidationPatterns.EmailError)]
+        [DataType(DataType.EmailAddress)]
         public string Email { get; set; } = string.Empty;
 
         [Required]
+        [RegularExpression(ValidationPatterns.Password, ErrorMessage = ValidationPatterns.PasswordError)]
+        [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
         [Required]
+        [RegularExpression(ValidationPatterns.Password, ErrorMessage = ValidationPatterns.PasswordError)]
+        [DataType(DataType.Password)]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

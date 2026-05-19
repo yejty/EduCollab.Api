@@ -7,7 +7,7 @@ namespace EduCollab.Application.Services.Auth
         /// <summary>
         /// Lifetime of a password reset link/token.
         /// </summary>
-        public int TokenExpirationHours { get; set; } = 1;
+        public int TokenExpirationMinutes { get; set; } = 3;
 
         /// <summary>
         /// When true and the host environment is Development, logs the plaintext reset token (for local testing without email).

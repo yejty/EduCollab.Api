@@ -147,6 +147,30 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_UserEmailConfirmationTokens_UserId ON UserEmailConfirmationTokens (UserId);");
 
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Notifications (
+                    Id BIGSERIAL PRIMARY KEY,
+                    RecipientEmail VARCHAR(255) NOT NULL,
+                    Type VARCHAR(100) NOT NULL,
+                    Subject TEXT NOT NULL,
+                    PlainText TEXT NOT NULL,
+                    HtmlBody TEXT NULL,
+                    Status VARCHAR(50) NOT NULL,
+                    Attempts INT NOT NULL DEFAULT 0,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    SentAtUtc TIMESTAMPTZ NULL,
+                    LastError TEXT NULL,
+                    MetadataJson JSONB NULL
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Notifications_RecipientEmail ON Notifications (RecipientEmail);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Notifications_Status ON Notifications (Status);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Notifications_Type ON Notifications (Type);");
+
         }
     }
 }

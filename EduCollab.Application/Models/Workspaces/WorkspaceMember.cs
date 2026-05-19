@@ -1,6 +1,4 @@
-﻿using EduCollab.Contracts.Workspaces;
-
-namespace EduCollab.Application.Models
+﻿namespace EduCollab.Application.Models.Workspaces
 {
     public class WorkspaceMember
     {

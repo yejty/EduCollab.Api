@@ -1,4 +1,6 @@
 ﻿using EduCollab.Application.Services.Auth;
+using EduCollab.Application.Services.Groups;
+using EduCollab.Application.Services.Notifications;
 using EduCollab.Application.Services.Users;
 using EduCollab.Application.Services.Workspaces;
 using Microsoft.AspNetCore.Identity;
@@ -18,8 +20,10 @@ namespace EduCollab.Application
             services.Configure<WorkspaceInvitationSettings>(configuration.GetSection(WorkspaceInvitationSettings.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IWorkspaceService, WorkspaceService>();
+            services.AddScoped<IGroupService, GroupService>();
             return services;
         }
     }

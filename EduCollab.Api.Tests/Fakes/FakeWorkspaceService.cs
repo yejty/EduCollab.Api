@@ -1,5 +1,5 @@
-using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models.Workspaces;
 using EduCollab.Application.Services.Workspaces;
 
 namespace EduCollab.Api.Tests.Fakes;
@@ -9,6 +9,7 @@ public sealed class FakeWorkspaceService : IWorkspaceService
     public Func<int, User, string, string, CancellationToken, Task<bool>>? CreateUserInWorkspaceAsyncHandler { get; set; }
     public Func<int, string, CancellationToken, Task>? InviteUserToWorkspaceAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<Workspace?>>? GetWorkspaceAsyncHandler { get; set; }
+    public Func<CancellationToken, Task<List<Workspace>>>? GetWorkspacesAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<List<WorkspaceMember>>>? GetWorkspaceMembersAsyncHandler { get; set; }
     public Func<int, int, CancellationToken, Task<WorkspaceMember?>>? GetWorkspaceMemberAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<WorkspaceMember?>>? GetCurrentUserWorkspaceMemberAsyncHandler { get; set; }
@@ -27,6 +28,9 @@ public sealed class FakeWorkspaceService : IWorkspaceService
 
     public Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken) =>
         GetWorkspaceAsyncHandler?.Invoke(id, cancellationToken) ?? Task.FromResult<Workspace?>(null);
+
+    public Task<List<Workspace>> GetWorkspacesAsync(CancellationToken cancellationToken) =>
+        GetWorkspacesAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult(new List<Workspace>());
 
     public Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int id, CancellationToken cancellationToken) =>
         GetWorkspaceMembersAsyncHandler?.Invoke(id, cancellationToken) ?? Task.FromResult(new List<WorkspaceMember>());

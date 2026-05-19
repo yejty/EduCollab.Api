@@ -1,5 +1,5 @@
-using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models.Workspaces;
 
 namespace EduCollab.Application.Services.Workspaces
 {
@@ -8,6 +8,11 @@ namespace EduCollab.Application.Services.Workspaces
         Task<bool> CreateUserInWorkspaceAsync(int workspaceId, User user, string password, string invitationToken, CancellationToken cancellationToken);
         Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken);
         Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// All workspaces (no membership filter).
+        /// </summary>
+        Task<List<Workspace>> GetWorkspacesAsync(CancellationToken cancellationToken);
         Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int id, CancellationToken cancellationToken);
         Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
 

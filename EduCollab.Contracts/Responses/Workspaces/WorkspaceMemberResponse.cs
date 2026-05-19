@@ -1,4 +1,3 @@
-using EduCollab.Contracts.Workspaces;
 
 namespace EduCollab.Contracts.Responses.Workspaces
 {
@@ -6,7 +5,7 @@ namespace EduCollab.Contracts.Responses.Workspaces
     {
         public int UserId { get; set; }
 
-        public WorkspaceRole Role { get; set; }
+        public string Role { get; set; } = string.Empty;
 
         public DateTimeOffset? JoinedAt { get; set; }
     }

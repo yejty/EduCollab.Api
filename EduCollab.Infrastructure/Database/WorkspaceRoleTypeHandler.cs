@@ -1,6 +1,6 @@
 using System.Data;
 using Dapper;
-using EduCollab.Contracts.Workspaces;
+using EduCollab.Application.Models.Workspaces;
 
 namespace EduCollab.Infrastructure.Database
 {

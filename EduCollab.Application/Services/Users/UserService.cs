@@ -23,7 +23,7 @@ namespace EduCollab.Application.Services.Users
         private readonly IOptions<EmailConfirmationSettings> _emailConfirmationSettings;
         private readonly IOptions<LoginCodeSettings> _loginCodeSettings;
         private readonly IHostEnvironment _hostEnvironment;
-        private readonly IEmailSender _emailSender;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
@@ -34,7 +34,7 @@ namespace EduCollab.Application.Services.Users
             IOptions<EmailConfirmationSettings> emailConfirmationSettings,
             IOptions<LoginCodeSettings> loginCodeSettings,
             IHostEnvironment hostEnvironment,
-            IEmailSender emailSender,
+            INotificationService notificationService,
             ILogger<UserService> logger)
         {
             _userRepository = userRepository;
@@ -44,7 +44,7 @@ namespace EduCollab.Application.Services.Users
             _emailConfirmationSettings = emailConfirmationSettings;
             _loginCodeSettings = loginCodeSettings;
             _hostEnvironment = hostEnvironment;
-            _emailSender = emailSender;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -150,7 +150,9 @@ namespace EduCollab.Application.Services.Users
             await _userRepository.InsertLoginCodeAsync(cred.Id, codeHash, expiresAt, now, cancellationToken);
 
             var mail = EduCollabEmailTemplates.LoginCode(plainCode, _loginCodeSettings.Value.CodeExpirationMinutes);
-            await _emailSender.SendAsync(normalizedEmail, mail, cancellationToken);
+            await _notificationService.SendAsync(
+                NotificationMessage.Create(normalizedEmail, NotificationType.LoginCode, mail),
+                cancellationToken);
 
             if (_hostEnvironment.IsDevelopment() && _loginCodeSettings.Value.LogPlaintextCodeInDevelopment)
                 _logger.LogInformation("Login code for {Email}: {Code}", normalizedEmail, plainCode);
@@ -233,7 +235,15 @@ namespace EduCollab.Application.Services.Users
             }
 
             var confirmMail = EduCollabEmailTemplates.EmailConfirmation(confirmUrl ?? string.Empty, plainToken, hours);
-            await _emailSender.SendAsync(normalizedEmail, confirmMail, cancellationToken);
+            await _notificationService.SendAsync(
+                NotificationMessage.Create(
+                    normalizedEmail,
+                    NotificationType.EmailConfirmation,
+                    confirmMail,
+                    actions: string.IsNullOrWhiteSpace(confirmUrl)
+                        ? null
+                        : new[] { new NotificationAction("Confirm email", confirmUrl) }),
+                cancellationToken);
 
             if (_hostEnvironment.IsDevelopment() && _emailConfirmationSettings.Value.LogPlaintextTokenInDevelopment)
                 _logger.LogInformation("Email confirmation token for {Email}: {Token}", normalizedEmail, plainToken);
@@ -252,7 +262,7 @@ namespace EduCollab.Application.Services.Users
                 return;
 
             var now = DateTimeOffset.UtcNow;
-            var expiresAt = now.AddHours(_passwordResetSettings.Value.TokenExpirationHours);
+            var expiresAt = now.AddMinutes(_passwordResetSettings.Value.TokenExpirationMinutes);
 
             await _userRepository.RevokeActivePasswordResetTokensForUserAsync(cred.Id, now, cancellationToken);
 
@@ -260,9 +270,11 @@ namespace EduCollab.Application.Services.Users
             var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
             await _userRepository.InsertPasswordResetTokenAsync(cred.Id, tokenHash, expiresAt, now, cancellationToken);
 
-            var hours = _passwordResetSettings.Value.TokenExpirationHours;
-            var resetMail = EduCollabEmailTemplates.PasswordResetRequest(plainToken, hours);
-            await _emailSender.SendAsync(normalizedEmail, resetMail, cancellationToken);
+            var minutes = _passwordResetSettings.Value.TokenExpirationMinutes;
+            var resetMail = EduCollabEmailTemplates.PasswordResetRequest(plainToken, minutes);
+            await _notificationService.SendAsync(
+                NotificationMessage.Create(normalizedEmail, NotificationType.PasswordReset, resetMail),
+                cancellationToken);
 
             if (_hostEnvironment.IsDevelopment() && _passwordResetSettings.Value.LogPlaintextTokenInDevelopment)
                 _logger.LogInformation("Password reset token for {Email}: {Token}", normalizedEmail, plainToken);
@@ -313,13 +325,17 @@ namespace EduCollab.Application.Services.Users
         private Task NotifyProfileUpdatedAsync(User user, CancellationToken cancellationToken)
         {
             var mail = EduCollabEmailTemplates.ProfileUpdated(user);
-            return _emailSender.SendAsync(user.Email, mail, cancellationToken);
+            return _notificationService.SendAsync(
+                NotificationMessage.Create(user.Email, NotificationType.ProfileUpdated, mail),
+                cancellationToken);
         }
 
         private Task NotifyPasswordChangedAsync(string email, CancellationToken cancellationToken)
         {
             var mail = EduCollabEmailTemplates.PasswordChanged();
-            return _emailSender.SendAsync(email, mail, cancellationToken);
+            return _notificationService.SendAsync(
+                NotificationMessage.Create(email, NotificationType.PasswordChanged, mail),
+                cancellationToken);
         }
 
         public async Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken)

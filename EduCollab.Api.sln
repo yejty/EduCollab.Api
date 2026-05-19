@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EduCollab.Infrastructure", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EduCollab.Api.Tests", "EduCollab.Api.Tests\EduCollab.Api.Tests.csproj", "{3A01071E-DF7B-43AA-85AE-6BEE34202A40}"
 EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{3A01071E-DF7B-43AA-85AE-6BEE34202A40}.Release|x64.Build.0 = Release|Any CPU
 		{3A01071E-DF7B-43AA-85AE-6BEE34202A40}.Release|x86.ActiveCfg = Release|Any CPU
 		{3A01071E-DF7B-43AA-85AE-6BEE34202A40}.Release|x86.Build.0 = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|x64.Build.0 = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Debug|x86.Build.0 = Debug|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|x64.ActiveCfg = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|x64.Build.0 = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|x86.ActiveCfg = Release|Any CPU
+		{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -79,11 +79,17 @@ internal static partial class IntegrationTestHelpers
             LoginCodeRegex(),
             "login code");
 
-    public static string GetInvitationToken(this PostgresIntegrationApiFactory factory, string email) =>
-        ExtractMatch(
-            factory.EmailSender.GetLatest(email, "Invitation to a EduCollab workspace").Content.PlainText,
-            InvitationTokenRegex(),
-            "workspace invitation token");
+    public static string GetInvitationToken(this PostgresIntegrationApiFactory factory, string email)
+    {
+        var plain = factory.EmailSender.GetLatest(email, "Invitation to a EduCollab workspace").Content.PlainText;
+        var fromUrl = InvitationUrlTokenRegex().Match(plain);
+        if (fromUrl.Success)
+        {
+            return Uri.UnescapeDataString(fromUrl.Groups[1].Value.Trim());
+        }
+
+        return ExtractMatch(plain, InvitationTokenFallbackRegex(), "workspace invitation token");
+    }
 
     private static string ExtractMatch(string input, Regex regex, string valueName)
     {
@@ -103,6 +109,9 @@ internal static partial class IntegrationTestHelpers
     [GeneratedRegex(@"Code \(expires.*?\):\s+([0-9]{6})", RegexOptions.Singleline)]
     private static partial Regex LoginCodeRegex();
 
-    [GeneratedRegex(@"Accept using this invitation token.*?:\s+(\S+)", RegexOptions.Singleline)]
-    private static partial Regex InvitationTokenRegex();
+    [GeneratedRegex(@"[?&]token=([^&\s\r\n]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex InvitationUrlTokenRegex();
+
+    [GeneratedRegex(@"Use this invitation token.*?:\s+(\S+)", RegexOptions.Singleline)]
+    private static partial Regex InvitationTokenFallbackRegex();
 }

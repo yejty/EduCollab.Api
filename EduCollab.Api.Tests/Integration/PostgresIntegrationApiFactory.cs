@@ -63,9 +63,9 @@ public sealed class PostgresIntegrationApiFactory : WebApplicationFactory<Progra
                 ["Jwt:SecretKey"] = "integration-tests-secret-key-should-be-long-enough-12345",
                 ["Jwt:ExpirationMinutes"] = "60",
                 ["Jwt:RefreshTokenExpirationDays"] = "14",
-                ["PasswordReset:TokenExpirationHours"] = "1",
+                ["PasswordReset:TokenExpirationMinutes"] = "3",
                 ["EmailConfirmation:TokenExpirationHours"] = "24",
-                ["LoginCode:CodeExpirationMinutes"] = "10",
+                ["LoginCode:CodeExpirationMinutes"] = "3",
                 ["LoginCode:MaxAttempts"] = "3",
                 ["WorkspaceInvitation:TokenExpirationHours"] = "168",
             });

@@ -1,0 +1,16 @@
+# Visual Studio / VS Code merge file (see docker-compose.yml for full stack).
+# F5 with docker-compose startup project uses EduCollab.Api/Dockerfile for faster debug builds.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: EduCollab.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8080:8080"
+    labels:
+      com.microsoft.visualstudio.debuggee.program: "dotnet"
+      com.microsoft.visualstudio.debuggee.arguments: "EduCollab.Api.dll"
+      com.microsoft.visualstudio.debuggee.workingdirectory: "/app"

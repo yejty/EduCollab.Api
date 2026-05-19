@@ -1,4 +1,4 @@
-namespace EduCollab.Contracts.Workspaces
+namespace EduCollab.Application.Models.Workspaces
 {
     /// <summary>
     /// Role of a user within a workspace. Persisted as the enum name in <c>WorkspaceMembers.Role</c>.

@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using EduCollab.Application.Models.Workspaces;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
-using EduCollab.Contracts.Workspaces;
 
 namespace EduCollab.Api.Tests.Integration;
 
@@ -33,6 +33,11 @@ public sealed class WorkspaceApiIntegrationTests
 
         createWorkspaceResponse.EnsureSuccessStatusCode();
         var workspace = await createWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+
+        var listWorkspacesResponse = await ownerClient.GetAsync("/api/workspaces");
+        listWorkspacesResponse.EnsureSuccessStatusCode();
+        var workspacesList = await listWorkspacesResponse.ReadAsJsonAsync<WorkspacesResponse>();
+        Assert.Contains(workspacesList.Workspaces, w => w.Id == workspace.Id);
 
         factory.EmailSender.Clear();
 
@@ -68,20 +73,19 @@ public sealed class WorkspaceApiIntegrationTests
         var members = await getMembersResponse.ReadAsJsonAsync<WorkspaceMembersResponse>();
         Assert.Equal(2, members.Members.Count);
 
-        var promoteResponse = await ownerClient.PostAsJsonAsync($"/api/workspaces/{workspace.Id}/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
+        var promoteResponse = await ownerClient.PutAsJsonAsync($"/api/workspaces/{workspace.Id}/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
         {
-            UserId = membership.UserId,
-            Role = WorkspaceRole.Admin,
+            Role = "Admin",
         });
 
         promoteResponse.EnsureSuccessStatusCode();
         var promoted = await promoteResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal(WorkspaceRole.Admin, promoted.Role);
+        Assert.Equal("Admin", promoted.Role);
 
         var memberWorkspaceResponse = await memberClient.GetAsync($"/api/workspaces/{workspace.Id}");
         memberWorkspaceResponse.EnsureSuccessStatusCode();
         var memberWorkspace = await memberWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
-        Assert.Equal(WorkspaceRole.Admin, memberWorkspace.CurrentUserRole);
+        Assert.Equal("Admin", memberWorkspace.CurrentUserRole);
 
         var updateWorkspaceResponse = await memberClient.PutAsJsonAsync($"/api/workspaces/{workspace.Id}", new UpdateWorkspaceRequest
         {

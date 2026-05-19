@@ -1,8 +1,11 @@
-﻿namespace EduCollab.Api
+﻿using System.Net.NetworkInformation;
+
+namespace EduCollab.Api
 {
     public static class ApiEndpoints
     {
         private const string ApiBase = "api";
+        private const string ApiWorkspaceBase = $"{ApiBase}/workspaces/{{workspaceId}}";
 
         public static class Users
         {
@@ -31,11 +34,12 @@
         {
             private const string Base = $"{ApiBase}/workspaces";
             public const string Create = Base;
+            public const string GetAll = Base;
             public const string Get = $"{Base}/{{id}}";
             public const string Update = $"{Base}/{{id}}";
             public const string Delete = $"{Base}/{{id}}";
 
-            public const string GetMembers = $"{Base}/{{id}}/users";
+            public const string GetAllMembers = $"{Base}/{{id}}/users";
             public const string CreateMember = $"{Base}/{{id}}/users";
             public const string GetMember = $"{Base}/{{id}}/users/{{userId}}";
             public const string UpdateMember = $"{Base}/{{id}}/users/{{userId}}";
@@ -44,6 +48,27 @@
             public const string Invite = $"{Base}/{{id}}/invite";
             public const string Accept = $"{Base}/{{id}}/invite/{{invitationToken}}/accept";
 
+        }
+
+        public static class Groups
+        {
+            private const string Base = $"{ApiWorkspaceBase}/groups";
+            public const string Create = Base;
+            public const string GetAll = Base;
+            public const string Get = $"{Base}/{{groupId}}";
+            public const string Update = $"{Base}/{{groupId}}";
+            public const string Delete = $"{Base}/{{groupId}}";
+
+            public const string GetAllMembers = $"{Base}/{{groupId}}/users";
+            public const string CreateMember = $"{Base}/{{groupId}}/users";
+            public const string GetMember = $"{Base}/{{groupId}}/users/{{userId}}";
+            public const string UpdateMember = $"{Base}/{{groupId}}/users/{{userId}}";
+            public const string DeleteMember = $"{Base}/{{groupId}}/users/{{userId}}";
+
+            public const string GetFolders = $"{Base}/{{groupId}}/folders";
+            public const string GetSubFolders = $"{Base}/{{groupId}}/folders/{{folderId}}/folders";
+            public const string GetAssetsInFolders = $"{Base}/{{groupId}}/folders/{{folderId}}/assets";
+            public const string GetAssets = $"{Base}/{{groupId}}/assets";
         }
     }
 }

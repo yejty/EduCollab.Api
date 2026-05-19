@@ -252,7 +252,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Retrieve the authenticated user's profile by id. The id must match the caller (JWT subject).
+        /// Retrieve the user's profile by id. 
         /// </summary>
         /// <param name="id">User Id.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -310,7 +310,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Delete user by user Id.
+        /// Delete user by user Id. The id must match the authenticated user (JWT subject).
         /// </summary>
         /// <param name="id">User Id.</param>
         /// <param name="cancellationToken">Cancellation token.</param>

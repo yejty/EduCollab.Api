@@ -1,13 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using EduCollab.Application.Exceptions;
-using EduCollab.Application.Models;
 using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models.Workspaces;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Workspaces;
-using EduCollab.Contracts.Workspaces;
 
 namespace EduCollab.Api.Tests;
 
@@ -76,7 +75,7 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(41, body.UserId);
-        Assert.Equal(WorkspaceRole.Member, body.Role);
+        Assert.Equal("Member", body.Role);
     }
 
     [Fact]
@@ -113,7 +112,28 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceResponse>();
         Assert.Equal(55, body.Id);
-        Assert.Equal(WorkspaceRole.Owner, body.CurrentUserRole);
+        Assert.Equal("Owner", body.CurrentUserRole);
+    }
+
+    [Fact]
+    public async Task GetWorkspaces_ReturnsOk_WithAllWorkspaces()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.WorkspaceService.GetWorkspacesAsyncHandler = _ => Task.FromResult(new List<Workspace>
+        {
+            new() { Id = 55, Name = "Alpha", Description = "First" },
+            new() { Id = 56, Name = "Beta" },
+        });
+
+        using var client = factory.CreateClient(userId: 33);
+
+        var response = await client.GetAsync("/api/workspaces");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<WorkspacesResponse>();
+        Assert.Equal(2, body.Workspaces.Count);
+        Assert.Equal("Alpha", body.Workspaces[0].Name);
+        Assert.Null(body.Workspaces[0].CurrentUserRole);
     }
 
     [Fact]
@@ -139,7 +159,7 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceResponse>();
         Assert.Equal(55, body.Id);
-        Assert.Equal(WorkspaceRole.Admin, body.CurrentUserRole);
+        Assert.Equal("Admin", body.CurrentUserRole);
     }
 
     [Fact]
@@ -199,15 +219,14 @@ public sealed class WorkspacesControllerEndpointTests
 
         using var client = factory.CreateClient(userId: 37);
 
-        var response = await client.PostAsJsonAsync("/api/workspaces/55/users/77", new UpdateWorkspaceMemberRequest
+        var response = await client.PutAsJsonAsync("/api/workspaces/55/users/77", new UpdateWorkspaceMemberRequest
         {
-            UserId = 77,
-            Role = WorkspaceRole.Admin,
+            Role = "Admin",
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(77, body.UserId);
-        Assert.Equal(WorkspaceRole.Admin, body.Role);
+        Assert.Equal("Admin", body.Role);
     }
 }

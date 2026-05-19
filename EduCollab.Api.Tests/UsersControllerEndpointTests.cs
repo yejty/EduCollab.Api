@@ -57,6 +57,42 @@ public sealed class UsersControllerEndpointTests
     }
 
     [Fact]
+    public async Task Register_ReturnsBadRequest_WhenPasswordIsWeak()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
+        {
+            FirstName = "Jane",
+            LastName = "Doe",
+            Email = "jane@example.com",
+            Password = "password",
+            ConfirmPassword = "password",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_ReturnsBadRequest_WhenEmailHasNoDomainSuffix()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
+        {
+            FirstName = "Jane",
+            LastName = "Doe",
+            Email = "jane@example",
+            Password = "Pass123!",
+            ConfirmPassword = "Pass123!",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ConfirmEmail_ReturnsTokens_WhenUserIsConfirmed()
     {
         await using var factory = new ApiWebApplicationFactory();

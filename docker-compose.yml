@@ -24,6 +24,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
@@ -38,6 +40,7 @@ services:
       Email__UseSsl: false
       Email__FromAddress: noreply@educollab.local
       Email__FromDisplayName: EduCollab (dev)
+      WorkspaceInvitation__FrontendAcceptUrl: http://localhost:3000/workspace/join
     ports:
       - "8080:8080"
 

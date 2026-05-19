@@ -1,0 +1,313 @@
+@import 'tailwindcss';
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/*
+ ---break---
+ */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens — see docs/design-tokens.md
+ * Unity / VS Code dark editor look.
+ */
+@theme {
+  --color-app: #1e1e1e;
+  --color-panel: #252526;
+  --color-panel-alt: #2d2d30;
+  --color-row-hover: #2a2d2e;
+  --color-border: #3f3f46;
+  --color-border-strong: #555;
+  --color-text-primary: #dddddd;
+  --color-text-secondary: #9b9b9b;
+  --color-text-muted: #6b6b6b;
+  --color-accent: #00ad09;
+  --color-accent-hover: #14c417;
+  --color-danger: #d54545;
+  --color-danger-hover: #e25555;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 11px;
+  --text-md: 12px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+/*
+ * Mobile browsers: `100vh` / `h-screen` is often taller than the *visible* viewport
+ * (URL bar / home indicator), which forces awkward page scroll. Use the dynamic
+ * viewport for `html` and keep `body` + `#root` in a non-scrolling flex shell;
+ * individual panels use `overflow-auto` instead.
+ */
+html {
+  height: 100vh; /* fallback where `dvh` is unavailable */
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Single flex child from App `.app-shell`; keeps Toaster inside the same column. */
+#root > .app-shell {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+/*
+ * Text selection: use semantic primary (green in .dark) — not `var(--color-accent)`
+ * from @theme inline, which maps to shadcn `--accent` (panel gray).
+ */
+::selection {
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--foreground);
+}
+
+/* Some engines only apply ::selection to inputs with an explicit rule. */
+input::selection,
+textarea::selection,
+[contenteditable='true']::selection {
+  background: color-mix(in srgb, var(--primary) 50%, transparent);
+  color: var(--foreground);
+}
+
+/* Thin Unity-style scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-app);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+/*
+ ---break---
+ */
+@theme inline {
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+/*
+ ---break---
+ */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+/*
+ ---break---
+ */
+.dark {
+  /* Unity editor tokens — aligned with docs/design-tokens.md */
+  --background: #1e1e1e;
+  --foreground: #dddddd;
+  --card: #252526;
+  --card-foreground: #dddddd;
+  --popover: #252526;
+  --popover-foreground: #dddddd;
+  --primary: #00ad09;
+  --primary-foreground: #ffffff;
+  --secondary: #2d2d30;
+  --secondary-foreground: #dddddd;
+  --muted: #2d2d30;
+  --muted-foreground: #9b9b9b;
+  --accent: #2a2d2e;
+  --accent-foreground: #dddddd;
+  --destructive: #d54545;
+  --border: #3f3f46;
+  --input: #3f3f46;
+  --ring: #00ad09;
+  --chart-1: #00ad09;
+  --chart-2: #9b9b9b;
+  --chart-3: #6b6b6b;
+  --chart-4: #555555;
+  --chart-5: #3f3f46;
+  --sidebar: #252526;
+  --sidebar-foreground: #dddddd;
+  --sidebar-primary: #00ad09;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2d2e;
+  --sidebar-accent-foreground: #dddddd;
+  --sidebar-border: #3f3f46;
+  --sidebar-ring: #00ad09;
+}
+/*
+ ---break---
+ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-weight: 300;
+    font-size: var(--text-base);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/*
+ * Custom checkbox — keep SVG data URLs here so Tailwind / Lightning don't rewrite `url(...)`
+ * in arbitrary utilities to invalid placeholders. `appearance-none` is required for square
+ * corners and for our border/background to show.
+ */
+@layer components {
+  .checkbox-app {
+    /* Was 3.5 × spacing; ~20% smaller → ×0.8 */
+    width: calc(var(--spacing) * 2.8);
+    height: calc(var(--spacing) * 2.8);
+    flex-shrink: 0;
+    cursor: pointer;
+    appearance: none;
+    border-radius: 0;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-panel-alt);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .checkbox-app:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+  }
+
+  .checkbox-app:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--ring);
+  }
+
+  .checkbox-app:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .checkbox-app:checked:not(:indeterminate) {
+    border-color: var(--primary);
+    background-color: var(--color-panel-alt);
+    background-image: linear-gradient(var(--primary), var(--primary));
+    background-size: 38% 38%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .checkbox-app:indeterminate {
+    border-color: var(--primary);
+    background-color: var(--color-panel-alt);
+    background-image: linear-gradient(var(--primary), var(--primary));
+    background-size: 45% 18%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+}
