@@ -47,6 +47,7 @@ namespace EduCollab.Api.Extensions
                 });
 
                 options.OperationFilter<AuthorizeRequiredOperationFilter>();
+                options.SchemaFilter<PasswordExampleSchemaFilter>();
             });
 
             return services;

@@ -14,6 +14,7 @@ public sealed class FakeUserService : IUserService
     public Func<string, CancellationToken, Task>? RequestLoginCodeAsyncHandler { get; set; }
     public Func<string, string, CancellationToken, Task<LoginWithCodeResult>>? LoginWithCodeAsyncHandler { get; set; }
     public Func<User, string, CancellationToken, Task<bool>>? RegisterAsyncHandler { get; set; }
+    public Func<string, CancellationToken, Task>? ResendEmailConfirmationAsyncHandler { get; set; }
     public Func<string, CancellationToken, Task>? ResetPasswordAsyncHandler { get; set; }
     public Func<User, CancellationToken, Task<User?>>? UpdateUserByIdAsyncHandler { get; set; }
     public Func<string, string, CancellationToken, Task<User?>>? ConfirmEmailAsyncHandler { get; set; }
@@ -45,6 +46,9 @@ public sealed class FakeUserService : IUserService
 
     public Task<bool> RegisterAsync(User user, string password, CancellationToken cancellationToken) =>
         RegisterAsyncHandler?.Invoke(user, password, cancellationToken) ?? Task.FromResult(true);
+
+    public Task ResendEmailConfirmationAsync(string email, CancellationToken cancellationToken) =>
+        ResendEmailConfirmationAsyncHandler?.Invoke(email, cancellationToken) ?? Task.CompletedTask;
 
     public Task ResetPasswordAsync(string email, CancellationToken cancellationToken) =>
         ResetPasswordAsyncHandler?.Invoke(email, cancellationToken) ?? Task.CompletedTask;

@@ -45,3 +45,7 @@ UpgradeLog.htm
 .idea
 mono_crash.*.json
 mono_crash.*.blob
+.env
+.env.*
+!.env.example
+!.env.production.example

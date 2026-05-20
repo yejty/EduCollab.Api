@@ -18,6 +18,7 @@ namespace EduCollab.Api
             public const string Register = $"{Base}/register";
 
             public const string ConfirmEmail = $"{Base}/registration-confirm";
+            public const string ResendConfirmEmail = $"{Base}/registration-confirm/resend";
 
             public const string Login = $"{Base}/login"; 
             public const string LoginRequestCode = $"{Base}/login/request-code";

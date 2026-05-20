@@ -24,32 +24,26 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_started
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
       Database__ConnectionString: Server=postgres;Port=5432;Database=EduCollab;User Id=postgres;Password=postgres;
       Jwt__Issuer: EduCollab.Api
       Jwt__Audience: EduCollab.Client
       Jwt__SecretKey: replace-this-with-a-long-dev-secret-key
       Jwt__ExpirationMinutes: 60
-      Email__Enabled: true
-      Email__SmtpHost: mailpit
-      Email__SmtpPort: 1025
-      Email__UseSsl: false
-      Email__FromAddress: noreply@educollab.local
-      Email__FromDisplayName: EduCollab (dev)
-      WorkspaceInvitation__FrontendAcceptUrl: http://localhost:3000/workspace/join
+      Email__Enabled: ${Email__Enabled:-true}
+      Email__SmtpHost: ${Email__SmtpHost:-}
+      Email__SmtpPort: ${Email__SmtpPort:-587}
+      Email__UseSsl: ${Email__UseSsl:-true}
+      Email__UserName: ${Email__UserName:-}
+      Email__Password: ${Email__Password:-}
+      Email__FromAddress: ${Email__FromAddress:-noreply@skyform.space}
+      Email__FromDisplayName: ${Email__FromDisplayName:-SkyForm}
+      WorkspaceInvitation__FrontendAcceptUrl: ${WorkspaceInvitation__FrontendAcceptUrl:-https://skyform.space/workspace/join}
+      EmailConfirmation__FrontendConfirmUrl: ${EmailConfirmation__FrontendConfirmUrl:-https://skyform.space/auth/confirm-email}
     ports:
       - "8080:8080"
-
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: educollab-mailpit
-    ports:
-      - "1025:1025"
-      - "8025:8025"
 
 volumes:
   postgres-data:

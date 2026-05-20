@@ -20,7 +20,7 @@ namespace EduCollab.Application.Services.Users
         private readonly IPasswordHasher<PasswordHasherUser> _passwordHasher;
         private readonly ICurrentUser _currentUser;
         private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
-        private readonly IOptions<EmailConfirmationSettings> _emailConfirmationSettings;
+        private readonly IOptions<EmailConfirmationSettings> e;
         private readonly IOptions<LoginCodeSettings> _loginCodeSettings;
         private readonly IHostEnvironment _hostEnvironment;
         private readonly INotificationService _notificationService;
@@ -41,7 +41,7 @@ namespace EduCollab.Application.Services.Users
             _passwordHasher = passwordHasher;
             _currentUser = currentUser;
             _passwordResetSettings = passwordResetSettings;
-            _emailConfirmationSettings = emailConfirmationSettings;
+            e = emailConfirmationSettings;
             _loginCodeSettings = loginCodeSettings;
             _hostEnvironment = hostEnvironment;
             _notificationService = notificationService;
@@ -215,40 +215,22 @@ namespace EduCollab.Application.Services.Users
             var hashForLogin = _passwordHasher.HashPassword(hashingUserWithId, password);
             await _userRepository.UpdatePasswordHashAsync(user.Id, hashForLogin, cancellationToken);
 
-            var normalizedEmail = user.Email.Trim();
-            var now = DateTimeOffset.UtcNow;
-            var expiresAt = now.AddHours(_emailConfirmationSettings.Value.TokenExpirationHours);
-
-            await _userRepository.RevokeActiveEmailConfirmationTokensForUserAsync(user.Id, now, cancellationToken);
-
-            var plainToken = RefreshTokenGenerator.Create();
-            var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
-            await _userRepository.InsertEmailConfirmationTokenAsync(user.Id, tokenHash, expiresAt, now, cancellationToken);
-
-            var hours = _emailConfirmationSettings.Value.TokenExpirationHours;
-            var baseUrl = _emailConfirmationSettings.Value.FrontendConfirmUrl?.Trim().TrimEnd('/') ?? string.Empty;
-            string? confirmUrl = null;
-            if (!string.IsNullOrEmpty(baseUrl))
-            {
-                confirmUrl =
-                    $"{baseUrl}?email={Uri.EscapeDataString(normalizedEmail)}&token={Uri.EscapeDataString(plainToken)}";
-            }
-
-            var confirmMail = EduCollabEmailTemplates.EmailConfirmation(confirmUrl ?? string.Empty, plainToken, hours);
-            await _notificationService.SendAsync(
-                NotificationMessage.Create(
-                    normalizedEmail,
-                    NotificationType.EmailConfirmation,
-                    confirmMail,
-                    actions: string.IsNullOrWhiteSpace(confirmUrl)
-                        ? null
-                        : new[] { new NotificationAction("Confirm email", confirmUrl) }),
-                cancellationToken);
-
-            if (_hostEnvironment.IsDevelopment() && _emailConfirmationSettings.Value.LogPlaintextTokenInDevelopment)
-                _logger.LogInformation("Email confirmation token for {Email}: {Token}", normalizedEmail, plainToken);
+            await SendEmailConfirmationAsync(user.Id, user.Email.Trim(), cancellationToken);
 
             return true;
+        }
+
+        public async Task ResendEmailConfirmationAsync(string email, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
+
+            var normalizedEmail = email.Trim();
+            var existing = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
+            if (existing is null || existing.EmailConfirmedAtUtc.HasValue)
+                return;
+
+            await SendEmailConfirmationAsync(existing.Id, existing.Email, cancellationToken);
         }
 
         public async Task ResetPasswordAsync(string email, CancellationToken cancellationToken)
@@ -361,6 +343,42 @@ namespace EduCollab.Application.Services.Users
                 return null;
 
             return await _userRepository.GetUserByIdAsync(userId.Value, cancellationToken);
+        }
+
+        private async Task SendEmailConfirmationAsync(int userId, string email, CancellationToken cancellationToken)
+        {
+            var normalizedEmail = email.Trim();
+            var now = DateTimeOffset.UtcNow;
+            var expiresAt = now.AddHours(e.Value.TokenExpirationHours);
+
+            await _userRepository.RevokeActiveEmailConfirmationTokensForUserAsync(userId, now, cancellationToken);
+
+            var plainToken = RefreshTokenGenerator.Create();
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(plainToken);
+            await _userRepository.InsertEmailConfirmationTokenAsync(userId, tokenHash, expiresAt, now, cancellationToken);
+
+            var hours = e.Value.TokenExpirationHours;
+            var baseUrl = e.Value.FrontendConfirmUrl?.Trim().TrimEnd('/') ?? string.Empty;
+            string? confirmUrl = null;
+            if (!string.IsNullOrEmpty(baseUrl))
+            {
+                confirmUrl =
+                    $"{baseUrl}?email={Uri.EscapeDataString(normalizedEmail)}&token={Uri.EscapeDataString(plainToken)}";
+            }
+
+            var confirmMail = EduCollabEmailTemplates.EmailConfirmation(confirmUrl ?? string.Empty, plainToken, hours);
+            await _notificationService.SendAsync(
+                NotificationMessage.Create(
+                    normalizedEmail,
+                    NotificationType.EmailConfirmation,
+                    confirmMail,
+                    actions: string.IsNullOrWhiteSpace(confirmUrl)
+                        ? null
+                        : new[] { new NotificationAction("Confirm email", confirmUrl) }),
+                cancellationToken);
+
+            if (_hostEnvironment.IsDevelopment() && e.Value.LogPlaintextTokenInDevelopment)
+                _logger.LogInformation("Email confirmation token for {Email}: {Token}", normalizedEmail, plainToken);
         }
 
         private static string CreateLoginCode()

@@ -116,6 +116,20 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
+        /// Resend the confirmation email for an unconfirmed account. For privacy, the same response is returned even when the email does not exist.
+        /// </summary>
+        /// <param name="request">Email confirmation resend payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">The request was accepted.</response>
+        [HttpPost(ApiEndpoints.Users.ResendConfirmEmail)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ResendEmailConfirmation([FromBody] ResendEmailConfirmationRequest request, CancellationToken cancellationToken)
+        {
+            await _userService.ResendEmailConfirmationAsync(request.Email, cancellationToken);
+            return Ok();
+        }
+
+        /// <summary>
         /// Send a one-time 6-digit sign-in code to the confirmed email address.
         /// </summary>
         /// <param name="request">Sign-in code request payload.</param>

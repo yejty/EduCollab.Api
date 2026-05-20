@@ -5,12 +5,32 @@ services:
     build:
       context: .
       dockerfile: EduCollab.Api/Dockerfile
+    depends_on:
+      mailpit:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      Email__Enabled: true
+      Email__SmtpHost: mailpit
+      Email__SmtpPort: 1025
+      Email__UseSsl: false
+      Email__UserName: ""
+      Email__Password: ""
+      Email__FromAddress: noreply@educollab.local
+      Email__FromDisplayName: EduCollab (dev)
+      WorkspaceInvitation__FrontendAcceptUrl: http://localhost:3000/workspace/join
+      EmailConfirmation__FrontendConfirmUrl: http://localhost:3000/auth/confirm-email
     ports:
       - "8080:8080"
     labels:
       com.microsoft.visualstudio.debuggee.program: "dotnet"
       com.microsoft.visualstudio.debuggee.arguments: "EduCollab.Api.dll"
       com.microsoft.visualstudio.debuggee.workingdirectory: "/app"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: educollab-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"

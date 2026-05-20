@@ -13,6 +13,7 @@ namespace EduCollab.Application.Services.Users
         Task RequestLoginCodeAsync(string email, CancellationToken cancellationToken);
         Task<LoginWithCodeResult> LoginWithCodeAsync(string email, string code, CancellationToken cancellationToken);
         Task<bool> RegisterAsync(User user, string password, CancellationToken cancellationToken);
+        Task ResendEmailConfirmationAsync(string email, CancellationToken cancellationToken);
         Task ResetPasswordAsync(string email, CancellationToken cancellationToken);
         Task<User?> UpdateUserByIdAsync(User user, CancellationToken cancellationToken);
 

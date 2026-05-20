@@ -155,4 +155,56 @@ public sealed class UserApiIntegrationTests
         var newPasswordLogin = await client.LoginAsync(email, newPassword);
         Assert.False(string.IsNullOrWhiteSpace(newPasswordLogin.AccessToken));
     }
+
+    [Fact]
+    public async Task ResendEmailConfirmation_ReplacesOldToken_And_AllowsConfirmation()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var client = factory.CreateClient();
+
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+        const string password = "Pass123!";
+
+        var registerResponse = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
+        {
+            FirstName = "Resend",
+            LastName = "User",
+            Email = email,
+            Password = password,
+            ConfirmPassword = password,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+        var firstToken = factory.GetConfirmationToken(email);
+
+        factory.EmailSender.Clear();
+
+        var resendResponse = await client.PostAsJsonAsync("/api/users/registration-confirm/resend", new ResendEmailConfirmationRequest
+        {
+            Email = email,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, resendResponse.StatusCode);
+        var resentToken = factory.GetConfirmationToken(email);
+
+        Assert.NotEqual(firstToken, resentToken);
+
+        var oldConfirmResponse = await client.PostAsJsonAsync("/api/users/registration-confirm", new ConfirmEmailRequest
+        {
+            Email = email,
+            Token = firstToken,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, oldConfirmResponse.StatusCode);
+
+        var newConfirmResponse = await client.PostAsJsonAsync("/api/users/registration-confirm", new ConfirmEmailRequest
+        {
+            Email = email,
+            Token = resentToken,
+        });
+
+        newConfirmResponse.EnsureSuccessStatusCode();
+        var tokens = await newConfirmResponse.ReadAsJsonAsync<TokensResponse>();
+        Assert.False(string.IsNullOrWhiteSpace(tokens.AccessToken));
+    }
 }

@@ -119,6 +119,20 @@ public sealed class UsersControllerEndpointTests
     }
 
     [Fact]
+    public async Task ResendEmailConfirmation_ReturnsOk_WhenRequestIsAccepted()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/registration-confirm/resend", new ResendEmailConfirmationRequest
+        {
+            Email = "jane@example.com",
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task LoginWithCode_ReturnsUnauthorized_WhenCodeIsLocked()
     {
         await using var factory = new ApiWebApplicationFactory();
