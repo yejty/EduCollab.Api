@@ -1,5 +1,5 @@
 using System.Text.Json;
-using EduCollab.Application.Repositories.Notifications;
+using EduCollab.Application.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace EduCollab.Application.Services.Notifications

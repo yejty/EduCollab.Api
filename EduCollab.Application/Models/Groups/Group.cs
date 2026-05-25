@@ -12,6 +12,7 @@ namespace EduCollab.Application.Models.Groups
         public required string Name { get; set; }
         public string? Description { get; set; }
         public DateTime CreatedAtUtc { get; set; }
+        public DateTime UpdatedAtUtc { get; set; }
         public int CreatedByUserId { get; set; }
         public int UserCount { get; set; }
 

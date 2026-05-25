@@ -50,7 +50,7 @@ namespace EduCollab.Api.Controllers
             }
             var response = group.MapToResponse();
             response.CurrentUserRole = GroupRole.Admin.ToString();
-            return CreatedAtAction(nameof(GetGroup), new { id = group.Id }, response);
+            return CreatedAtAction(nameof(GetGroup), new { workspaceId, groupId = group.Id }, response);
         }
 
         /// <summary>
@@ -119,16 +119,25 @@ namespace EduCollab.Api.Controllers
             var updatedGroup = await _groupService.UpdateGroupAsync(workspaceId, group, cancellationToken);
             if (updatedGroup is null)
             {
-                return BadRequest(new ErrorResponse
+                return NotFound(new ErrorResponse
                 {
                     Error = "update_failed",
-                    ErrorDescription = "Group could not be updated. Ensure you have permission to update this workspace and that the request is valid.",
+                    ErrorDescription = "Group was not found.",
                 });
             }
             var response = updatedGroup.MapToResponse();
             return Ok(response);
         }
 
+        /// <summary>
+        /// Delete group by id in workspace.
+        /// </summary>
+        /// <param name="workspaceId">Workspace Id.</param>
+        ///  <param name="groupId">Group Id.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Group deleted successfully.</response>
+        /// <response code="400">Bad request.</response>
+        /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
         [HttpDelete(ApiEndpoints.Groups.Delete)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -141,6 +150,91 @@ namespace EduCollab.Api.Controllers
                 return NotFound();
             }
             return NoContent();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetAllMembers)]
+        [ProducesResponseType(typeof(GroupMembersResponse), StatusCodes.Status200OK)]
+        public async Task<ActionResult<GroupMembersResponse>> GetAllMembers(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            var members = await _groupService.GetAllGroupMembersAsync(workspaceId, groupId, cancellationToken);
+            return Ok(members.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpPost(ApiEndpoints.Groups.CreateMember)]
+        [ProducesResponseType(typeof(GroupMemberResponse), StatusCodes.Status201Created)]
+        public async Task<ActionResult<GroupMemberResponse>> CreateMember(int workspaceId, int groupId, [FromBody] CreateGroupMemberRequest request, CancellationToken cancellationToken)
+        {
+            var member = request.MapToGroupMember(groupId);
+            var created = await _groupService.CreateGroupMemberAsync(workspaceId, groupId, member, cancellationToken);
+            if (created is null)
+                return BadRequest(new ErrorResponse { Error = "creation_failed", ErrorDescription = "Group member could not be created." });
+
+            return CreatedAtAction(nameof(GetMember), new { workspaceId, groupId, userId = created.UserId }, created.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetMember)]
+        [ProducesResponseType(typeof(GroupMemberResponse), StatusCodes.Status200OK)]
+        public async Task<ActionResult<GroupMemberResponse>> GetMember(int workspaceId, int groupId, int userId, CancellationToken cancellationToken)
+        {
+            var member = await _groupService.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            if (member is null)
+                return NotFound();
+
+            return Ok(member.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpPut(ApiEndpoints.Groups.UpdateMember)]
+        [ProducesResponseType(typeof(GroupMemberResponse), StatusCodes.Status200OK)]
+        public async Task<ActionResult<GroupMemberResponse>> UpdateMember(int workspaceId, int groupId, int userId, [FromBody] UpdateGroupMemberRequest request, CancellationToken cancellationToken)
+        {
+            var updated = await _groupService.UpdateGroupMemberAsync(workspaceId, groupId, userId, request.MapToGroupRole(), cancellationToken);
+            if (updated is null)
+                return NotFound(new ErrorResponse { Error = "update_failed", ErrorDescription = "Group member was not found." });
+
+            return Ok(updated.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpDelete(ApiEndpoints.Groups.DeleteMember)]
+        public async Task<IActionResult> DeleteMember(int workspaceId, int groupId, int userId, CancellationToken cancellationToken)
+        {
+            var deleted = await _groupService.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            if (!deleted)
+                return NotFound();
+
+            return NoContent();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetFolders)]
+        public IActionResult GetFolders(int workspaceId, int groupId)
+        {
+            throw new NotImplementedException();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetSubFolders)]
+        public IActionResult GetSubFolders(int workspaceId, int groupId, int folderId)
+        {
+            throw new NotImplementedException();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetAssetsInFolders)]
+        public IActionResult GetAssetsInFolders(int workspaceId, int groupId, int folderId)
+        {
+            throw new NotImplementedException();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Groups.GetAssets)]
+        public IActionResult GetAssets(int workspaceId, int groupId)
+        {
+            throw new NotImplementedException();
         }
     }
 }

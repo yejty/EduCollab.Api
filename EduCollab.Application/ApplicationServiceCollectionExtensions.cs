@@ -1,4 +1,5 @@
 ﻿using EduCollab.Application.Services.Auth;
+using EduCollab.Application.Services.Assets;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Application.Services.Users;
@@ -24,6 +25,8 @@ namespace EduCollab.Application
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IWorkspaceService, WorkspaceService>();
             services.AddScoped<IGroupService, GroupService>();
+            services.AddScoped<IAssetFolderService, AssetFolderService>();
+            services.AddScoped<IAssetService, AssetService>();
             return services;
         }
     }

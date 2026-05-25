@@ -1,13 +1,7 @@
 using Dapper;
-using EduCollab.Application.Repositories.Notifications;
-using EduCollab.Application.Repositories.RefreshToken;
-using EduCollab.Application.Repositories.Users;
-using EduCollab.Application.Repositories.Workspaces;
+using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Notifications;
-using EduCollab.Infrastructure.Repositories.Notifications;
-using EduCollab.Infrastructure.Repositories.RefreshToken;
-using EduCollab.Infrastructure.Repositories.Users;
-using EduCollab.Infrastructure.Repositories.Workspaces;
+using EduCollab.Infrastructure.Repositories;
 using EduCollab.Infrastructure.Services.Notifications;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +27,9 @@ namespace EduCollab.Infrastructure.Database
 
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
+            services.AddScoped<IAssetFolderRepository, AssetFolderRepository>();
+            services.AddScoped<IAssetRepository, AssetRepository>();
+            services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();

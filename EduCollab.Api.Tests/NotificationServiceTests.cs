@@ -1,4 +1,4 @@
-using EduCollab.Application.Repositories.Notifications;
+using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Notifications;
 using Microsoft.Extensions.Logging.Abstractions;
 

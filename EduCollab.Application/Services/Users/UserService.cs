@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
 using EduCollab.Application.Models.Users;
-using EduCollab.Application.Repositories.Users;
+using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Notifications;
 using Microsoft.AspNetCore.Identity;

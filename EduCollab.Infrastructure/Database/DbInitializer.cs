@@ -47,6 +47,140 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_Users_WorkspaceId ON Users (WorkspaceId) WHERE WorkspaceId IS NOT NULL;");
             await connection.ExecuteAsync(
                 """
+                CREATE TABLE IF NOT EXISTS Groups (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    Name VARCHAR(100) NOT NULL,
+                    Description VARCHAR(500) NULL,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    UserCount INT NOT NULL DEFAULT 1
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Groups_WorkspaceId ON Groups (WorkspaceId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS GroupMembers (
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    Role VARCHAR(50) NOT NULL DEFAULT 'Viewer',
+                    JoinedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (GroupId, UserId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_GroupMembers_GroupId ON GroupMembers (GroupId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_GroupMembers_UserId ON GroupMembers (UserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS AssetFolders (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    ParentFolderId INT NULL REFERENCES AssetFolders(Id),
+                    Name VARCHAR(200) NOT NULL,
+                    Path TEXT NOT NULL,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetFolders_WorkspaceId ON AssetFolders (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetFolders_ParentFolderId ON AssetFolders (ParentFolderId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetFolders_CreatedByUserId ON AssetFolders (CreatedByUserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_AssetFolders_RootName
+                ON AssetFolders (WorkspaceId, Name)
+                WHERE ParentFolderId IS NULL;
+                """);
+            await connection.ExecuteAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_AssetFolders_ParentName
+                ON AssetFolders (WorkspaceId, ParentFolderId, Name)
+                WHERE ParentFolderId IS NOT NULL;
+                """);
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Assets (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    FolderId INT NULL REFERENCES AssetFolders(Id),
+                    OwnerUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    AssetType VARCHAR(50) NOT NULL,
+                    StorageProvider VARCHAR(50) NOT NULL,
+                    StorageKey TEXT NOT NULL,
+                    MimeType VARCHAR(255) NULL,
+                    SizeInBytes BIGINT NULL,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Assets_WorkspaceId ON Assets (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Assets_FolderId ON Assets (FolderId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Assets_OwnerUserId ON Assets (OwnerUserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS AssetFolderGroupShares (
+                    FolderId INT NOT NULL REFERENCES AssetFolders(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    Role VARCHAR(20) NOT NULL,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (FolderId, GroupId),
+                    CONSTRAINT CK_AssetFolderGroupShares_Role
+                        CHECK (Role IN ('Viewer', 'Contributor', 'Admin'))
+                );
+                """);
+            await connection.ExecuteAsync(
+                "UPDATE AssetFolderGroupShares SET Role = 'Admin' WHERE Role = 'Manager';");
+            await connection.ExecuteAsync(
+                "ALTER TABLE AssetFolderGroupShares DROP CONSTRAINT IF EXISTS CK_AssetFolderGroupShares_Role;");
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE AssetFolderGroupShares
+                ADD CONSTRAINT CK_AssetFolderGroupShares_Role
+                CHECK (Role IN ('Viewer', 'Contributor', 'Admin'));
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetFolderGroupShares_GroupId ON AssetFolderGroupShares (GroupId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS AssetGroupShares (
+                    AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    Role VARCHAR(20) NOT NULL,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (AssetId, GroupId),
+                    CONSTRAINT CK_AssetGroupShares_Role
+                        CHECK (Role IN ('Viewer', 'Contributor', 'Admin'))
+                );
+                """);
+            await connection.ExecuteAsync(
+                "UPDATE AssetGroupShares SET Role = 'Admin' WHERE Role = 'Manager';");
+            await connection.ExecuteAsync(
+                "ALTER TABLE AssetGroupShares DROP CONSTRAINT IF EXISTS CK_AssetGroupShares_Role;");
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE AssetGroupShares
+                ADD CONSTRAINT CK_AssetGroupShares_Role
+                CHECK (Role IN ('Viewer', 'Contributor', 'Admin'));
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetGroupShares_GroupId ON AssetGroupShares (GroupId);");
+            await connection.ExecuteAsync(
+                """
                 CREATE TABLE IF NOT EXISTS WorkspaceMembers (
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
                     UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,

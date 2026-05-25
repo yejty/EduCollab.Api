@@ -71,5 +71,29 @@ namespace EduCollab.Api
             public const string GetAssetsInFolders = $"{Base}/{{groupId}}/folders/{{folderId}}/assets";
             public const string GetAssets = $"{Base}/{{groupId}}/assets";
         }
+
+        public static class AssetFolders
+        {
+            private const string Base = $"{ApiWorkspaceBase}/asset-folders";
+            public const string Create = Base;
+            public const string GetAll = Base;
+            public const string Get = $"{Base}/{{folderId}}";
+            public const string Update = $"{Base}/{{folderId}}";
+            public const string Delete = $"{Base}/{{folderId}}";
+            public const string GetSubFolders = $"{Base}/{{folderId}}/folders";
+            public const string GetAssets = $"{Base}/{{folderId}}/assets";
+        }
+
+        public static class Assets
+        {
+            private const string Base = $"{ApiWorkspaceBase}/assets";
+            public const string Create = Base;
+            public const string GetAll = Base;
+            public const string Get = $"{Base}/{{assetId}}";
+            public const string Update = $"{Base}/{{assetId}}";
+            public const string Delete = $"{Base}/{{assetId}}";
+            public const string GetMine = $"{Base}/mine";
+            public const string Move = $"{Base}/{{assetId}}/move";
+        }
     }
 }

@@ -1,6 +1,5 @@
 using EduCollab.Application.Models.Users;
-using EduCollab.Application.Repositories.RefreshToken;
-using EduCollab.Application.Repositories.Users;
+using EduCollab.Application.Repositories;
 using Microsoft.Extensions.Options;
 
 namespace EduCollab.Application.Services.Auth
