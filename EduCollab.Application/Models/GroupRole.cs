@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Models.Groups
+namespace EduCollab.Application.Models
 {
     public enum GroupRole
     {

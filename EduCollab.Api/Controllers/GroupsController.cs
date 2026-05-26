@@ -1,11 +1,9 @@
 ﻿using EduCollab.Api.Mapping;
-using EduCollab.Application.Models.Groups;
-using EduCollab.Application.Models.Workspaces;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Groups;
-using EduCollab.Contracts.Responses.Workspaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -95,6 +93,8 @@ namespace EduCollab.Api.Controllers
                 return NotFound();
             }
             var response = group.MapToResponse();
+            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
 
@@ -126,6 +126,8 @@ namespace EduCollab.Api.Controllers
                 });
             }
             var response = updatedGroup.MapToResponse();
+            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
 

@@ -1,6 +1,6 @@
 using EduCollab.Api.ExceptionHandlers;
 using EduCollab.Api.Health;
-using EduCollab.Api.Security.CurrentUser;
+using EduCollab.Api.Security;
 using EduCollab.Api.Swagger;
 using EduCollab.Application.Identity;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,10 +1,8 @@
-using EduCollab.Application.Models.Groups;
-
-namespace EduCollab.Application.Models.Assets
+namespace EduCollab.Application.Models
 {
-    public class AssetFolderGroupShare
+    public class AssetGroupShare
     {
-        public int FolderId { get; set; }
+        public int AssetId { get; set; }
         public int GroupId { get; set; }
         public GroupRole Role { get; set; }
         public int CreatedByUserId { get; set; }

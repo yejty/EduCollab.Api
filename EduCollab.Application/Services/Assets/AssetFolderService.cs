@@ -1,7 +1,6 @@
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
-using EduCollab.Application.Models.Assets;
-using EduCollab.Application.Models.Workspaces;
+using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 
 namespace EduCollab.Application.Services.Assets

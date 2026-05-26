@@ -1,6 +1,6 @@
 ﻿using EduCollab.Api.Mapping;
-using EduCollab.Api.Security.AccessToken;
-using EduCollab.Application.Models.Users;
+using EduCollab.Api.Security;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Users;
 using EduCollab.Contracts.Requests.Users;

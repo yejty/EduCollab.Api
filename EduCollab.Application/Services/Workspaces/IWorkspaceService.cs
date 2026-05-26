@@ -1,5 +1,4 @@
-using EduCollab.Application.Models.Users;
-using EduCollab.Application.Models.Workspaces;
+using EduCollab.Application.Models;
 
 namespace EduCollab.Application.Services.Workspaces
 {

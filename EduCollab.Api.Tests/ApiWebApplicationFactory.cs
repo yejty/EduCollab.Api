@@ -1,4 +1,4 @@
-using EduCollab.Api.Security.AccessToken;
+using EduCollab.Api.Security;
 using EduCollab.Api.Tests.Fakes;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Users;

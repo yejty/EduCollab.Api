@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
-using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Notifications;

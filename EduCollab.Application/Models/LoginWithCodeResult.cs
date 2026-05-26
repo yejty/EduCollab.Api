@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Models.Users
+namespace EduCollab.Application.Models
 {
     public sealed class LoginWithCodeResult
     {

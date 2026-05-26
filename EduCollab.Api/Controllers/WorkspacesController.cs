@@ -1,12 +1,9 @@
 using EduCollab.Api.Mapping;
 using EduCollab.Application.Models;
-using EduCollab.Application.Models.Users;
-using EduCollab.Application.Models.Workspaces;
 using EduCollab.Application.Services.Workspaces;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses;
-using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -243,6 +240,8 @@ namespace EduCollab.Api.Controllers
                 });
             }
             var response = workspace.MapToResponse();
+            var myMembership = await _workspaceService.GetCurrentUserWorkspaceMemberAsync(id, cancellationToken);
+            response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
 

@@ -1,5 +1,4 @@
-using EduCollab.Application.Models.Users;
-using EduCollab.Application.Models.Workspaces;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Workspaces;
 
 namespace EduCollab.Api.Tests.Fakes;

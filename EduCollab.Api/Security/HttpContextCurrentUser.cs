@@ -3,7 +3,7 @@ using System.Security.Claims;
 using EduCollab.Application.Identity;
 using Microsoft.AspNetCore.Http;
 
-namespace EduCollab.Api.Security.CurrentUser
+namespace EduCollab.Api.Security
 {
     public sealed class HttpContextCurrentUser : ICurrentUser
     {

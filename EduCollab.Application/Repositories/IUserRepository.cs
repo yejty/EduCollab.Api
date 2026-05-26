@@ -1,4 +1,4 @@
-﻿using EduCollab.Application.Models.Users;
+﻿using EduCollab.Application.Models;
 using EduCollab.Application.Services.Users;
 
 namespace EduCollab.Application.Repositories

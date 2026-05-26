@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Models.Workspaces
+namespace EduCollab.Application.Models
 {
     public static class WorkspaceRoleExtensions
     {

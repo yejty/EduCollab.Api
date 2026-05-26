@@ -1,7 +1,7 @@
 ﻿using EduCollab.Application.Identity;
-using EduCollab.Application.Models.Groups;
 using EduCollab.Application.Repositories;
 using EduCollab.Application.Exceptions;
+using EduCollab.Application.Models;
 
 namespace EduCollab.Application.Services.Groups
 {
@@ -104,6 +104,21 @@ namespace EduCollab.Application.Services.Groups
             group.CreatedByUserId = existing.CreatedByUserId;
             group.UserCount = existing.UserCount;
             return await _groupRepository.UpdateGroupAsync(workspaceId, group, cancellationToken);
+        }
+
+        public async Task<GroupMember?> GetCurrentUserGroupMemberAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            if (_currentUser.UserId is not int userId)
+            {
+                return null;
+            }
+
+            return await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
         }
 
         public async Task<List<GroupMember>> GetAllGroupMembersAsync(int workspaceId, int groupId, CancellationToken cancellationToken)

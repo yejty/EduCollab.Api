@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EduCollab.Application.Models.Groups
+namespace EduCollab.Application.Models
 {
     public class Group
     {

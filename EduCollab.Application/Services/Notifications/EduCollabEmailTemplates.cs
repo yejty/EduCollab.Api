@@ -1,4 +1,4 @@
-using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models;
 
 namespace EduCollab.Application.Services.Notifications
 {

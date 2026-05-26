@@ -2,7 +2,7 @@ using System.Text;
 using EduCollab.Api.Config;
 using Microsoft.IdentityModel.Tokens;
 
-namespace EduCollab.Api.Security.Jwt
+namespace EduCollab.Api.Security
 {
     internal static class JwtTokenValidationParametersFactory
     {

@@ -1,4 +1,4 @@
-﻿using EduCollab.Application.Models.Groups;
+﻿using EduCollab.Application.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

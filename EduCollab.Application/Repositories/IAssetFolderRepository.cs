@@ -1,4 +1,4 @@
-using EduCollab.Application.Models.Assets;
+using EduCollab.Application.Models;
 
 namespace EduCollab.Application.Repositories
 {

@@ -1,4 +1,4 @@
-namespace EduCollab.Application.Models.Assets
+namespace EduCollab.Application.Models
 {
     public class AssetFolder
     {

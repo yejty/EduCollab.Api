@@ -1,5 +1,5 @@
 ﻿using Dapper;
-using EduCollab.Application.Models.Groups;
+using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using EduCollab.Infrastructure.Database;
 using System.Data.Common;

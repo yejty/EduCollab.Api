@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EduCollab.Application.Models.Workspaces
+namespace EduCollab.Application.Models
 {
     /// <summary>
-    /// A collaboration space. Users reference at most one workspace via <see cref="Users.User.WorkspaceId"/>.
+    /// A collaboration space. Users reference at most one workspace via <see cref="User.WorkspaceId"/>.
     /// </summary>
     public class Workspace
     {

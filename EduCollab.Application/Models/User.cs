@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace EduCollab.Application.Models.Users
+namespace EduCollab.Application.Models
 {
     public class User
     {
@@ -15,7 +15,7 @@ namespace EduCollab.Application.Models.Users
         [EmailAddress, Required]
         public string Email { get; set; } = string.Empty;
 
-        public string FullName => $"{this.FirstName} {this.LastName}";
+        public string FullName => $"{FirstName} {LastName}";
 
         public DateTime? EmailConfirmedAtUtc { get; set; }
 

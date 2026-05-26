@@ -1,8 +1,5 @@
 ﻿using System.Linq;
-using EduCollab.Application.Models.Assets;
-using EduCollab.Application.Models.Groups;
-using EduCollab.Application.Models.Users;
-using EduCollab.Application.Models.Workspaces;
+using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Users;

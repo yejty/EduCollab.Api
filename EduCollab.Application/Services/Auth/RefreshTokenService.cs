@@ -1,4 +1,4 @@
-using EduCollab.Application.Models.Users;
+using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using Microsoft.Extensions.Options;
 
