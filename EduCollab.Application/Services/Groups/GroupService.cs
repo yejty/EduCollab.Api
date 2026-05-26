@@ -24,22 +24,54 @@ namespace EduCollab.Application.Services.Groups
                 ?? throw new UnauthorizedAccessException("Authentication is required for this operation.");
         }
 
-        private async Task EnsureCurrentUserIsGroupMemberAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        private async Task<WorkspaceMember> EnsureCurrentUserIsWorkspaceMemberAsync(int workspaceId, CancellationToken cancellationToken)
         {
             var currentUserId = RequireCurrentUserId();
-            var membership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
+            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, currentUserId, cancellationToken);
             if (membership is null)
-                throw new AccessDeniedException("You are not a member of this group.");
+                throw new AccessDeniedException("You must be a member of this workspace to access its groups.");
+
+            return membership;
+        }
+
+        private static bool CanManageWorkspace(WorkspaceRole role) =>
+            role is WorkspaceRole.Owner or WorkspaceRole.Admin;
+
+        private async Task EnsureCurrentUserCanAccessGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            var workspaceMember = await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
+            if (CanManageWorkspace(workspaceMember.Role))
+                return;
+
+            var currentUserId = RequireCurrentUserId();
+            var groupMembership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
+            if (groupMembership is null)
+                throw new AccessDeniedException("You must be a member of this group to access it.");
+        }
+
+        private async Task EnsureCurrentUserCanManageGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            var workspaceMember = await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
+            if (CanManageWorkspace(workspaceMember.Role))
+                return;
+
+            var currentUserId = RequireCurrentUserId();
+            var groupMembership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
+            if (groupMembership is null)
+                throw new AccessDeniedException("You must be a member of this group to manage it.");
+
+            if (groupMembership.Role != GroupRole.Admin)
+                throw new AccessDeniedException("Only group admins can manage this group.");
+        }
+
+        private async Task EnsureCurrentUserIsGroupMemberAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
         }
 
         private async Task EnsureCurrentUserIsGroupAdminAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
         {
-            var currentUserId = RequireCurrentUserId();
-            var membership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
-            if (membership is null)
-                throw new AccessDeniedException("You are not a member of this group.");
-            if (membership.Role != GroupRole.Admin)
-                throw new AccessDeniedException("Only group admins can manage group members.");
+            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
         }
 
         public async Task<bool> CreateGroupAsync(int workspaceId, Group group, CancellationToken cancellationToken)
@@ -48,13 +80,12 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(workspaceId));
 
             ArgumentNullException.ThrowIfNull(group);
-            if (_currentUser.UserId is null)
-                throw new UnauthorizedAccessException("Authentication is required for this operation.");
+            await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
 
             var now = DateTimeOffset.UtcNow;
             group.CreatedAtUtc = now.UtcDateTime;
             group.UpdatedAtUtc = now.UtcDateTime;
-            group.CreatedByUserId = (int)_currentUser.UserId;
+            group.CreatedByUserId = RequireCurrentUserId();
             group.UserCount = 1;
             
             var groupId = await _groupRepository.CreateGroupAsync(workspaceId, group, cancellationToken);
@@ -70,6 +101,8 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(workspaceId));
             if (groupId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.DeleteGroupAsync(workspaceId, groupId, cancellationToken); 
         }
 
@@ -77,6 +110,8 @@ namespace EduCollab.Application.Services.Groups
         {
             if (workspaceId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
             return await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
         }
 
@@ -86,6 +121,8 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(workspaceId));
             if (groupId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
         }
 
@@ -94,6 +131,12 @@ namespace EduCollab.Application.Services.Groups
             if (workspaceId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(workspaceId));
             ArgumentNullException.ThrowIfNull(group);
+
+            if (group.Id <= 0)
+                throw new ArgumentOutOfRangeException(nameof(group.Id));
+
+            await EnsureCurrentUserCanManageGroupAsync(workspaceId, group.Id, cancellationToken);
+
             var existing = await _groupRepository.GetGroupByIdAsync(workspaceId, group.Id, cancellationToken);
             if (existing is null)
             {
@@ -113,12 +156,8 @@ namespace EduCollab.Application.Services.Groups
             if (groupId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
-            if (_currentUser.UserId is not int userId)
-            {
-                return null;
-            }
-
-            return await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            var workspaceMember = await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
+            return await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, workspaceMember.UserId, cancellationToken);
         }
 
         public async Task<List<GroupMember>> GetAllGroupMembersAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
@@ -155,7 +194,7 @@ namespace EduCollab.Application.Services.Groups
             if (member.UserId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(member.UserId));
 
-            await EnsureCurrentUserIsGroupAdminAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
 
             var group = await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
             if (group is null)
@@ -178,7 +217,7 @@ namespace EduCollab.Application.Services.Groups
             if (userId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(userId));
 
-            await EnsureCurrentUserIsGroupAdminAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.UpdateGroupMemberAsync(workspaceId, groupId, userId, role, cancellationToken);
         }
 
@@ -191,11 +230,14 @@ namespace EduCollab.Application.Services.Groups
             if (userId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(userId));
 
-            var currentUserId = RequireCurrentUserId();
-            if (currentUserId != userId)
-                await EnsureCurrentUserIsGroupAdminAsync(workspaceId, groupId, cancellationToken);
-            else
-                await EnsureCurrentUserIsGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            var workspaceMember = await EnsureCurrentUserIsWorkspaceMemberAsync(workspaceId, cancellationToken);
+            if (!CanManageWorkspace(workspaceMember.Role))
+            {
+                if (workspaceMember.UserId != userId)
+                    await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
+                else
+                    await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+            }
 
             return await _groupRepository.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
         }
