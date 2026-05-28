@@ -1,11 +1,15 @@
 ﻿using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
+using EduCollab.Contracts.Requests.Scenes;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Assets;
 using EduCollab.Contracts.Responses.Groups;
+using EduCollab.Contracts.Responses.Scenes;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 
@@ -13,6 +17,27 @@ namespace EduCollab.Api.Mapping
 {
     public static class ContractMapping
     {
+        private static string RequireJsonContent(JsonNode? jsonContent, string paramName)
+        {
+            if (jsonContent is null)
+                throw new ArgumentException($"{paramName} is required.", paramName);
+
+            return jsonContent.ToJsonString();
+        }
+
+        private static JsonNode ParseJsonContent(string jsonContent)
+        {
+            try
+            {
+                return JsonNode.Parse(jsonContent)
+                    ?? throw new InvalidOperationException("Scene json content cannot be null.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException("Stored scene json content is invalid.", ex);
+            }
+        }
+
         public static User MapToUser(this RegisterUserRequest request)
         {
             return new User
@@ -47,6 +72,15 @@ namespace EduCollab.Api.Mapping
             return new Workspace
             {
                 Id = id,
+                Name = request.Name,
+                Description = request.Description
+            };
+        }
+
+        public static Workspace MapToWorkspace(this UpdateWorkspaceRequest request)
+        {
+            return new Workspace
+            {
                 Name = request.Name,
                 Description = request.Description
             };
@@ -96,12 +130,10 @@ namespace EduCollab.Api.Mapping
             {
                 Name = request.Name,
                 Description = request.Description,
-                AssetType = request.AssetType,
                 FolderId = request.FolderId,
-                StorageProvider = request.StorageProvider,
-                StorageKey = request.StorageKey,
-                MimeType = request.MimeType,
-                SizeInBytes = request.SizeInBytes,
+                AssetType = request.AssetType,
+                StorageUrl = request.StorageUrl,
+                Version = request.Version,
             };
         }
 
@@ -112,12 +144,31 @@ namespace EduCollab.Api.Mapping
                 Id = assetId,
                 Name = request.Name,
                 Description = request.Description,
-                AssetType = request.AssetType,
                 FolderId = request.FolderId,
-                StorageProvider = request.StorageProvider,
-                StorageKey = request.StorageKey,
-                MimeType = request.MimeType,
-                SizeInBytes = request.SizeInBytes,
+                AssetType = request.AssetType,
+                StorageUrl = request.StorageUrl,
+                Version = request.Version,
+            };
+        }
+
+        public static Scene MapToScene(this CreateSceneRequest request)
+        {
+            return new Scene
+            {
+                Name = request.Name,
+                Description = request.Description,
+                JsonContent = RequireJsonContent(request.JsonContent, nameof(request.JsonContent))
+            };
+        }
+
+        public static Scene MapToScene(this UpdateSceneRequest request, int sceneId)
+        {
+            return new Scene
+            {
+                Id = sceneId,
+                Name = request.Name,
+                Description = request.Description,
+                JsonContent = RequireJsonContent(request.JsonContent, nameof(request.JsonContent))
             };
         }
 
@@ -283,10 +334,8 @@ namespace EduCollab.Api.Mapping
                 Name = asset.Name,
                 Description = asset.Description,
                 AssetType = asset.AssetType,
-                StorageProvider = asset.StorageProvider,
-                StorageKey = asset.StorageKey,
-                MimeType = asset.MimeType,
-                SizeInBytes = asset.SizeInBytes,
+                StorageUrl = asset.StorageUrl,
+                Version = asset.Version,
                 CreatedAtUtc = asset.CreatedAtUtc,
                 UpdatedAtUtc = asset.UpdatedAtUtc
             };
@@ -297,6 +346,30 @@ namespace EduCollab.Api.Mapping
             return new AssetsResponse
             {
                 Assets = assets.Select(a => a.MapToResponse()).ToList()
+            };
+        }
+
+        public static SceneResponse MapToResponse(this Scene scene)
+        {
+            return new SceneResponse
+            {
+                Id = scene.Id,
+                WorkspaceId = scene.WorkspaceId,
+                OwnerUserId = scene.OwnerUserId,
+                Name = scene.Name,
+                Description = scene.Description,
+                JsonContent = ParseJsonContent(scene.JsonContent),
+                ETag = scene.ETag,
+                CreatedAtUtc = scene.CreatedAtUtc,
+                UpdatedAtUtc = scene.UpdatedAtUtc
+            };
+        }
+
+        public static ScenesResponse MapToResponse(this IEnumerable<Scene> scenes)
+        {
+            return new ScenesResponse
+            {
+                Scenes = scenes.Select(s => s.MapToResponse()).ToList()
             };
         }
 

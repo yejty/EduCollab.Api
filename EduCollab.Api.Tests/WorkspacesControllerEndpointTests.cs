@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
-using EduCollab.Application.Models.Users;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses;

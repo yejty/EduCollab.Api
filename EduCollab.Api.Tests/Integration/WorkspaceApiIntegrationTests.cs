@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using EduCollab.Application.Models.Workspaces;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Users;

@@ -4,13 +4,13 @@ namespace EduCollab.Application.Services.Assets
 {
     public interface IAssetFolderService
     {
-        Task<bool> CreateAssetFolderAsync(int workspaceId, AssetFolder folder, CancellationToken cancellationToken);
-        Task<List<AssetFolder>> GetRootAssetFoldersAsync(int workspaceId, CancellationToken cancellationToken);
-        Task<List<AssetFolder>> GetSubFoldersAsync(int workspaceId, int folderId, CancellationToken cancellationToken);
-        Task<AssetFolder?> GetAssetFolderByIdAsync(int workspaceId, int folderId, CancellationToken cancellationToken);
-        Task<AssetFolder?> UpdateAssetFolderAsync(int workspaceId, AssetFolder folder, CancellationToken cancellationToken);
-        Task<bool> DeleteAssetFolderAsync(int workspaceId, int folderId, CancellationToken cancellationToken);
-        Task<bool> CanCurrentUserManageWorkspaceAssetsAsync(int workspaceId, CancellationToken cancellationToken);
-        Task<List<AssetFolder>> GetAllAssetFoldersAsync(int workspaceId, CancellationToken cancellationToken);
+        Task<bool> CreateAssetFolderAsync(AssetFolder folder, CancellationToken cancellationToken);
+        Task<List<AssetFolder>> GetRootAssetFoldersAsync(CancellationToken cancellationToken);
+        Task<List<AssetFolder>> GetSubFoldersAsync(int folderId, CancellationToken cancellationToken);
+        Task<AssetFolder?> GetAssetFolderByIdAsync(int folderId, CancellationToken cancellationToken);
+        Task<AssetFolder?> UpdateAssetFolderAsync(AssetFolder folder, CancellationToken cancellationToken);
+        Task<bool> DeleteAssetFolderAsync(int folderId, CancellationToken cancellationToken);
+        Task<bool> CanCurrentUserManageWorkspaceAssetsAsync(CancellationToken cancellationToken);
+        Task<List<AssetFolder>> GetAllAssetFoldersAsync(CancellationToken cancellationToken);
     }
 }

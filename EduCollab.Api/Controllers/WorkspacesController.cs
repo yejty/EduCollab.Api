@@ -23,7 +23,6 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Invite a new user.
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="inviteUserRequest">Invitation payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">User invited successfully.</response>
@@ -31,21 +30,20 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
         [Authorize]
-        [HttpPost(ApiEndpoints.Workspaces.Invite)]
+        [HttpPost(ApiEndpoints.Workspace.Invite)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> InviteToWorkspace(int id, [FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            await _workspaceService.InviteUserToWorkspaceAsync(id, inviteUserRequest.Email, cancellationToken);
+            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, cancellationToken);
             return Ok();
         }
 
         /// <summary>
         /// Creates a new user in the workspace based on the provided token.
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="request">Request body containing the user details.</param>
         /// <param name="invitationToken">Invitation token.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -53,15 +51,15 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
-        [HttpPost(ApiEndpoints.Workspaces.Accept)]
+        [HttpPost(ApiEndpoints.WorkspaceInvitations.Accept)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<WorkspaceMemberResponse>> CreateWorkspaceUser([FromRoute] int id, [FromBody] RegisterUserRequest request, [FromRoute] string invitationToken, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceMemberResponse>> CreateWorkspaceUser([FromBody] RegisterUserRequest request, [FromRoute] string invitationToken, CancellationToken cancellationToken)
         {
             var user = request.MapToUser();
-            var created = await _workspaceService.CreateUserInWorkspaceAsync(id, user, request.Password, invitationToken, cancellationToken);
+            var created = await _workspaceService.CreateUserFromInvitationAsync(user, request.Password, invitationToken, cancellationToken);
             if (!created)
             {
                 return BadRequest(new ErrorResponse
@@ -71,7 +69,7 @@ namespace EduCollab.Api.Controllers
                 });
             }
 
-            var member = await _workspaceService.GetWorkspaceMemberAsync(id, user.Id, cancellationToken);
+            var member = await _workspaceService.GetWorkspaceMemberAsync(user.WorkspaceId!.Value, user.Id, cancellationToken);
             if (member is null)
             {
                 return BadRequest(new ErrorResponse
@@ -81,13 +79,12 @@ namespace EduCollab.Api.Controllers
                 });
             }
 
-            return CreatedAtAction(nameof(GetWorkspaceUser), new { id, userId = user.Id }, member.MapToResponse());
+            return Ok(member.MapToResponse());
         }
 
         /// <summary>
         /// Get one workspace member (membership projection: role, groups, etc.).
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="userId">Workspace member user identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the workspace member.</response>
@@ -95,43 +92,17 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this workspace member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [HttpGet(ApiEndpoints.Workspaces.GetMember)]
+        [HttpGet(ApiEndpoints.Workspace.GetMember)]
         [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceMemberResponse>> GetWorkspaceUser(int id, int userId, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceMemberResponse>> GetWorkspaceUser(int userId, CancellationToken cancellationToken)
         {
-            var member = await _workspaceService.GetWorkspaceMemberAsync(id, userId, cancellationToken);
+            var member = await _workspaceService.GetCurrentWorkspaceMemberAsync(userId, cancellationToken);
             if (member is null)
                 return NotFound();
             return Ok(member.MapToResponse());
-        }
-
-        /// <summary>
-        /// List members of a workspace (profile summary plus role, groups, join metadata).
-        /// </summary>
-        /// <param name="id">Workspace identifier.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Members in the workspace.</response>
-        /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="403">Caller cannot access this workspace.</response>
-        /// <response code="404">Workspace not found.</response>
-        [Authorize]
-        [HttpGet(ApiEndpoints.Workspaces.GetAllMembers)]
-        [ProducesResponseType(typeof(WorkspaceMembersResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceMembersResponse>> GetWorkspaceMembers(int id, CancellationToken cancellationToken)
-        {
-            var workspace = await _workspaceService.GetWorkspaceAsync(id, cancellationToken);
-            if (workspace is null)
-                return NotFound();
-
-            var members = await _workspaceService.GetWorkspaceMembersAsync(id, cancellationToken);
-            var response = members.MapToResponse();
-            return Ok(response);
         }
 
         /// <summary>
@@ -143,7 +114,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Workspace could not be created.</response>
         /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
-        [HttpPost(ApiEndpoints.Workspaces.Create)]
+        [HttpPost(ApiEndpoints.Workspace.Create)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -163,56 +134,55 @@ namespace EduCollab.Api.Controllers
             }
             var response = workspace.MapToResponse();
             response.CurrentUserRole = WorkspaceRole.Owner.ToString();
-            return CreatedAtAction(nameof(GetWorkspace), new { id = workspace.Id }, response);
+            return CreatedAtAction(nameof(GetCurrentWorkspace), null, response);
         }
 
         /// <summary>
-        /// List all workspaces.
+        /// Retrieve the current user's workspace.
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">All workspaces.</response>
-        /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
-        [HttpGet(ApiEndpoints.Workspaces.GetAll)]
-        [ProducesResponseType(typeof(WorkspacesResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<WorkspacesResponse>> GetAllWorkspaces(CancellationToken cancellationToken)
-        {
-            var workspaces = await _workspaceService.GetWorkspacesAsync(cancellationToken);
-            return Ok(workspaces.MapToResponse());
-        }
-
-        /// <summary>
-        /// Retrieve a workspace by id.
-        /// </summary>
-        /// <param name="id">Workspace identifier.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Returns the workspace.</response>
-        /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="404">Workspace was not found.</response>
-        [Authorize]
-        [HttpGet(ApiEndpoints.Workspaces.Get)]
+        [HttpGet(ApiEndpoints.Workspace.Get)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceResponse>> GetWorkspace(int id, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceResponse>> GetCurrentWorkspace(CancellationToken cancellationToken)
         {
-            var workspace = await _workspaceService.GetWorkspaceAsync(id, cancellationToken);
+            var workspace = await _workspaceService.GetCurrentWorkspaceAsync(cancellationToken);
             if (workspace is null)
             {
                 return NotFound();
             }
-            var response = workspace.MapToResponse();
-            var myMembership = await _workspaceService.GetCurrentUserWorkspaceMemberAsync(id, cancellationToken);
-            response.CurrentUserRole = myMembership?.Role.ToString();
 
+            var response = workspace.MapToResponse();
+            var myMembership = await _workspaceService.GetCurrentUserWorkspaceMemberAsync(cancellationToken);
+            response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
+        }
+
+        /// <summary>
+        /// List members of the current workspace.
+        /// </summary>
+        [Authorize]
+        [HttpGet(ApiEndpoints.Workspace.GetAllMembers)]
+        [ProducesResponseType(typeof(WorkspaceMembersResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<WorkspaceMembersResponse>> GetCurrentWorkspaceMembers(CancellationToken cancellationToken)
+        {
+            var workspace = await _workspaceService.GetCurrentWorkspaceAsync(cancellationToken);
+            if (workspace is null)
+            {
+                return NotFound();
+            }
+
+            var members = await _workspaceService.GetCurrentWorkspaceMembersAsync(cancellationToken);
+            return Ok(members.MapToResponse());
         }
 
         /// <summary>
         /// Update workspace metadata.
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="request">Workspace update payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Workspace was updated successfully.</response>
@@ -221,16 +191,16 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to update the workspace.</response>
         /// <response code="404">Workspace was not found.</response>
         [Authorize]
-        [HttpPut(ApiEndpoints.Workspaces.Update)]
+        [HttpPut(ApiEndpoints.Workspace.Update)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateWorkspace(int id, [FromBody] UpdateWorkspaceRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> UpdateWorkspace([FromBody] UpdateWorkspaceRequest request, CancellationToken cancellationToken)
         {
-            var workspace = request.MapToWorkspace(id);
-            var updated = await _workspaceService.UpdateWorkspaceAsync(workspace, cancellationToken);
+            var workspace = request.MapToWorkspace();
+            var updated = await _workspaceService.UpdateCurrentWorkspaceAsync(workspace, cancellationToken);
             if (!updated)
             {
                 return BadRequest(new ErrorResponse
@@ -240,7 +210,7 @@ namespace EduCollab.Api.Controllers
                 });
             }
             var response = workspace.MapToResponse();
-            var myMembership = await _workspaceService.GetCurrentUserWorkspaceMemberAsync(id, cancellationToken);
+            var myMembership = await _workspaceService.GetCurrentUserWorkspaceMemberAsync(cancellationToken);
             response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
@@ -248,7 +218,6 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Soft-delete a workspace by archiving it and disconnecting all members from it.
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="204">Workspace was archived successfully.</response>
         /// <response code="400">Delete request was invalid.</response>
@@ -256,15 +225,15 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to delete the workspace.</response>
         /// <response code="404">Workspace was not found.</response>
         [Authorize]
-        [HttpDelete(ApiEndpoints.Workspaces.Delete)]
+        [HttpDelete(ApiEndpoints.Workspace.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteWorkspace(int id, CancellationToken cancellationToken)
+        public async Task<IActionResult> DeleteWorkspace(CancellationToken cancellationToken)
         {
-            var deleted = await _workspaceService.DeleteWorkspaceAsync(id, cancellationToken);
+            var deleted = await _workspaceService.DeleteCurrentWorkspaceAsync(cancellationToken);
             if (!deleted)
             {
                 return NotFound();
@@ -275,7 +244,6 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Removes a member from the workspace, or the caller leaves (when <paramref name="userId"/> is self).
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="userId">Member user identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="204">Member was removed successfully.</response>
@@ -284,22 +252,21 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to remove this member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [HttpDelete(ApiEndpoints.Workspaces.DeleteMember)]
+        [HttpDelete(ApiEndpoints.Workspace.DeleteMember)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteWorkspaceMember(int id, int userId, CancellationToken cancellationToken)
+        public async Task<IActionResult> DeleteWorkspaceMember(int userId, CancellationToken cancellationToken)
         {
-            await _workspaceService.RemoveWorkspaceMemberAsync(id, userId, cancellationToken);
+            await _workspaceService.RemoveCurrentWorkspaceMemberAsync(userId, cancellationToken);
             return NoContent();
         }
 
         /// <summary>
         /// Update a workspace member role.
         /// </summary>
-        /// <param name="id">Workspace identifier.</param>
         /// <param name="userId">Member user identifier.</param>
         /// <param name="request">Workspace member update payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -309,16 +276,16 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to update this member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [HttpPut(ApiEndpoints.Workspaces.UpdateMember)]
+        [HttpPut(ApiEndpoints.Workspace.UpdateMember)]
         [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<WorkspaceMemberResponse>> UpdateWorkspaceMember(int id, int userId, [FromBody] UpdateWorkspaceMemberRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<WorkspaceMemberResponse>> UpdateWorkspaceMember(int userId, [FromBody] UpdateWorkspaceMemberRequest request, CancellationToken cancellationToken)
         {
-            var member = request.MapToWorkspaceMember(id, userId);
-            var updatedMember = await _workspaceService.UpdateWorkspaceMemberAsync(id, userId, member, cancellationToken);
+            var member = request.MapToWorkspaceMember(0, userId);
+            var updatedMember = await _workspaceService.UpdateCurrentWorkspaceMemberAsync(userId, member, cancellationToken);
             if (updatedMember is null)
             {
                 return BadRequest(new ErrorResponse

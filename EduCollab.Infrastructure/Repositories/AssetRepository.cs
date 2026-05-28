@@ -28,10 +28,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name,
                         Description,
                         AssetType,
-                        StorageProvider,
-                        StorageKey,
-                        MimeType,
-                        SizeInBytes,
+                        StorageUrl,
+                        Version,
                         CreatedAtUtc,
                         UpdatedAtUtc)
                     SELECT
@@ -41,10 +39,8 @@ namespace EduCollab.Infrastructure.Repositories
                         @Name,
                         @Description,
                         @AssetType,
-                        @StorageProvider,
-                        @StorageKey,
-                        @MimeType,
-                        @SizeInBytes,
+                        @StorageUrl,
+                        @Version,
                         @CreatedAtUtc,
                         @UpdatedAtUtc
                     WHERE @FolderId IS NULL
@@ -64,10 +60,8 @@ namespace EduCollab.Infrastructure.Repositories
                         asset.Name,
                         asset.Description,
                         asset.AssetType,
-                        asset.StorageProvider,
-                        asset.StorageKey,
-                        asset.MimeType,
-                        asset.SizeInBytes,
+                        asset.StorageUrl,
+                        asset.Version,
                         asset.CreatedAtUtc,
                         asset.UpdatedAtUtc,
                     },
@@ -91,10 +85,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name,
                         Description,
                         AssetType,
-                        StorageProvider,
-                        StorageKey,
-                        MimeType,
-                        SizeInBytes,
+                        StorageUrl,
+                        Version,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -122,10 +114,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name,
                         Description,
                         AssetType,
-                        StorageProvider,
-                        StorageKey,
-                        MimeType,
-                        SizeInBytes,
+                        StorageUrl,
+                        Version,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -154,10 +144,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name,
                         Description,
                         AssetType,
-                        StorageProvider,
-                        StorageKey,
-                        MimeType,
-                        SizeInBytes,
+                        StorageUrl,
+                        Version,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -186,10 +174,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name,
                         Description,
                         AssetType,
-                        StorageProvider,
-                        StorageKey,
-                        MimeType,
-                        SizeInBytes,
+                        StorageUrl,
+                        Version,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -213,10 +199,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name = @Name,
                         Description = @Description,
                         AssetType = @AssetType,
-                        StorageProvider = @StorageProvider,
-                        StorageKey = @StorageKey,
-                        MimeType = @MimeType,
-                        SizeInBytes = @SizeInBytes,
+                        StorageUrl = @StorageUrl,
+                        Version = @Version,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE a.Id = @Id
                       AND a.WorkspaceId = @WorkspaceId
@@ -237,10 +221,8 @@ namespace EduCollab.Infrastructure.Repositories
                         a.Name,
                         a.Description,
                         a.AssetType,
-                        a.StorageProvider,
-                        a.StorageKey,
-                        a.MimeType,
-                        a.SizeInBytes,
+                        a.StorageUrl,
+                        a.Version,
                         a.CreatedAtUtc,
                         a.UpdatedAtUtc;
                     """,
@@ -252,10 +234,8 @@ namespace EduCollab.Infrastructure.Repositories
                         asset.Name,
                         asset.Description,
                         asset.AssetType,
-                        asset.StorageProvider,
-                        asset.StorageKey,
-                        asset.MimeType,
-                        asset.SizeInBytes,
+                        asset.StorageUrl,
+                        asset.Version,
                         UpdatedAtUtc = DateTime.UtcNow
                     },
                     cancellationToken: cancellationToken));
@@ -307,10 +287,8 @@ namespace EduCollab.Infrastructure.Repositories
                         a.Name,
                         a.Description,
                         a.AssetType,
-                        a.StorageProvider,
-                        a.StorageKey,
-                        a.MimeType,
-                        a.SizeInBytes,
+                        a.StorageUrl,
+                        a.Version,
                         a.CreatedAtUtc,
                         a.UpdatedAtUtc;
                     """,

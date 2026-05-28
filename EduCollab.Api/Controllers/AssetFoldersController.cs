@@ -26,10 +26,10 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> CreateAssetFolder(int workspaceId, [FromBody] CreateAssetFolderRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateAssetFolder([FromBody] CreateAssetFolderRequest request, CancellationToken cancellationToken)
         {
             var folder = request.MapToAssetFolder();
-            var created = await _assetFolderService.CreateAssetFolderAsync(workspaceId, folder, cancellationToken);
+            var created = await _assetFolderService.CreateAssetFolderAsync(folder, cancellationToken);
             if (!created)
             {
                 return BadRequest(new ErrorResponse
@@ -40,8 +40,8 @@ namespace EduCollab.Api.Controllers
             }
 
             var response = folder.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
-            return CreatedAtAction(nameof(GetAssetFolder), new { workspaceId, folderId = folder.Id }, response);
+            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            return CreatedAtAction(nameof(GetAssetFolder), new { folderId = folder.Id }, response);
         }
 
         [Authorize]
@@ -49,10 +49,10 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(AssetFoldersResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<AssetFoldersResponse>> GetRootAssetFolders(int workspaceId, CancellationToken cancellationToken)
+        public async Task<ActionResult<AssetFoldersResponse>> GetRootAssetFolders(CancellationToken cancellationToken)
         {
-            var folders = await _assetFolderService.GetRootAssetFoldersAsync(workspaceId, cancellationToken);
-            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            var folders = await _assetFolderService.GetRootAssetFoldersAsync(cancellationToken);
+            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             var response = folders.MapToResponse();
             foreach (var folder in response.Folders)
             {
@@ -68,16 +68,16 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<AssetFolderResponse>> GetAssetFolder(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<ActionResult<AssetFolderResponse>> GetAssetFolder(int folderId, CancellationToken cancellationToken)
         {
-            var folder = await _assetFolderService.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
+            var folder = await _assetFolderService.GetAssetFolderByIdAsync(folderId, cancellationToken);
             if (folder is null)
             {
                 return NotFound();
             }
 
             var response = folder.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             return Ok(response);
         }
 
@@ -88,10 +88,10 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<AssetFolderResponse>> UpdateAssetFolder(int workspaceId, int folderId, [FromBody] UpdateAssetFolderRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<AssetFolderResponse>> UpdateAssetFolder(int folderId, [FromBody] UpdateAssetFolderRequest request, CancellationToken cancellationToken)
         {
             var folder = request.MapToAssetFolder(folderId);
-            var updated = await _assetFolderService.UpdateAssetFolderAsync(workspaceId, folder, cancellationToken);
+            var updated = await _assetFolderService.UpdateAssetFolderAsync(folder, cancellationToken);
             if (updated is null)
             {
                 return NotFound(new ErrorResponse
@@ -102,7 +102,7 @@ namespace EduCollab.Api.Controllers
             }
 
             var response = updated.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             return Ok(response);
         }
 
@@ -113,9 +113,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteAssetFolder(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<IActionResult> DeleteAssetFolder(int folderId, CancellationToken cancellationToken)
         {
-            var deleted = await _assetFolderService.DeleteAssetFolderAsync(workspaceId, folderId, cancellationToken);
+            var deleted = await _assetFolderService.DeleteAssetFolderAsync(folderId, cancellationToken);
             if (!deleted)
             {
                 return NotFound();
@@ -130,10 +130,10 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<AssetFoldersResponse>> GetSubFolders(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<ActionResult<AssetFoldersResponse>> GetSubFolders(int folderId, CancellationToken cancellationToken)
         {
-            var folders = await _assetFolderService.GetSubFoldersAsync(workspaceId, folderId, cancellationToken);
-            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            var folders = await _assetFolderService.GetSubFoldersAsync(folderId, cancellationToken);
+            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             var response = folders.MapToResponse();
             foreach (var folder in response.Folders)
             {
@@ -149,14 +149,14 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<AssetsResponse>> GetAssets(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<ActionResult<AssetsResponse>> GetAssets(int folderId, CancellationToken cancellationToken)
         {
-            var assets = await _assetService.GetAssetsInFolderAsync(workspaceId, folderId, cancellationToken);
+            var assets = await _assetService.GetAssetsInFolderAsync(folderId, cancellationToken);
             var response = assets.MapToResponse();
 
             foreach (var asset in response.Assets)
             {
-                asset.CanManage = await _assetService.CanCurrentUserManageAssetAsync(workspaceId, asset.OwnerUserId, cancellationToken);
+                asset.CanManage = await _assetService.CanCurrentUserManageAssetAsync(asset.OwnerUserId, cancellationToken);
             }
 
             return Ok(response);

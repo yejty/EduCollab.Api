@@ -35,7 +35,6 @@ namespace EduCollab.Api.Controllers
         ///       "description": "People working on UI and UX"
         ///     }
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="request">Group creation payload. Only <c>name</c> and <c>description</c> are client-provided.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="201">Group was created successfully.</response>
@@ -48,11 +47,11 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> CreateGroup(int workspaceId, [FromBody] CreateGroupRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest request, CancellationToken cancellationToken)
         {
             var group = request.MapToGroup();
 
-            var created = await _groupService.CreateGroupAsync(workspaceId, group, cancellationToken);
+            var created = await _groupService.CreateGroupAsync(group, cancellationToken);
             if (!created)
             {
                 return BadRequest(new ErrorResponse
@@ -63,7 +62,7 @@ namespace EduCollab.Api.Controllers
             }
             var response = group.MapToResponse();
             response.CurrentUserRole = GroupRole.Admin.ToString();
-            return CreatedAtAction(nameof(GetGroup), new { workspaceId, groupId = group.Id }, response);
+            return CreatedAtAction(nameof(GetGroup), new { groupId = group.Id }, response);
         }
 
         /// <summary>
@@ -74,7 +73,6 @@ namespace EduCollab.Api.Controllers
         /// <c>Admin</c> can see all groups. Regular workspace members can call this endpoint,
         /// but group-level endpoints still require group membership.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">List of groups.</response>
         /// <response code="400">Bad request.</response>
@@ -86,9 +84,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<GroupsResponse>> GetAllGroups(int workspaceId, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupsResponse>> GetAllGroups(CancellationToken cancellationToken)
         {
-            var groups = await _groupService.GetAllGroupsAsync(workspaceId, cancellationToken);
+            var groups = await _groupService.GetAllGroupsAsync(cancellationToken);
             var response = groups.MapToResponse(); 
             return Ok(response);
         }
@@ -101,7 +99,6 @@ namespace EduCollab.Api.Controllers
         /// workspace <c>Owner</c>/<c>Admin</c>. The response includes <c>currentUserRole</c>
         /// when the caller is a direct group member.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Group info.</response>
@@ -116,15 +113,15 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<GroupResponse>> GetGroup(int groupId, int workspaceId, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupResponse>> GetGroup(int groupId, CancellationToken cancellationToken)
         {
-            var group = await _groupService.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
+            var group = await _groupService.GetGroupByIdAsync(groupId, cancellationToken);
             if (group is null)
             {
                 return NotFound();
             }
             var response = group.MapToResponse();
-            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(groupId, cancellationToken);
             response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
@@ -144,7 +141,6 @@ namespace EduCollab.Api.Controllers
         ///       "description": "Updated description"
         ///     }
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="request">Group update payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -160,10 +156,10 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<GroupResponse>> UpdateGroup(int groupId, int workspaceId, [FromBody] UpdateGroupRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupResponse>> UpdateGroup(int groupId, [FromBody] UpdateGroupRequest request, CancellationToken cancellationToken)
         {
             var group = request.MapToGroup(groupId);
-            var updatedGroup = await _groupService.UpdateGroupAsync(workspaceId, group, cancellationToken);
+            var updatedGroup = await _groupService.UpdateGroupAsync(group, cancellationToken);
             if (updatedGroup is null)
             {
                 return NotFound(new ErrorResponse
@@ -173,7 +169,7 @@ namespace EduCollab.Api.Controllers
                 });
             }
             var response = updatedGroup.MapToResponse();
-            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            var myMembership = await _groupService.GetCurrentUserGroupMemberAsync(groupId, cancellationToken);
             response.CurrentUserRole = myMembership?.Role.ToString();
             return Ok(response);
         }
@@ -184,7 +180,6 @@ namespace EduCollab.Api.Controllers
         /// <remarks>
         /// The caller must be a workspace <c>Owner</c>/<c>Admin</c> or a group <c>Admin</c>.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="204">Group deleted successfully.</response>
@@ -199,9 +194,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteGroup(int groupId, int workspaceId, CancellationToken cancellationToken)
+        public async Task<IActionResult> DeleteGroup(int groupId, CancellationToken cancellationToken)
         {
-            var deleted = await _groupService.DeleteGroupAsync(workspaceId, groupId, cancellationToken);
+            var deleted = await _groupService.DeleteGroupAsync(groupId, cancellationToken);
             if (!deleted)
             {
                 return NotFound();
@@ -216,7 +211,6 @@ namespace EduCollab.Api.Controllers
         /// The caller must belong to the workspace and either belong to the group or be a
         /// workspace <c>Owner</c>/<c>Admin</c>.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Group members.</response>
@@ -227,9 +221,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(GroupMembersResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<GroupMembersResponse>> GetAllMembers(int workspaceId, int groupId, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupMembersResponse>> GetAllMembers(int groupId, CancellationToken cancellationToken)
         {
-            var members = await _groupService.GetAllGroupMembersAsync(workspaceId, groupId, cancellationToken);
+            var members = await _groupService.GetAllGroupMembersAsync(groupId, cancellationToken);
             return Ok(members.MapToResponse());
         }
 
@@ -250,7 +244,6 @@ namespace EduCollab.Api.Controllers
         ///       "role": "Contributor"
         ///     }
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="request">Member creation payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -264,14 +257,14 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<GroupMemberResponse>> CreateMember(int workspaceId, int groupId, [FromBody] CreateGroupMemberRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupMemberResponse>> CreateMember(int groupId, [FromBody] CreateGroupMemberRequest request, CancellationToken cancellationToken)
         {
             var member = request.MapToGroupMember(groupId);
-            var created = await _groupService.CreateGroupMemberAsync(workspaceId, groupId, member, cancellationToken);
+            var created = await _groupService.CreateGroupMemberAsync(groupId, member, cancellationToken);
             if (created is null)
                 return BadRequest(new ErrorResponse { Error = "creation_failed", ErrorDescription = "Group member could not be created." });
 
-            return CreatedAtAction(nameof(GetMember), new { workspaceId, groupId, userId = created.UserId }, created.MapToResponse());
+            return CreatedAtAction(nameof(GetMember), new { groupId, userId = created.UserId }, created.MapToResponse());
         }
 
         /// <summary>
@@ -281,7 +274,6 @@ namespace EduCollab.Api.Controllers
         /// The caller must belong to the workspace and either belong to the group or be a
         /// workspace <c>Owner</c>/<c>Admin</c>.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="userId">User identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -295,9 +287,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<GroupMemberResponse>> GetMember(int workspaceId, int groupId, int userId, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupMemberResponse>> GetMember(int groupId, int userId, CancellationToken cancellationToken)
         {
-            var member = await _groupService.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            var member = await _groupService.GetGroupMemberAsync(groupId, userId, cancellationToken);
             if (member is null)
                 return NotFound();
 
@@ -318,7 +310,6 @@ namespace EduCollab.Api.Controllers
         ///       "role": "Viewer"
         ///     }
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="userId">User identifier.</param>
         /// <param name="request">Role update payload.</param>
@@ -335,9 +326,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<GroupMemberResponse>> UpdateMember(int workspaceId, int groupId, int userId, [FromBody] UpdateGroupMemberRequest request, CancellationToken cancellationToken)
+        public async Task<ActionResult<GroupMemberResponse>> UpdateMember(int groupId, int userId, [FromBody] UpdateGroupMemberRequest request, CancellationToken cancellationToken)
         {
-            var updated = await _groupService.UpdateGroupMemberAsync(workspaceId, groupId, userId, request.MapToGroupRole(), cancellationToken);
+            var updated = await _groupService.UpdateGroupMemberAsync(groupId, userId, request.MapToGroupRole(), cancellationToken);
             if (updated is null)
                 return NotFound(new ErrorResponse { Error = "update_failed", ErrorDescription = "Group member was not found." });
 
@@ -351,7 +342,6 @@ namespace EduCollab.Api.Controllers
         /// Workspace <c>Owner</c>/<c>Admin</c> and group <c>Admin</c> can remove users.
         /// A normal group member can remove themselves.
         /// </remarks>
-        /// <param name="workspaceId">Workspace identifier.</param>
         /// <param name="groupId">Group identifier.</param>
         /// <param name="userId">User identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -365,9 +355,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteMember(int workspaceId, int groupId, int userId, CancellationToken cancellationToken)
+        public async Task<IActionResult> DeleteMember(int groupId, int userId, CancellationToken cancellationToken)
         {
-            var deleted = await _groupService.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            var deleted = await _groupService.DeleteGroupMemberAsync(groupId, userId, cancellationToken);
             if (!deleted)
                 return NotFound();
 
@@ -376,28 +366,28 @@ namespace EduCollab.Api.Controllers
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetFolders)]
-        public IActionResult GetFolders(int workspaceId, int groupId)
+        public IActionResult GetFolders(int groupId)
         {
             throw new NotImplementedException();
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetSubFolders)]
-        public IActionResult GetSubFolders(int workspaceId, int groupId, int folderId)
+        public IActionResult GetSubFolders(int groupId, int folderId)
         {
             throw new NotImplementedException();
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetAssetsInFolders)]
-        public IActionResult GetAssetsInFolders(int workspaceId, int groupId, int folderId)
+        public IActionResult GetAssetsInFolders(int groupId, int folderId)
         {
             throw new NotImplementedException();
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetAssets)]
-        public IActionResult GetAssets(int workspaceId, int groupId)
+        public IActionResult GetAssets(int groupId)
         {
             throw new NotImplementedException();
         }

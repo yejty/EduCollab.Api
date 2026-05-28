@@ -44,9 +44,51 @@ namespace EduCollab.Application.Services.Workspaces
                 ?? throw new UnauthorizedAccessException("Authentication is required for this operation.");
         }
 
+        private async Task<int?> GetCurrentWorkspaceIdOrNullAsync(CancellationToken cancellationToken)
+        {
+            if (_currentUser.UserId is not int userId)
+            {
+                return null;
+            }
+
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            return user?.WorkspaceId is int workspaceId && workspaceId > 0
+                ? workspaceId
+                : null;
+        }
+
+        private async Task<(int WorkspaceId, WorkspaceMember Membership)> RequireCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
+        {
+            var userId = RequireCurrentUserId();
+            var workspaceId = await GetCurrentWorkspaceIdOrNullAsync(cancellationToken);
+            if (workspaceId is null)
+            {
+                throw new AccessDeniedException("You are not a member of any workspace.");
+            }
+
+            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, userId, cancellationToken);
+            if (membership is null)
+            {
+                throw new AccessDeniedException("You are not a member of this workspace.");
+            }
+
+            return (workspaceId.Value, membership);
+        }
+
         public async Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken)
         {
             return await _workspaceRepository.GetWorkspaceByIdAsync(id, cancellationToken);
+        }
+
+        public async Task<Workspace?> GetCurrentWorkspaceAsync(CancellationToken cancellationToken)
+        {
+            var workspaceId = await GetCurrentWorkspaceIdOrNullAsync(cancellationToken);
+            if (workspaceId is null)
+            {
+                return null;
+            }
+
+            return await _workspaceRepository.GetWorkspaceByIdAsync(workspaceId.Value, cancellationToken);
         }
 
         public Task<List<Workspace>> GetWorkspacesAsync(CancellationToken cancellationToken) =>
@@ -57,8 +99,20 @@ namespace EduCollab.Application.Services.Workspaces
             return await _workspaceRepository.GetWorkspaceMembersAsync(id, cancellationToken);
         }
 
+        public async Task<List<WorkspaceMember>> GetCurrentWorkspaceMembersAsync(CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            return await _workspaceRepository.GetWorkspaceMembersAsync(workspaceId, cancellationToken);
+        }
+
         public async Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
         {
+            return await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
+        }
+
+        public async Task<WorkspaceMember?> GetCurrentWorkspaceMemberAsync(int userId, CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
             return await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
         }
 
@@ -70,6 +124,17 @@ namespace EduCollab.Application.Services.Workspaces
             }
 
             return await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
+        }
+
+        public async Task<WorkspaceMember?> GetCurrentUserWorkspaceMemberAsync(CancellationToken cancellationToken)
+        {
+            var workspaceId = await GetCurrentWorkspaceIdOrNullAsync(cancellationToken);
+            if (workspaceId is null || _currentUser.UserId is not int userId)
+            {
+                return null;
+            }
+
+            return await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, userId, cancellationToken);
         }
 
         public async Task<bool> CreateUserInWorkspaceAsync(int workspaceId, User user, string password, string invitationToken, CancellationToken cancellationToken)
@@ -106,6 +171,27 @@ namespace EduCollab.Application.Services.Workspaces
             user.WorkspaceId = workspaceId;
             user.Email = normalizedEmail;
             return true;
+        }
+
+        public async Task<bool> CreateUserFromInvitationAsync(User user, string password, string invitationToken, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(user);
+
+            if (string.IsNullOrWhiteSpace(invitationToken))
+                throw new ArgumentException($"'{nameof(invitationToken)}' cannot be null or empty.", nameof(invitationToken));
+
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(invitationToken.Trim());
+            var workspaceId = await _workspaceRepository.GetActiveWorkspaceInvitationWorkspaceIdAsync(
+                tokenHash,
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+
+            if (workspaceId is null)
+            {
+                return false;
+            }
+
+            return await CreateUserInWorkspaceAsync(workspaceId.Value, user, password, invitationToken, cancellationToken);
         }
 
         public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken)
@@ -189,6 +275,17 @@ namespace EduCollab.Application.Services.Workspaces
                     workspaceId,
                     plainToken);
             }
+        }
+
+        public async Task InviteUserToCurrentWorkspaceAsync(string email, CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            if (membership.Role == WorkspaceRole.Member)
+            {
+                throw new AccessDeniedException("Only workspace owners and admins can send invitations.");
+            }
+
+            await InviteUserToWorkspaceAsync(workspaceId, email, cancellationToken);
         }
 
         public async Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
@@ -276,6 +373,15 @@ namespace EduCollab.Application.Services.Workspaces
             return true;
         }
 
+        public async Task<bool> UpdateCurrentWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(workspace);
+
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            workspace.Id = workspaceId;
+            return await UpdateWorkspaceAsync(workspace, cancellationToken);
+        }
+
         public async Task<bool> DeleteWorkspaceAsync(int workspaceId, CancellationToken cancellationToken)
         {
             if (workspaceId <= 0)
@@ -295,6 +401,12 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new AccessDeniedException("Only workspace owners and admins can delete the workspace.");
 
             return await _workspaceRepository.SoftDeleteWorkspaceAsync(workspaceId, userId, DateTimeOffset.UtcNow, cancellationToken);
+        }
+
+        public async Task<bool> DeleteCurrentWorkspaceAsync(CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            return await DeleteWorkspaceAsync(workspaceId, cancellationToken);
         }
 
         public async Task RemoveWorkspaceMemberAsync(int workspaceId, int targetUserId, CancellationToken cancellationToken)
@@ -346,6 +458,12 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new KeyNotFoundException("That user is not a member of this workspace.");
         }
 
+        public async Task RemoveCurrentWorkspaceMemberAsync(int targetUserId, CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            await RemoveWorkspaceMemberAsync(workspaceId, targetUserId, cancellationToken);
+        }
+
         public async Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken)
         {
             if (id <= 0)
@@ -394,6 +512,13 @@ namespace EduCollab.Application.Services.Workspaces
             }
 
             return await _workspaceRepository.UpdateWorkspaceMemberAsync(id, userId, member, cancellationToken);
+        }
+
+        public async Task<WorkspaceMember?> UpdateCurrentWorkspaceMemberAsync(int userId, WorkspaceMember member, CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
+            member.WorkspaceId = workspaceId;
+            return await UpdateWorkspaceMemberAsync(workspaceId, userId, member, cancellationToken);
         }
     }
 }

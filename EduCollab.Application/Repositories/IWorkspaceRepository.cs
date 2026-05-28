@@ -35,6 +35,11 @@ namespace EduCollab.Application.Repositories
             int invitedByUserId,
             CancellationToken cancellationToken);
 
+        Task<int?> GetActiveWorkspaceInvitationWorkspaceIdAsync(
+            string tokenHashSha256Hex,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
         Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(
             int workspaceId,
             string tokenHashSha256Hex,

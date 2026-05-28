@@ -115,20 +115,48 @@ namespace EduCollab.Infrastructure.Database
                     Name VARCHAR(200) NOT NULL,
                     Description TEXT NULL,
                     AssetType VARCHAR(50) NOT NULL,
-                    StorageProvider VARCHAR(50) NOT NULL,
-                    StorageKey TEXT NOT NULL,
-                    MimeType VARCHAR(255) NULL,
-                    SizeInBytes BIGINT NULL,
+                    StorageUrl TEXT NOT NULL,
+                    Version VARCHAR(50) NULL,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
                 """);
+            await connection.ExecuteAsync(
+                "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS AssetType VARCHAR(50) NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS StorageUrl TEXT NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS Version VARCHAR(50) NULL;");
+            await connection.ExecuteAsync(
+                "UPDATE Assets SET StorageUrl = StorageKey WHERE StorageUrl IS NULL AND StorageKey IS NOT NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE Assets ALTER COLUMN AssetType DROP NOT NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE Assets ALTER COLUMN StorageUrl DROP NOT NULL;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Assets_WorkspaceId ON Assets (WorkspaceId);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Assets_FolderId ON Assets (FolderId);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Assets_OwnerUserId ON Assets (OwnerUserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Scenes (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    OwnerUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    JsonContent JSONB NOT NULL,
+                    ETag VARCHAR(100) NOT NULL,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Scenes_WorkspaceId ON Scenes (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Scenes_OwnerUserId ON Scenes (OwnerUserId);");
             await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS AssetFolderGroupShares (

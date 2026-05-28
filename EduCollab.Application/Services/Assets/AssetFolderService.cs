@@ -9,15 +9,18 @@ namespace EduCollab.Application.Services.Assets
     {
         private readonly IAssetFolderRepository _assetFolderRepository;
         private readonly IWorkspaceRepository _workspaceRepository;
+        private readonly IUserRepository _userRepository;
         private readonly ICurrentUser _currentUser;
 
         public AssetFolderService(
             IAssetFolderRepository assetFolderRepository,
             IWorkspaceRepository workspaceRepository,
+            IUserRepository userRepository,
             ICurrentUser currentUser)
         {
             _assetFolderRepository = assetFolderRepository;
             _workspaceRepository = workspaceRepository;
+            _userRepository = userRepository;
             _currentUser = currentUser;
         }
 
@@ -39,12 +42,12 @@ namespace EduCollab.Application.Services.Assets
             return normalized;
         }
 
-        private async Task<WorkspaceMember> RequireWorkspaceMembershipAsync(int workspaceId, CancellationToken cancellationToken)
+        private async Task<(int WorkspaceId, WorkspaceMember Membership)> RequireWorkspaceMembershipAsync(CancellationToken cancellationToken)
         {
-            if (workspaceId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(workspaceId));
-
             var userId = RequireCurrentUserId();
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
+            if (user?.WorkspaceId is not int workspaceId || workspaceId <= 0)
+                throw new AccessDeniedException("You must belong to a workspace to access asset folders.");
 
             var workspace = await _workspaceRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
             if (workspace is null)
@@ -54,7 +57,7 @@ namespace EduCollab.Application.Services.Assets
             if (membership is null)
                 throw new AccessDeniedException("You are not a member of this workspace.");
 
-            return membership;
+            return (workspaceId, membership);
         }
 
         private static bool CanManageWorkspaceAssets(WorkspaceMember membership)
@@ -62,11 +65,13 @@ namespace EduCollab.Application.Services.Assets
             return membership.Role is WorkspaceRole.Owner or WorkspaceRole.Admin;
         }
 
-        private async Task EnsureCanManageWorkspaceAssetsAsync(int workspaceId, CancellationToken cancellationToken)
+        private async Task<int> EnsureCanManageWorkspaceAssetsAsync(CancellationToken cancellationToken)
         {
-            var membership = await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             if (!CanManageWorkspaceAssets(membership))
                 throw new AccessDeniedException("Only workspace owners and admins can manage asset folders.");
+
+            return workspaceId;
         }
 
         private async Task<(AssetFolder? Parent, string Path)> ResolvePathAsync(int workspaceId, int? parentFolderId, string name, CancellationToken cancellationToken)
@@ -83,14 +88,11 @@ namespace EduCollab.Application.Services.Assets
             return (parent, parent.Path.TrimEnd('/') + "/" + name);
         }
 
-        public async Task<bool> CreateAssetFolderAsync(int workspaceId, AssetFolder folder, CancellationToken cancellationToken)
+        public async Task<bool> CreateAssetFolderAsync(AssetFolder folder, CancellationToken cancellationToken)
         {
-            if (workspaceId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(workspaceId));
-
             ArgumentNullException.ThrowIfNull(folder);
 
-            await EnsureCanManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            var workspaceId = await EnsureCanManageWorkspaceAssetsAsync(cancellationToken);
 
             var normalizedName = ValidateAndNormalizeFolderName(folder.Name);
             var (_, path) = await ResolvePathAsync(workspaceId, folder.ParentFolderId, normalizedName, cancellationToken);
@@ -110,15 +112,15 @@ namespace EduCollab.Application.Services.Assets
             return true;
         }
 
-        public async Task<List<AssetFolder>> GetRootAssetFoldersAsync(int workspaceId, CancellationToken cancellationToken)
+        public async Task<List<AssetFolder>> GetRootAssetFoldersAsync(CancellationToken cancellationToken)
         {
-            await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
             return await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, null, cancellationToken);
         }
 
-        public async Task<List<AssetFolder>> GetAllAssetFoldersAsync(int workspaceId, CancellationToken cancellationToken)
+        public async Task<List<AssetFolder>> GetAllAssetFoldersAsync(CancellationToken cancellationToken)
         {
-            await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
             var folders = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, null, cancellationToken);
             var result = new List<AssetFolder>(folders);
@@ -141,12 +143,12 @@ namespace EduCollab.Application.Services.Assets
                 .ToList();
         }
 
-        public async Task<List<AssetFolder>> GetSubFoldersAsync(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<List<AssetFolder>> GetSubFoldersAsync(int folderId, CancellationToken cancellationToken)
         {
             if (folderId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(folderId));
 
-            await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
             var folder = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
             if (folder is null)
@@ -155,25 +157,22 @@ namespace EduCollab.Application.Services.Assets
             return await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, folderId, cancellationToken);
         }
 
-        public async Task<AssetFolder?> GetAssetFolderByIdAsync(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<AssetFolder?> GetAssetFolderByIdAsync(int folderId, CancellationToken cancellationToken)
         {
             if (folderId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(folderId));
 
-            await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
             return await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
         }
 
-        public async Task<AssetFolder?> UpdateAssetFolderAsync(int workspaceId, AssetFolder folder, CancellationToken cancellationToken)
+        public async Task<AssetFolder?> UpdateAssetFolderAsync(AssetFolder folder, CancellationToken cancellationToken)
         {
-            if (workspaceId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(workspaceId));
-
             ArgumentNullException.ThrowIfNull(folder);
             if (folder.Id <= 0)
                 throw new ArgumentOutOfRangeException(nameof(folder.Id));
 
-            await EnsureCanManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            var workspaceId = await EnsureCanManageWorkspaceAssetsAsync(cancellationToken);
 
             var existing = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folder.Id, cancellationToken);
             if (existing is null)
@@ -205,14 +204,12 @@ namespace EduCollab.Application.Services.Assets
             return updated;
         }
 
-        public async Task<bool> DeleteAssetFolderAsync(int workspaceId, int folderId, CancellationToken cancellationToken)
+        public async Task<bool> DeleteAssetFolderAsync(int folderId, CancellationToken cancellationToken)
         {
-            if (workspaceId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(workspaceId));
             if (folderId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(folderId));
 
-            await EnsureCanManageWorkspaceAssetsAsync(workspaceId, cancellationToken);
+            var workspaceId = await EnsureCanManageWorkspaceAssetsAsync(cancellationToken);
 
             var existing = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
             if (existing is null)
@@ -221,11 +218,11 @@ namespace EduCollab.Application.Services.Assets
             return await _assetFolderRepository.DeleteAssetFolderAsync(workspaceId, folderId, cancellationToken);
         }
 
-        public async Task<bool> CanCurrentUserManageWorkspaceAssetsAsync(int workspaceId, CancellationToken cancellationToken)
+        public async Task<bool> CanCurrentUserManageWorkspaceAssetsAsync(CancellationToken cancellationToken)
         {
             try
             {
-                var membership = await RequireWorkspaceMembershipAsync(workspaceId, cancellationToken);
+                var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
                 return CanManageWorkspaceAssets(membership);
             }
             catch (UnauthorizedAccessException)

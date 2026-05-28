@@ -240,6 +240,26 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
         }
 
+        public async Task<int?> GetActiveWorkspaceInvitationWorkspaceIdAsync(
+            string tokenHashSha256Hex,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken)
+        {
+            const string sql = """
+                SELECT WorkspaceId
+                FROM WorkspaceInvitations
+                WHERE TokenHash = @TokenHash
+                  AND UsedAt IS NULL
+                  AND ExpiresAt > @Now
+                ORDER BY Id DESC
+                LIMIT 1;
+                """;
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<int?>(
+                new CommandDefinition(sql, new { TokenHash = tokenHashSha256Hex, Now = utcNow }, cancellationToken: cancellationToken));
+        }
+
         public async Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(
             int workspaceId,
             string tokenHashSha256Hex,

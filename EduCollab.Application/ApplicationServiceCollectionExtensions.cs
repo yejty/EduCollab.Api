@@ -2,6 +2,7 @@
 using EduCollab.Application.Services.Assets;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Application.Services.Notifications;
+using EduCollab.Application.Services.Scenes;
 using EduCollab.Application.Services.Users;
 using EduCollab.Application.Services.Workspaces;
 using Microsoft.AspNetCore.Identity;
@@ -27,6 +28,7 @@ namespace EduCollab.Application
             services.AddScoped<IGroupService, GroupService>();
             services.AddScoped<IAssetFolderService, AssetFolderService>();
             services.AddScoped<IAssetService, AssetService>();
+            services.AddScoped<ISceneService, SceneService>();
             return services;
         }
     }

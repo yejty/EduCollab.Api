@@ -10,22 +10,17 @@ namespace EduCollab.Contracts.Requests.Assets
 
         public string? Description { get; set; }
 
-        [Required]
-        [MaxLength(50)]
-        public string AssetType { get; set; } = string.Empty;
-
         public int? FolderId { get; set; }
 
         [Required]
         [MaxLength(50)]
-        public string StorageProvider { get; set; } = string.Empty;
+        public string AssetType { get; set; } = string.Empty;
 
         [Required]
-        public string StorageKey { get; set; } = string.Empty;
+        [Url]
+        public string StorageUrl { get; set; } = string.Empty;
 
-        [MaxLength(255)]
-        public string? MimeType { get; set; }
-
-        public long? SizeInBytes { get; set; }
+        [MaxLength(50)]
+        public string? Version { get; set; }
     }
 }
