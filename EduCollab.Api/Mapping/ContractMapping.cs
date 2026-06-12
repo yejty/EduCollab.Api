@@ -282,6 +282,14 @@ namespace EduCollab.Api.Mapping
             return role;
         }
 
+        public static GroupRole MapToGroupRole(this ShareWithGroupRequest request)
+        {
+            if (!Enum.TryParse<GroupRole>(request.Role, true, out var role))
+                throw new ArgumentException("Invalid group role.", nameof(request.Role));
+
+            return role;
+        }
+
         public static GroupMemberResponse MapToResponse(this GroupMember member)
         {
             return new GroupMemberResponse

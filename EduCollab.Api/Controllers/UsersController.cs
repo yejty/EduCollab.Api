@@ -9,6 +9,7 @@ using EduCollab.Contracts.Responses.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 namespace EduCollab.Api.Controllers
 {
@@ -16,15 +17,18 @@ namespace EduCollab.Api.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IUserPreferencesService _userPreferencesService;
         private readonly IAccessTokenService _accessTokenService;
         private readonly IRefreshTokenService _refreshTokenService;
 
         public UsersController(
             IUserService userService,
+            IUserPreferencesService userPreferencesService,
             IAccessTokenService accessTokenService,
             IRefreshTokenService refreshTokenService)
         {
             _userService = userService;
+            _userPreferencesService = userPreferencesService;
             _accessTokenService = accessTokenService;
             _refreshTokenService = refreshTokenService;
         }
@@ -263,6 +267,49 @@ namespace EduCollab.Api.Controllers
             }
             var response = user.MapToResponse();
             return Ok(response);
+        }
+
+        /// <summary>
+        /// Retrieve opaque web-client preferences for the current user.
+        /// </summary>
+        /// <remarks>
+        /// The backend treats this document as opaque JSON and stores it outside the database.
+        /// It is intended for web-client profile preferences only.
+        /// </remarks>
+        [Authorize]
+        [HttpGet(ApiEndpoints.Users.Preferences)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetPreferences(CancellationToken cancellationToken)
+        {
+            var json = await _userPreferencesService.GetCurrentUserPreferencesAsync(cancellationToken);
+            return Content(json ?? "{}", "application/json");
+        }
+
+        /// <summary>
+        /// Replace opaque web-client preferences for the current user.
+        /// </summary>
+        /// <remarks>
+        /// The backend validates only that the payload is valid JSON, without understanding its schema.
+        /// </remarks>
+        [Authorize]
+        [HttpPut(ApiEndpoints.Users.Preferences)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> PutPreferences([FromBody] JsonNode? preferences, CancellationToken cancellationToken)
+        {
+            if (preferences is null)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "bad_request",
+                    ErrorDescription = "Preferences payload is required."
+                });
+            }
+
+            var savedJson = await _userPreferencesService.SaveCurrentUserPreferencesAsync(preferences.ToJsonString(), cancellationToken);
+            return Content(savedJson, "application/json");
         }
 
         /// <summary>

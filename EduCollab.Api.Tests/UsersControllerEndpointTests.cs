@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Users;
@@ -233,6 +234,56 @@ public sealed class UsersControllerEndpointTests
         var body = await response.ReadAsJsonAsync<UserResponse>();
         Assert.Equal(21L, body.Id);
         Assert.Equal(7, body.WorkspaceId);
+    }
+
+    [Fact]
+    public async Task GetPreferences_ReturnsStoredJson_WhenAuthenticated()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserPreferencesService.GetCurrentUserPreferencesAsyncHandler = _ =>
+            Task.FromResult<string?>("""{"theme":"dark","sidebar":{"collapsed":true}}""");
+
+        using var client = factory.CreateClient(userId: 25);
+
+        var response = await client.GetAsync("/api/users/me/preferences");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<JsonObject>();
+        Assert.Equal("dark", body["theme"]?.GetValue<string>());
+        Assert.True(body["sidebar"]?["collapsed"]?.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task PutPreferences_ReturnsStoredJson_WhenAuthenticated()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserPreferencesService.SaveCurrentUserPreferencesAsyncHandler = (json, _) => Task.FromResult(json);
+
+        using var client = factory.CreateClient(userId: 26);
+
+        var response = await client.PutAsJsonAsync("/api/users/me/preferences", new
+        {
+            theme = "light",
+            locale = "en-US"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<JsonObject>();
+        Assert.Equal("light", body["theme"]?.GetValue<string>());
+        Assert.Equal("en-US", body["locale"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task PutPreferences_ReturnsBadRequest_WhenBodyIsMissing()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 27);
+
+        var response = await client.PutAsync("/api/users/me/preferences", JsonContent.Create<string?>(null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("bad_request", body.Error);
     }
 
     [Fact]

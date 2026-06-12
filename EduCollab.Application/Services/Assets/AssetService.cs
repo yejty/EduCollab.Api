@@ -10,6 +10,7 @@ namespace EduCollab.Application.Services.Assets
     {
         private readonly IAssetRepository _assetRepository;
         private readonly IAssetFolderRepository _assetFolderRepository;
+        private readonly IGroupRepository _groupRepository;
         private readonly IWorkspaceRepository _workspaceRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUser _currentUser;
@@ -17,12 +18,14 @@ namespace EduCollab.Application.Services.Assets
         public AssetService(
             IAssetRepository assetRepository,
             IAssetFolderRepository assetFolderRepository,
+            IGroupRepository groupRepository,
             IWorkspaceRepository workspaceRepository,
             IUserRepository userRepository,
             ICurrentUser currentUser)
         {
             _assetRepository = assetRepository;
             _assetFolderRepository = assetFolderRepository;
+            _groupRepository = groupRepository;
             _workspaceRepository = workspaceRepository;
             _userRepository = userRepository;
             _currentUser = currentUser;
@@ -73,6 +76,16 @@ namespace EduCollab.Application.Services.Assets
             var folder = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId.Value, cancellationToken);
             if (folder is null)
                 throw new KeyNotFoundException("Asset folder not found.");
+        }
+
+        private async Task EnsureGroupBelongsToWorkspaceAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            var group = await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
+            if (group is null)
+                throw new KeyNotFoundException("Group not found.");
         }
 
         private async Task EnsureCanManageAssetAsync(int workspaceId, Asset asset, CancellationToken cancellationToken)
@@ -198,6 +211,47 @@ namespace EduCollab.Application.Services.Assets
 
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
             return await _assetRepository.DeleteAssetAsync(workspaceId, assetId, cancellationToken);
+        }
+
+        public async Task<bool> ShareAssetAsync(int assetId, int groupId, GroupRole role, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+
+            var share = new AssetGroupShare
+            {
+                AssetId = assetId,
+                GroupId = groupId,
+                Role = role,
+                CreatedByUserId = RequireCurrentUserId(),
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            var created = await _assetRepository.CreateAssetShareAsync(workspaceId, share, cancellationToken);
+            return created is not null;
+        }
+
+        public async Task<bool> RemoveAssetShareAsync(int assetId, int groupId, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            return await _assetRepository.DeleteAssetShareAsync(workspaceId, assetId, groupId, cancellationToken);
         }
 
         public async Task<bool> CanCurrentUserManageAssetAsync(int ownerUserId, CancellationToken cancellationToken)

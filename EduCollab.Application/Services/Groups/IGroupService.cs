@@ -15,5 +15,9 @@ namespace EduCollab.Application.Services.Groups
         Task<GroupMember?> CreateGroupMemberAsync(int groupId, GroupMember member, CancellationToken cancellationToken);
         Task<GroupMember?> UpdateGroupMemberAsync(int groupId, int userId, GroupRole role, CancellationToken cancellationToken);
         Task<bool> DeleteGroupMemberAsync(int groupId, int userId, CancellationToken cancellationToken);
+        Task<List<AssetFolder>> GetVisibleRootAssetFoldersAsync(int groupId, CancellationToken cancellationToken);
+        Task<List<AssetFolder>> GetVisibleSubFoldersAsync(int groupId, int folderId, CancellationToken cancellationToken);
+        Task<List<Asset>> GetVisibleAssetsInFolderAsync(int groupId, int folderId, CancellationToken cancellationToken);
+        Task<List<Asset>> GetVisibleRootAssetsAsync(int groupId, CancellationToken cancellationToken);
     }
 }

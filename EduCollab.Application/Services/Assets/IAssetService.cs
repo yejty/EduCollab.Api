@@ -12,6 +12,8 @@ namespace EduCollab.Application.Services.Assets
         Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken);
         Task<Asset?> MoveAssetAsync(int assetId, int? folderId, CancellationToken cancellationToken);
         Task<bool> DeleteAssetAsync(int assetId, CancellationToken cancellationToken);
+        Task<bool> ShareAssetAsync(int assetId, int groupId, GroupRole role, CancellationToken cancellationToken);
+        Task<bool> RemoveAssetShareAsync(int assetId, int groupId, CancellationToken cancellationToken);
         Task<bool> CanCurrentUserManageAssetAsync(int ownerUserId, CancellationToken cancellationToken);
         Task<List<int>> GetAssetGroupIdsAsync(int assetId, CancellationToken cancellationToken);
     }

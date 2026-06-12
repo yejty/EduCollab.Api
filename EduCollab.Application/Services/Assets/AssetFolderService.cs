@@ -8,17 +8,20 @@ namespace EduCollab.Application.Services.Assets
     public class AssetFolderService : IAssetFolderService
     {
         private readonly IAssetFolderRepository _assetFolderRepository;
+        private readonly IGroupRepository _groupRepository;
         private readonly IWorkspaceRepository _workspaceRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUser _currentUser;
 
         public AssetFolderService(
             IAssetFolderRepository assetFolderRepository,
+            IGroupRepository groupRepository,
             IWorkspaceRepository workspaceRepository,
             IUserRepository userRepository,
             ICurrentUser currentUser)
         {
             _assetFolderRepository = assetFolderRepository;
+            _groupRepository = groupRepository;
             _workspaceRepository = workspaceRepository;
             _userRepository = userRepository;
             _currentUser = currentUser;
@@ -86,6 +89,16 @@ namespace EduCollab.Application.Services.Assets
                 throw new KeyNotFoundException("Parent folder was not found.");
 
             return (parent, parent.Path.TrimEnd('/') + "/" + name);
+        }
+
+        private async Task EnsureGroupBelongsToWorkspaceAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            var group = await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
+            if (group is null)
+                throw new KeyNotFoundException("Group not found.");
         }
 
         public async Task<bool> CreateAssetFolderAsync(AssetFolder folder, CancellationToken cancellationToken)
@@ -216,6 +229,55 @@ namespace EduCollab.Application.Services.Assets
                 return false;
 
             return await _assetFolderRepository.DeleteAssetFolderAsync(workspaceId, folderId, cancellationToken);
+        }
+
+        public async Task<bool> ShareAssetFolderAsync(int folderId, int groupId, GroupRole role, CancellationToken cancellationToken)
+        {
+            if (folderId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(folderId));
+
+            var workspaceId = await EnsureCanManageWorkspaceAssetsAsync(cancellationToken);
+            var existing = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+
+            var share = new AssetFolderGroupShare
+            {
+                FolderId = folderId,
+                GroupId = groupId,
+                Role = role,
+                CreatedByUserId = RequireCurrentUserId(),
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            var created = await _assetFolderRepository.CreateAssetFolderShareAsync(workspaceId, share, cancellationToken);
+            return created is not null;
+        }
+
+        public async Task<bool> RemoveAssetFolderShareAsync(int folderId, int groupId, CancellationToken cancellationToken)
+        {
+            if (folderId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(folderId));
+
+            var workspaceId = await EnsureCanManageWorkspaceAssetsAsync(cancellationToken);
+            var existing = await _assetFolderRepository.GetAssetFolderByIdAsync(workspaceId, folderId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            return await _assetFolderRepository.DeleteAssetFolderShareAsync(workspaceId, folderId, groupId, cancellationToken);
+        }
+
+        public async Task<List<int>> GetAssetFolderGroupIdsAsync(int folderId, CancellationToken cancellationToken)
+        {
+            if (folderId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(folderId));
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var shares = await _assetFolderRepository.GetAssetFolderSharesAsync(workspaceId, folderId, cancellationToken);
+            return shares.Select(s => s.GroupId).ToList();
         }
 
         public async Task<bool> CanCurrentUserManageWorkspaceAssetsAsync(CancellationToken cancellationToken)

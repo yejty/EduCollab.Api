@@ -3,6 +3,7 @@ using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Infrastructure.Repositories;
 using EduCollab.Infrastructure.Services.Notifications;
+using EduCollab.Infrastructure.Services.Users;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,8 +25,10 @@ namespace EduCollab.Infrastructure.Database
             services.AddSingleton<DbInitializer>();
 
             services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
+            services.Configure<UserPreferencesStorageOptions>(configuration.GetSection(UserPreferencesStorageOptions.SectionName));
 
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            services.AddSingleton<IUserPreferencesStore, FileUserPreferencesStore>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IAssetFolderRepository, AssetFolderRepository>();
             services.AddScoped<IAssetRepository, AssetRepository>();

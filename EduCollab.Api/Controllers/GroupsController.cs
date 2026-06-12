@@ -1,8 +1,10 @@
 ﻿using EduCollab.Api.Mapping;
 using EduCollab.Application.Models;
+using EduCollab.Application.Services.Assets;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Responses;
+using EduCollab.Contracts.Responses.Assets;
 using EduCollab.Contracts.Responses.Groups;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,10 +16,26 @@ namespace EduCollab.Api.Controllers
     public class GroupsController : ControllerBase
     {
         private readonly IGroupService _groupService;
+        private readonly IAssetFolderService _assetFolderService;
+        private readonly IAssetService _assetService;
 
-        public GroupsController(IGroupService groupService)
+        public GroupsController(IGroupService groupService, IAssetFolderService assetFolderService, IAssetService assetService)
         {
             _groupService = groupService;
+            _assetFolderService = assetFolderService;
+            _assetService = assetService;
+        }
+
+        private async Task PopulateFolderMetadataAsync(AssetFolderResponse folder, CancellationToken cancellationToken)
+        {
+            folder.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            folder.GroupIds = await _assetFolderService.GetAssetFolderGroupIdsAsync(folder.Id, cancellationToken);
+        }
+
+        private async Task PopulateAssetMetadataAsync(AssetResponse asset, CancellationToken cancellationToken)
+        {
+            asset.CanManage = await _assetService.CanCurrentUserManageAssetAsync(asset.OwnerUserId, cancellationToken);
+            asset.GroupIds = await _assetService.GetAssetGroupIdsAsync(asset.Id, cancellationToken);
         }
 
         /// <summary>
@@ -366,30 +384,74 @@ namespace EduCollab.Api.Controllers
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetFolders)]
-        public IActionResult GetFolders(int groupId)
+        [ProducesResponseType(typeof(AssetFoldersResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetFoldersResponse>> GetFolders(int groupId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var folders = await _groupService.GetVisibleRootAssetFoldersAsync(groupId, cancellationToken);
+            var response = folders.MapToResponse();
+            foreach (var folder in response.Folders)
+            {
+                await PopulateFolderMetadataAsync(folder, cancellationToken);
+            }
+
+            return Ok(response);
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetSubFolders)]
-        public IActionResult GetSubFolders(int groupId, int folderId)
+        [ProducesResponseType(typeof(AssetFoldersResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetFoldersResponse>> GetSubFolders(int groupId, int folderId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var folders = await _groupService.GetVisibleSubFoldersAsync(groupId, folderId, cancellationToken);
+            var response = folders.MapToResponse();
+            foreach (var folder in response.Folders)
+            {
+                await PopulateFolderMetadataAsync(folder, cancellationToken);
+            }
+
+            return Ok(response);
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetAssetsInFolders)]
-        public IActionResult GetAssetsInFolders(int groupId, int folderId)
+        [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetsResponse>> GetAssetsInFolders(int groupId, int folderId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var assets = await _groupService.GetVisibleAssetsInFolderAsync(groupId, folderId, cancellationToken);
+            var response = assets.MapToResponse();
+            foreach (var asset in response.Assets)
+            {
+                await PopulateAssetMetadataAsync(asset, cancellationToken);
+            }
+
+            return Ok(response);
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Groups.GetAssets)]
-        public IActionResult GetAssets(int groupId)
+        [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetsResponse>> GetAssets(int groupId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var assets = await _groupService.GetVisibleRootAssetsAsync(groupId, cancellationToken);
+            var response = assets.MapToResponse();
+            foreach (var asset in response.Assets)
+            {
+                await PopulateAssetMetadataAsync(asset, cancellationToken);
+            }
+
+            return Ok(response);
         }
     }
 }

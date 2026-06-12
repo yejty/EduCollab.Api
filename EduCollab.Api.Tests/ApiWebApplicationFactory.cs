@@ -14,6 +14,7 @@ namespace EduCollab.Api.Tests;
 public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
 {
     public FakeUserService UserService { get; } = new();
+    public FakeUserPreferencesService UserPreferencesService { get; } = new();
     public FakeWorkspaceService WorkspaceService { get; } = new();
     public FakeAccessTokenService AccessTokenService { get; } = new();
     public FakeRefreshTokenService RefreshTokenService { get; } = new();
@@ -25,11 +26,13 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IUserService>();
+            services.RemoveAll<IUserPreferencesService>();
             services.RemoveAll<IWorkspaceService>();
             services.RemoveAll<IAccessTokenService>();
             services.RemoveAll<IRefreshTokenService>();
 
             services.AddSingleton<IUserService>(UserService);
+            services.AddSingleton<IUserPreferencesService>(UserPreferencesService);
             services.AddSingleton<IWorkspaceService>(WorkspaceService);
             services.AddSingleton<IAccessTokenService>(AccessTokenService);
             services.AddSingleton<IRefreshTokenService>(RefreshTokenService);

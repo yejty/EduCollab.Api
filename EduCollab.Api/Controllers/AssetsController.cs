@@ -168,5 +168,48 @@ namespace EduCollab.Api.Controllers
 
             return NoContent();
         }
+
+        [Authorize]
+        [HttpPost(ApiEndpoints.Assets.Share)]
+        [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetResponse>> ShareAsset(int assetId, [FromBody] ShareWithGroupRequest request, CancellationToken cancellationToken)
+        {
+            var shared = await _assetService.ShareAssetAsync(assetId, request.GroupId, request.MapToGroupRole(), cancellationToken);
+            if (!shared)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "sharing_failed",
+                    ErrorDescription = "Asset could not be shared with the group."
+                });
+            }
+
+            var asset = await _assetService.GetAssetByIdAsync(assetId, cancellationToken);
+            if (asset is null)
+                return NotFound();
+
+            var response = asset.MapToResponse();
+            await PopulateAccessMetadataAsync(response, cancellationToken);
+            return Ok(response);
+        }
+
+        [Authorize]
+        [HttpDelete(ApiEndpoints.Assets.Unshare)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> RemoveAssetShare(int assetId, int groupId, CancellationToken cancellationToken)
+        {
+            var removed = await _assetService.RemoveAssetShareAsync(assetId, groupId, cancellationToken);
+            if (!removed)
+                return NotFound();
+
+            return NoContent();
+        }
     }
 }

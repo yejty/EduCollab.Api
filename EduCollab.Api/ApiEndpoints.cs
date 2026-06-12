@@ -26,6 +26,7 @@ namespace EduCollab.Api
             public const string LoginConfirmCode = $"{Base}/login/confirm-code";
             public const string Token = $"{Base}/token";
             public const string Me = $"{Base}/me";
+            public const string Preferences = $"{Me}/preferences";
 
             public const string ResetConfirm = $"{Base}/reset-password-confirm";
             public const string Reset = $"{Base}/reset-password";
@@ -92,6 +93,8 @@ namespace EduCollab.Api
             public const string Delete = $"{Base}/{{folderId}}";
             public const string GetSubFolders = $"{Base}/{{folderId}}/folders";
             public const string GetAssets = $"{Base}/{{folderId}}/assets";
+            public const string Share = $"{Base}/{{folderId}}/groups";
+            public const string Unshare = $"{Base}/{{folderId}}/groups/{{groupId}}";
         }
 
         public static class Assets
@@ -104,6 +107,8 @@ namespace EduCollab.Api
             public const string Delete = $"{Base}/{{assetId}}";
             public const string GetMine = $"{Base}/mine";
             public const string Move = $"{Base}/{{assetId}}/move";
+            public const string Share = $"{Base}/{{assetId}}/groups";
+            public const string Unshare = $"{Base}/{{assetId}}/groups/{{groupId}}";
         }
 
         public static class Scenes

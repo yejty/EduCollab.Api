@@ -20,6 +20,18 @@ namespace EduCollab.Api.Controllers
             _assetService = assetService;
         }
 
+        private async Task PopulateFolderMetadataAsync(AssetFolderResponse folder, CancellationToken cancellationToken)
+        {
+            folder.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            folder.GroupIds = await _assetFolderService.GetAssetFolderGroupIdsAsync(folder.Id, cancellationToken);
+        }
+
+        private async Task PopulateAssetMetadataAsync(AssetResponse asset, CancellationToken cancellationToken)
+        {
+            asset.CanManage = await _assetService.CanCurrentUserManageAssetAsync(asset.OwnerUserId, cancellationToken);
+            asset.GroupIds = await _assetService.GetAssetGroupIdsAsync(asset.Id, cancellationToken);
+        }
+
         [Authorize]
         [HttpPost(ApiEndpoints.AssetFolders.Create)]
         [ProducesResponseType(typeof(AssetFolderResponse), StatusCodes.Status201Created)]
@@ -40,7 +52,7 @@ namespace EduCollab.Api.Controllers
             }
 
             var response = folder.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            await PopulateFolderMetadataAsync(response, cancellationToken);
             return CreatedAtAction(nameof(GetAssetFolder), new { folderId = folder.Id }, response);
         }
 
@@ -52,11 +64,10 @@ namespace EduCollab.Api.Controllers
         public async Task<ActionResult<AssetFoldersResponse>> GetRootAssetFolders(CancellationToken cancellationToken)
         {
             var folders = await _assetFolderService.GetRootAssetFoldersAsync(cancellationToken);
-            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             var response = folders.MapToResponse();
             foreach (var folder in response.Folders)
             {
-                folder.CanManage = canManage;
+                await PopulateFolderMetadataAsync(folder, cancellationToken);
             }
 
             return Ok(response);
@@ -77,7 +88,7 @@ namespace EduCollab.Api.Controllers
             }
 
             var response = folder.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            await PopulateFolderMetadataAsync(response, cancellationToken);
             return Ok(response);
         }
 
@@ -102,7 +113,7 @@ namespace EduCollab.Api.Controllers
             }
 
             var response = updated.MapToResponse();
-            response.CanManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
+            await PopulateFolderMetadataAsync(response, cancellationToken);
             return Ok(response);
         }
 
@@ -133,11 +144,10 @@ namespace EduCollab.Api.Controllers
         public async Task<ActionResult<AssetFoldersResponse>> GetSubFolders(int folderId, CancellationToken cancellationToken)
         {
             var folders = await _assetFolderService.GetSubFoldersAsync(folderId, cancellationToken);
-            var canManage = await _assetFolderService.CanCurrentUserManageWorkspaceAssetsAsync(cancellationToken);
             var response = folders.MapToResponse();
             foreach (var folder in response.Folders)
             {
-                folder.CanManage = canManage;
+                await PopulateFolderMetadataAsync(folder, cancellationToken);
             }
 
             return Ok(response);
@@ -156,10 +166,53 @@ namespace EduCollab.Api.Controllers
 
             foreach (var asset in response.Assets)
             {
-                asset.CanManage = await _assetService.CanCurrentUserManageAssetAsync(asset.OwnerUserId, cancellationToken);
+                await PopulateAssetMetadataAsync(asset, cancellationToken);
             }
 
             return Ok(response);
+        }
+
+        [Authorize]
+        [HttpPost(ApiEndpoints.AssetFolders.Share)]
+        [ProducesResponseType(typeof(AssetFolderResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetFolderResponse>> ShareAssetFolder(int folderId, [FromBody] ShareWithGroupRequest request, CancellationToken cancellationToken)
+        {
+            var shared = await _assetFolderService.ShareAssetFolderAsync(folderId, request.GroupId, request.MapToGroupRole(), cancellationToken);
+            if (!shared)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "sharing_failed",
+                    ErrorDescription = "Asset folder could not be shared with the group."
+                });
+            }
+
+            var folder = await _assetFolderService.GetAssetFolderByIdAsync(folderId, cancellationToken);
+            if (folder is null)
+                return NotFound();
+
+            var response = folder.MapToResponse();
+            await PopulateFolderMetadataAsync(response, cancellationToken);
+            return Ok(response);
+        }
+
+        [Authorize]
+        [HttpDelete(ApiEndpoints.AssetFolders.Unshare)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> RemoveAssetFolderShare(int folderId, int groupId, CancellationToken cancellationToken)
+        {
+            var removed = await _assetFolderService.RemoveAssetFolderShareAsync(folderId, groupId, cancellationToken);
+            if (!removed)
+                return NotFound();
+
+            return NoContent();
         }
     }
 }

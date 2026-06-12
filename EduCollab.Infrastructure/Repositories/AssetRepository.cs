@@ -329,6 +329,33 @@ namespace EduCollab.Infrastructure.Repositories
             return shares.AsList();
         }
 
+        public async Task<List<AssetGroupShare>> GetAssetSharesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var shares = await connection.QueryAsync<AssetGroupShare>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        s.AssetId,
+                        s.GroupId,
+                        s.Role,
+                        s.CreatedByUserId,
+                        s.CreatedAtUtc
+                    FROM AssetGroupShares s
+                    INNER JOIN Assets a ON a.Id = s.AssetId
+                    INNER JOIN Groups g ON g.Id = s.GroupId
+                    WHERE s.GroupId = @GroupId
+                      AND a.WorkspaceId = @WorkspaceId
+                      AND g.WorkspaceId = @WorkspaceId
+                    ORDER BY s.CreatedAtUtc, s.AssetId;
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return shares.AsList();
+        }
+
         public async Task<AssetGroupShare?> CreateAssetShareAsync(int workspaceId, AssetGroupShare share, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();

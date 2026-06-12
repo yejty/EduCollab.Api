@@ -24,6 +24,7 @@ namespace EduCollab.Application
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IUserPreferencesService, UserPreferencesService>();
             services.AddScoped<IWorkspaceService, WorkspaceService>();
             services.AddScoped<IGroupService, GroupService>();
             services.AddScoped<IAssetFolderService, AssetFolderService>();
