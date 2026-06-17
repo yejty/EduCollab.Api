@@ -21,10 +21,5 @@ namespace EduCollab.Contracts.Requests.Users
         [RegularExpression(ValidationPatterns.Password, ErrorMessage = ValidationPatterns.PasswordError)]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
-
-        [Required]
-        [RegularExpression(ValidationPatterns.Password, ErrorMessage = ValidationPatterns.PasswordError)]
-        [DataType(DataType.Password)]
-        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

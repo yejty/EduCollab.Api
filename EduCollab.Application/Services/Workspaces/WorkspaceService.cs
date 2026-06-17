@@ -181,20 +181,53 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new ArgumentException($"'{nameof(invitationToken)}' cannot be null or empty.", nameof(invitationToken));
 
             var tokenHash = RefreshTokenGenerator.HashPlaintext(invitationToken.Trim());
-            var workspaceId = await _workspaceRepository.GetActiveWorkspaceInvitationWorkspaceIdAsync(
+            var invitation = await _workspaceRepository.GetActiveWorkspaceInvitationAsync(
                 tokenHash,
                 DateTimeOffset.UtcNow,
                 cancellationToken);
 
-            if (workspaceId is null)
+            if (invitation is null)
             {
                 return false;
             }
 
-            return await CreateUserInWorkspaceAsync(workspaceId.Value, user, password, invitationToken, cancellationToken);
+            return await CreateUserInWorkspaceAsync(invitation.WorkspaceId, user, password, invitationToken, cancellationToken);
         }
 
-        public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken)
+        public async Task<WorkspaceMember?> JoinWorkspaceFromInvitationAsync(string invitationToken, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(invitationToken))
+                throw new ArgumentException($"'{nameof(invitationToken)}' cannot be null or empty.", nameof(invitationToken));
+
+            var userId = RequireCurrentUserId();
+            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken)
+                ?? throw new UnauthorizedAccessException("Authenticated user was not found.");
+
+            if (await _workspaceRepository.IsUserInAnyWorkspaceAsync(userId, cancellationToken))
+                throw new ArgumentException("You already belong to a workspace.");
+
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(invitationToken.Trim());
+            var invitation = await _workspaceRepository.GetActiveWorkspaceInvitationAsync(
+                tokenHash,
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+
+            if (invitation is null)
+                return null;
+
+            if (!string.Equals(user.Email.Trim(), invitation.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new AccessDeniedException("This invitation was sent to a different email address.");
+
+            return await _workspaceRepository.AcceptWorkspaceInvitationForExistingUserAsync(
+                invitation.WorkspaceId,
+                tokenHash,
+                userId,
+                user.Email.Trim(),
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+        }
+
+        public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, WorkspaceRole role, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(email))
                 throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
@@ -214,12 +247,17 @@ namespace EduCollab.Application.Services.Workspaces
             if (inviterMember is null)
                 throw new UnauthorizedAccessException("You are not a member of this workspace.");
 
-            if (inviterMember.Role == WorkspaceRole.Member)
-                throw new UnauthorizedAccessException("Only workspace owners and admins can send invitations.");
+            if (!WorkspaceRolePermissions.CanInviteUsers(inviterMember.Role))
+                throw new UnauthorizedAccessException("Only workspace owners and managers can send invitations.");
+
+            EnsureInviterCanAssignRole(inviterMember.Role, role);
 
             var existingCred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
-            if (existingCred is not null)
-                throw new ArgumentException("A user with this email is already registered.");
+            if (existingCred is not null
+                && await _workspaceRepository.IsUserInAnyWorkspaceAsync(existingCred.Id, cancellationToken))
+            {
+                throw new ArgumentException("This user already belongs to a workspace.");
+            }
 
             var alreadyMember = await _workspaceRepository.IsEmailMemberOfWorkspaceAsync(workspaceId, normalizedEmail, cancellationToken);
             if (alreadyMember)
@@ -237,6 +275,7 @@ namespace EduCollab.Application.Services.Workspaces
                 workspaceId,
                 normalizedEmail,
                 tokenHash,
+                role,
                 expiresAt,
                 now,
                 inviterUserId,
@@ -277,15 +316,28 @@ namespace EduCollab.Application.Services.Workspaces
             }
         }
 
-        public async Task InviteUserToCurrentWorkspaceAsync(string email, CancellationToken cancellationToken)
+        public async Task InviteUserToCurrentWorkspaceAsync(string email, WorkspaceRole role, CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (membership.Role == WorkspaceRole.Member)
+            if (!WorkspaceRolePermissions.CanInviteUsers(membership.Role))
             {
-                throw new AccessDeniedException("Only workspace owners and admins can send invitations.");
+                throw new AccessDeniedException("Only workspace owners and managers can send invitations.");
             }
 
-            await InviteUserToWorkspaceAsync(workspaceId, email, cancellationToken);
+            await InviteUserToWorkspaceAsync(workspaceId, email, role, cancellationToken);
+        }
+
+        private static void EnsureInviterCanAssignRole(WorkspaceRole inviterRole, WorkspaceRole assignedRole)
+        {
+            if (assignedRole == WorkspaceRole.Owner && inviterRole != WorkspaceRole.Owner)
+            {
+                throw new AccessDeniedException("Only the workspace owner can assign the Owner role.");
+            }
+
+            if (inviterRole == WorkspaceRole.Manager && assignedRole is WorkspaceRole.Owner or WorkspaceRole.Manager)
+            {
+                throw new AccessDeniedException("Managers can only invite users with Creator or Viewer roles.");
+            }
         }
 
         public async Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
@@ -333,9 +385,9 @@ namespace EduCollab.Application.Services.Workspaces
                 return false;
             }
 
-            if (membership.Role == WorkspaceRole.Member)
+            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
             {
-                throw new AccessDeniedException("Only workspace owners and admins can update the workspace.");
+                throw new AccessDeniedException("Only the workspace owner can update the workspace.");
             }
 
             var isLikelyPartialRequest = workspace.CreatedAtUtc == default;
@@ -397,8 +449,8 @@ namespace EduCollab.Application.Services.Workspaces
             if (membership is null)
                 return false;
 
-            if (membership.Role == WorkspaceRole.Member)
-                throw new AccessDeniedException("Only workspace owners and admins can delete the workspace.");
+            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
+                throw new AccessDeniedException("Only the workspace owner can delete the workspace.");
 
             return await _workspaceRepository.SoftDeleteWorkspaceAsync(workspaceId, userId, DateTimeOffset.UtcNow, cancellationToken);
         }
@@ -444,14 +496,14 @@ namespace EduCollab.Application.Services.Workspaces
                 return;
             }
 
-            if (actorMember.Role == WorkspaceRole.Member)
-                throw new AccessDeniedException("Only workspace owners and admins can remove other members.");
+            if (actorMember.Role == WorkspaceRole.Viewer || actorMember.Role == WorkspaceRole.Creator)
+                throw new AccessDeniedException("Only workspace owners and managers can remove other members.");
 
             if (targetMember.Role == WorkspaceRole.Owner)
                 throw new AccessDeniedException("The workspace owner cannot be removed.");
 
-            if (actorMember.Role == WorkspaceRole.Admin && targetMember.Role != WorkspaceRole.Member)
-                throw new AccessDeniedException("Admins can only remove members with the Member role.");
+            if (actorMember.Role == WorkspaceRole.Manager && targetMember.Role == WorkspaceRole.Manager)
+                throw new AccessDeniedException("Managers can only remove creators and viewers.");
 
             var ok = await _workspaceRepository.RemoveWorkspaceMemberAsync(workspaceId, targetUserId, cancellationToken);
             if (!ok)
@@ -488,9 +540,9 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new AccessDeniedException("You are not a member of this workspace.");
             }
 
-            if (actorMember.Role == WorkspaceRole.Member)
+            if (actorMember.Role is WorkspaceRole.Viewer or WorkspaceRole.Creator)
             {
-                throw new AccessDeniedException("Only workspace owners and admins can change member roles.");
+                throw new AccessDeniedException("Only workspace owners and managers can change member roles.");
             }
 
             if (member.Role == WorkspaceRole.Owner && actorMember.Role != WorkspaceRole.Owner)
@@ -498,17 +550,22 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new AccessDeniedException("Only the workspace owner can assign the Owner role.");
             }
 
-            if (actorMember.Role == WorkspaceRole.Admin)
+            if (actorMember.Role == WorkspaceRole.Manager)
             {
-                if (existingMember.Role != WorkspaceRole.Member)
+                if (existingMember.Role is WorkspaceRole.Owner or WorkspaceRole.Manager)
                 {
-                    throw new AccessDeniedException("Admins can only edit members with the Member role.");
+                    throw new AccessDeniedException("Managers can only edit creators and viewers.");
                 }
 
-                if (member.Role == WorkspaceRole.Owner)
+                if (member.Role is WorkspaceRole.Owner or WorkspaceRole.Manager)
                 {
-                    throw new AccessDeniedException("Admins cannot assign the Owner role.");
+                    throw new AccessDeniedException("Managers can only assign Creator or Viewer roles.");
                 }
+            }
+
+            if (member.Role == WorkspaceRole.Owner)
+            {
+                await _workspaceRepository.DemoteWorkspaceOwnersExceptAsync(id, userId, cancellationToken);
             }
 
             return await _workspaceRepository.UpdateWorkspaceMemberAsync(id, userId, member, cancellationToken);

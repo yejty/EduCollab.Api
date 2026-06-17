@@ -33,7 +33,7 @@ namespace EduCollab.Api.Controllers
         public async Task<IActionResult> CreateAsset([FromBody] CreateAssetRequest request, CancellationToken cancellationToken)
         {
             var asset = request.MapToAsset();
-            var created = await _assetService.CreateAssetAsync(asset, cancellationToken);
+            var created = await _assetService.CreateAssetAsync(asset, request.GroupId, cancellationToken);
             if (!created)
             {
                 return BadRequest(new ErrorResponse
@@ -178,7 +178,7 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetResponse>> ShareAsset(int assetId, [FromBody] ShareWithGroupRequest request, CancellationToken cancellationToken)
         {
-            var shared = await _assetService.ShareAssetAsync(assetId, request.GroupId, request.MapToGroupRole(), cancellationToken);
+            var shared = await _assetService.ShareAssetAsync(assetId, request.GroupId, cancellationToken);
             if (!shared)
             {
                 return BadRequest(new ErrorResponse

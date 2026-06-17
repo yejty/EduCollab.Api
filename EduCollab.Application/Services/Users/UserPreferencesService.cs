@@ -1,4 +1,3 @@
-using System.Text.Json;
 using EduCollab.Application.Identity;
 using EduCollab.Application.Repositories;
 
@@ -22,12 +21,6 @@ namespace EduCollab.Application.Services.Users
 
         public async Task<string> SaveCurrentUserPreferencesAsync(string json, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(json))
-                throw new ArgumentException("Preferences payload is required.", nameof(json));
-
-            // Validate JSON syntax while keeping the backend agnostic to its schema.
-            using var _ = JsonDocument.Parse(json);
-
             var userId = RequireCurrentUserId();
             await _store.SaveAsync(userId, json, cancellationToken);
             return json;

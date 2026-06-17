@@ -29,32 +29,11 @@ public sealed class UsersControllerEndpointTests
             LastName = "Doe",
             Email = "jane@example.com",
             Password = "Pass123!",
-            ConfirmPassword = "Pass123!",
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<RegistrationSubmittedResponse>();
         Assert.Contains("Check your email", body.Message);
-    }
-
-    [Fact]
-    public async Task Register_ReturnsBadRequest_WhenPasswordsDoNotMatch()
-    {
-        await using var factory = new ApiWebApplicationFactory();
-        using var client = factory.CreateClient();
-
-        var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
-        {
-            FirstName = "Jane",
-            LastName = "Doe",
-            Email = "jane@example.com",
-            Password = "Pass123!",
-            ConfirmPassword = "Mismatch123!",
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
-        Assert.Equal("password_mismatch", body.Error);
     }
 
     [Fact]
@@ -69,7 +48,6 @@ public sealed class UsersControllerEndpointTests
             LastName = "Doe",
             Email = "jane@example.com",
             Password = "password",
-            ConfirmPassword = "password",
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -87,7 +65,6 @@ public sealed class UsersControllerEndpointTests
             LastName = "Doe",
             Email = "jane@example",
             Password = "Pass123!",
-            ConfirmPassword = "Pass123!",
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -279,11 +256,11 @@ public sealed class UsersControllerEndpointTests
         await using var factory = new ApiWebApplicationFactory();
         using var client = factory.CreateClient(userId: 27);
 
-        var response = await client.PutAsync("/api/users/me/preferences", JsonContent.Create<string?>(null));
+        var response = await client.PutAsync(
+            "/api/users/me/preferences",
+            new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
-        Assert.Equal("bad_request", body.Error);
     }
 
     [Fact]

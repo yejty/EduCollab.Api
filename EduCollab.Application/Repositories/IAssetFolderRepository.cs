@@ -11,6 +11,7 @@ namespace EduCollab.Application.Repositories
         Task UpdateDescendantPathsAsync(int workspaceId, string oldPathPrefix, string newPathPrefix, CancellationToken cancellationToken);
         Task<bool> DeleteAssetFolderAsync(int workspaceId, int folderId, CancellationToken cancellationToken);
         Task<List<AssetFolderGroupShare>> GetAssetFolderSharesAsync(int workspaceId, int folderId, CancellationToken cancellationToken);
+        Task<List<AssetFolderGroupShare>> GetWorkspaceAssetFolderSharesAsync(int workspaceId, CancellationToken cancellationToken);
         Task<List<AssetFolderGroupShare>> GetAssetFolderSharesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken);
         Task<AssetFolderGroupShare?> CreateAssetFolderShareAsync(int workspaceId, AssetFolderGroupShare share, CancellationToken cancellationToken);
         Task<bool> DeleteAssetFolderShareAsync(int workspaceId, int folderId, int groupId, CancellationToken cancellationToken);

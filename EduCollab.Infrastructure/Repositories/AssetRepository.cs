@@ -312,7 +312,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         s.AssetId,
                         s.GroupId,
-                        s.Role,
                         s.CreatedByUserId,
                         s.CreatedAtUtc
                     FROM AssetGroupShares s
@@ -339,7 +338,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         s.AssetId,
                         s.GroupId,
-                        s.Role,
                         s.CreatedByUserId,
                         s.CreatedAtUtc
                     FROM AssetGroupShares s
@@ -366,13 +364,11 @@ namespace EduCollab.Infrastructure.Repositories
                     INSERT INTO AssetGroupShares (
                         AssetId,
                         GroupId,
-                        Role,
                         CreatedByUserId,
                         CreatedAtUtc)
                     SELECT
                         @AssetId,
                         @GroupId,
-                        @Role,
                         @CreatedByUserId,
                         @CreatedAtUtc
                     WHERE EXISTS (
@@ -388,13 +384,12 @@ namespace EduCollab.Infrastructure.Repositories
                           AND g.WorkspaceId = @WorkspaceId
                     )
                     ON CONFLICT (AssetId, GroupId) DO NOTHING
-                    RETURNING AssetId, GroupId, Role, CreatedByUserId, CreatedAtUtc;
+                    RETURNING AssetId, GroupId, CreatedByUserId, CreatedAtUtc;
                     """,
                     new
                     {
                         share.AssetId,
                         share.GroupId,
-                        Role = share.Role.ToString(),
                         share.CreatedByUserId,
                         share.CreatedAtUtc,
                         WorkspaceId = workspaceId
@@ -422,6 +417,31 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return deleted > 0;
+        }
+
+        public async Task<List<AssetGroupShare>> GetWorkspaceAssetSharesAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var shares = await connection.QueryAsync<AssetGroupShare>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        s.AssetId,
+                        s.GroupId,
+                        s.CreatedByUserId,
+                        s.CreatedAtUtc
+                    FROM AssetGroupShares s
+                    INNER JOIN Assets a ON a.Id = s.AssetId
+                    INNER JOIN Groups g ON g.Id = s.GroupId
+                    WHERE a.WorkspaceId = @WorkspaceId
+                      AND g.WorkspaceId = @WorkspaceId
+                    ORDER BY s.CreatedAtUtc, s.AssetId, s.GroupId;
+                    """,
+                    new { WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return shares.AsList();
         }
     }
 }

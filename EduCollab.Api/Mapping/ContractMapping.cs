@@ -262,49 +262,32 @@ namespace EduCollab.Api.Mapping
 
         public static GroupMember MapToGroupMember(this CreateGroupMemberRequest request, int groupId)
         {
-            if (!Enum.TryParse<GroupRole>(request.Role, true, out var role))
-                throw new ArgumentException("Invalid group role.", nameof(request.Role));
-
             return new GroupMember
             {
                 GroupId = groupId,
                 UserId = request.UserId,
-                Role = role,
                 JoinedAtUtc = DateTime.UtcNow
             };
         }
 
-        public static GroupRole MapToGroupRole(this UpdateGroupMemberRequest request)
-        {
-            if (!Enum.TryParse<GroupRole>(request.Role, true, out var role))
-                throw new ArgumentException("Invalid group role.", nameof(request.Role));
-
-            return role;
-        }
-
-        public static GroupRole MapToGroupRole(this ShareWithGroupRequest request)
-        {
-            if (!Enum.TryParse<GroupRole>(request.Role, true, out var role))
-                throw new ArgumentException("Invalid group role.", nameof(request.Role));
-
-            return role;
-        }
-
-        public static GroupMemberResponse MapToResponse(this GroupMember member)
+        public static GroupMemberResponse MapToResponse(this GroupMember member, string workspaceRole)
         {
             return new GroupMemberResponse
             {
                 UserId = member.UserId,
-                Role = member.Role.ToString(),
+                Role = workspaceRole,
                 JoinedAtUtc = member.JoinedAtUtc
             };
         }
 
-        public static GroupMembersResponse MapToResponse(this List<GroupMember> members)
+        public static GroupMembersResponse MapToResponse(this List<GroupMember> members, IReadOnlyDictionary<int, string> workspaceRolesByUserId)
         {
             return new GroupMembersResponse
             {
-                Members = members.Select(m => m.MapToResponse()).ToList()
+                Members = members
+                    .Select(m => m.MapToResponse(
+                        workspaceRolesByUserId.TryGetValue(m.UserId, out var role) ? role : string.Empty))
+                    .ToList()
             };
         }
 

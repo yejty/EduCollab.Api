@@ -214,14 +214,15 @@ namespace EduCollab.Infrastructure.Repositories
             int workspaceId,
             string email,
             string tokenHashSha256Hex,
+            WorkspaceRole role,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,
             CancellationToken cancellationToken)
         {
             const string sql = """
-                INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, ExpiresAt, CreatedAt, InvitedByUserId)
-                VALUES (@WorkspaceId, @Email, @TokenHash, @ExpiresAt, @CreatedAt, @InvitedByUserId);
+                INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, Role, ExpiresAt, CreatedAt, InvitedByUserId)
+                VALUES (@WorkspaceId, @Email, @TokenHash, @Role, @ExpiresAt, @CreatedAt, @InvitedByUserId);
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -233,6 +234,7 @@ namespace EduCollab.Infrastructure.Repositories
                         WorkspaceId = workspaceId,
                         Email = email,
                         TokenHash = tokenHashSha256Hex,
+                        Role = role.ToPersistedString(),
                         ExpiresAt = expiresAtUtc,
                         CreatedAt = createdAtUtc,
                         InvitedByUserId = invitedByUserId
@@ -240,13 +242,13 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
         }
 
-        public async Task<int?> GetActiveWorkspaceInvitationWorkspaceIdAsync(
+        public async Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(
             string tokenHashSha256Hex,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken)
         {
             const string sql = """
-                SELECT WorkspaceId
+                SELECT WorkspaceId, Email, Role
                 FROM WorkspaceInvitations
                 WHERE TokenHash = @TokenHash
                   AND UsedAt IS NULL
@@ -256,8 +258,20 @@ namespace EduCollab.Infrastructure.Repositories
                 """;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QuerySingleOrDefaultAsync<int?>(
+            var row = await connection.QuerySingleOrDefaultAsync<ActiveInvitationRow>(
                 new CommandDefinition(sql, new { TokenHash = tokenHashSha256Hex, Now = utcNow }, cancellationToken: cancellationToken));
+
+            if (row is null)
+            {
+                return null;
+            }
+
+            return new WorkspaceInvitationDetails
+            {
+                WorkspaceId = row.WorkspaceId,
+                Email = row.Email,
+                Role = WorkspaceRoleExtensions.FromPersistedOrViewer(row.Role),
+            };
         }
 
         public async Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(
@@ -281,7 +295,7 @@ namespace EduCollab.Infrastructure.Repositories
             var invitationRow = await connection.QuerySingleOrDefaultAsync<LockedInvitationRow>(
                 new CommandDefinition(
                     """
-                    SELECT wi.Id, wi.Email
+                    SELECT wi.Id, wi.Email, wi.Role
                     FROM WorkspaceInvitations wi
                     WHERE wi.WorkspaceId = @WorkspaceId
                       AND wi.TokenHash = @TokenHash
@@ -349,15 +363,39 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
+            var invitedRole = WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
+
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
                     INSERT INTO WorkspaceMembers (WorkspaceId, UserId, Role, JoinedAtUtc)
                     VALUES (@WorkspaceId, @UserId, @Role, @JoinedAtUtc);
                     """,
-                    new { WorkspaceId = workspaceId, UserId = userId, Role = WorkspaceRole.Member, JoinedAtUtc = utcNow },
+                    new { WorkspaceId = workspaceId, UserId = userId, Role = invitedRole, JoinedAtUtc = utcNow },
                     transaction: tx,
                     cancellationToken: cancellationToken));
+
+            if (invitedRole == WorkspaceRole.Owner)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        UPDATE WorkspaceMembers
+                        SET Role = @ManagerRole
+                        WHERE WorkspaceId = @WorkspaceId
+                          AND UserId <> @UserId
+                          AND Role = @OwnerRole;
+                        """,
+                        new
+                        {
+                            WorkspaceId = workspaceId,
+                            UserId = userId,
+                            OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
+                            ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
+                        },
+                        transaction: tx,
+                        cancellationToken: cancellationToken));
+            }
 
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -375,6 +413,137 @@ namespace EduCollab.Infrastructure.Repositories
 
             await tx.CommitAsync(cancellationToken);
             return userId;
+        }
+
+        public async Task<WorkspaceMember?> AcceptWorkspaceInvitationForExistingUserAsync(
+            int workspaceId,
+            string tokenHashSha256Hex,
+            int userId,
+            string email,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var invitationRow = await connection.QuerySingleOrDefaultAsync<LockedInvitationRow>(
+                new CommandDefinition(
+                    """
+                    SELECT wi.Id, wi.Email, wi.Role
+                    FROM WorkspaceInvitations wi
+                    WHERE wi.WorkspaceId = @WorkspaceId
+                      AND wi.TokenHash = @TokenHash
+                      AND wi.UsedAt IS NULL
+                      AND wi.ExpiresAt > @Now
+                    ORDER BY wi.Id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    new { WorkspaceId = workspaceId, TokenHash = tokenHashSha256Hex, Now = utcNow },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (invitationRow is null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            if (!string.Equals(invitationRow.Email.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var alreadyMember = await connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM WorkspaceMembers
+                        WHERE WorkspaceId = @WorkspaceId AND UserId = @UserId);
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (alreadyMember)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var inAnyWorkspace = await connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(
+                    """
+                    SELECT EXISTS(SELECT 1 FROM WorkspaceMembers WHERE UserId = @UserId);
+                    """,
+                    new { UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (inAnyWorkspace)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            var invitedRole = WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
+
+            var member = await connection.QuerySingleAsync<WorkspaceMember>(
+                new CommandDefinition(
+                    """
+                    INSERT INTO WorkspaceMembers (WorkspaceId, UserId, Role, JoinedAtUtc)
+                    VALUES (@WorkspaceId, @UserId, @Role, @JoinedAtUtc)
+                    RETURNING WorkspaceId, UserId, Role, JoinedAtUtc;
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId, Role = invitedRole, JoinedAtUtc = utcNow },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            if (invitedRole == WorkspaceRole.Owner)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        UPDATE WorkspaceMembers
+                        SET Role = @ManagerRole
+                        WHERE WorkspaceId = @WorkspaceId
+                          AND UserId <> @UserId
+                          AND Role = @OwnerRole;
+                        """,
+                        new
+                        {
+                            WorkspaceId = workspaceId,
+                            UserId = userId,
+                            OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
+                            ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
+                        },
+                        transaction: tx,
+                        cancellationToken: cancellationToken));
+            }
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    "UPDATE Users SET WorkspaceId = @WorkspaceId WHERE Id = @UserId;",
+                    new { WorkspaceId = workspaceId, UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    "UPDATE WorkspaceInvitations SET UsedAt = @Now WHERE Id = @Id;",
+                    new { Now = utcNow, invitationRow.Id },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await tx.CommitAsync(cancellationToken);
+            return member;
         }
 
         public async Task<bool> RemoveWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
@@ -546,10 +715,40 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
         }
 
+        public async Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE WorkspaceMembers
+                    SET Role = @ManagerRole
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND UserId <> @UserId
+                      AND Role = @OwnerRole;
+                    """,
+                    new
+                    {
+                        WorkspaceId = workspaceId,
+                        UserId = userId,
+                        OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
+                        ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
         private sealed class LockedInvitationRow
         {
             public long Id { get; set; }
             public string Email { get; set; } = "";
+            public string Role { get; set; } = "";
+        }
+
+        private sealed class ActiveInvitationRow
+        {
+            public int WorkspaceId { get; set; }
+            public string Email { get; set; } = "";
+            public string Role { get; set; } = "";
         }
     }
 }

@@ -4,7 +4,6 @@ namespace EduCollab.Application.Models
     {
         public int GroupId { get; set; }
         public int UserId { get; set; }
-        public GroupRole Role { get; set; }
         public DateTime JoinedAtUtc { get; set; }
     }
 }

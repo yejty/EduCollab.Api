@@ -1,14 +1,24 @@
 using Dapper;
+using EduCollab.Application.Services.Users;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace EduCollab.Infrastructure.Database
 {
     public class DbInitializer
     {
         private readonly IDbConnectionFactory _dbConnectionFactory;
+        private readonly IPasswordHasher<PasswordHasherUser> _passwordHasher;
+        private readonly PlatformAdminOptions _platformAdminOptions;
 
-        public DbInitializer(IDbConnectionFactory dbConnectionFactory)
+        public DbInitializer(
+            IDbConnectionFactory dbConnectionFactory,
+            IPasswordHasher<PasswordHasherUser> passwordHasher,
+            IOptions<PlatformAdminOptions> platformAdminOptions)
         {
             _dbConnectionFactory = dbConnectionFactory;
+            _passwordHasher = passwordHasher;
+            _platformAdminOptions = platformAdminOptions.Value;
         }
 
         public async Task InitializeAsync()
@@ -65,11 +75,11 @@ namespace EduCollab.Infrastructure.Database
                 CREATE TABLE IF NOT EXISTS GroupMembers (
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
                     UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
-                    Role VARCHAR(50) NOT NULL DEFAULT 'Viewer',
                     JoinedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (GroupId, UserId)
                 );
                 """);
+            await connection.ExecuteAsync("ALTER TABLE GroupMembers DROP COLUMN IF EXISTS Role;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_GroupMembers_GroupId ON GroupMembers (GroupId);");
             await connection.ExecuteAsync(
@@ -128,7 +138,21 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS Version VARCHAR(50) NULL;");
             await connection.ExecuteAsync(
-                "UPDATE Assets SET StorageUrl = StorageKey WHERE StorageUrl IS NULL AND StorageKey IS NOT NULL;");
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'assets'
+                          AND column_name = 'storagekey') THEN
+                        UPDATE Assets
+                        SET StorageUrl = StorageKey
+                        WHERE StorageUrl IS NULL AND StorageKey IS NOT NULL;
+                    END IF;
+                END $$;
+                """);
             await connection.ExecuteAsync(
                 "ALTER TABLE Assets ALTER COLUMN AssetType DROP NOT NULL;");
             await connection.ExecuteAsync(
@@ -159,27 +183,28 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_Scenes_OwnerUserId ON Scenes (OwnerUserId);");
             await connection.ExecuteAsync(
                 """
-                CREATE TABLE IF NOT EXISTS AssetFolderGroupShares (
-                    FolderId INT NOT NULL REFERENCES AssetFolders(Id) ON DELETE CASCADE,
+                CREATE TABLE IF NOT EXISTS SceneGroupShares (
+                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
-                    Role VARCHAR(20) NOT NULL,
                     CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    PRIMARY KEY (FolderId, GroupId),
-                    CONSTRAINT CK_AssetFolderGroupShares_Role
-                        CHECK (Role IN ('Viewer', 'Contributor', 'Admin'))
+                    PRIMARY KEY (SceneId, GroupId)
                 );
                 """);
             await connection.ExecuteAsync(
-                "UPDATE AssetFolderGroupShares SET Role = 'Admin' WHERE Role = 'Manager';");
-            await connection.ExecuteAsync(
-                "ALTER TABLE AssetFolderGroupShares DROP CONSTRAINT IF EXISTS CK_AssetFolderGroupShares_Role;");
+                "CREATE INDEX IF NOT EXISTS IX_SceneGroupShares_GroupId ON SceneGroupShares (GroupId);");
             await connection.ExecuteAsync(
                 """
-                ALTER TABLE AssetFolderGroupShares
-                ADD CONSTRAINT CK_AssetFolderGroupShares_Role
-                CHECK (Role IN ('Viewer', 'Contributor', 'Admin'));
+                CREATE TABLE IF NOT EXISTS AssetFolderGroupShares (
+                    FolderId INT NOT NULL REFERENCES AssetFolders(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (FolderId, GroupId)
+                );
                 """);
+            await connection.ExecuteAsync("ALTER TABLE AssetFolderGroupShares DROP CONSTRAINT IF EXISTS CK_AssetFolderGroupShares_Role;");
+            await connection.ExecuteAsync("ALTER TABLE AssetFolderGroupShares DROP COLUMN IF EXISTS Role;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_AssetFolderGroupShares_GroupId ON AssetFolderGroupShares (GroupId);");
             await connection.ExecuteAsync(
@@ -187,24 +212,13 @@ namespace EduCollab.Infrastructure.Database
                 CREATE TABLE IF NOT EXISTS AssetGroupShares (
                     AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
-                    Role VARCHAR(20) NOT NULL,
                     CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    PRIMARY KEY (AssetId, GroupId),
-                    CONSTRAINT CK_AssetGroupShares_Role
-                        CHECK (Role IN ('Viewer', 'Contributor', 'Admin'))
+                    PRIMARY KEY (AssetId, GroupId)
                 );
                 """);
-            await connection.ExecuteAsync(
-                "UPDATE AssetGroupShares SET Role = 'Admin' WHERE Role = 'Manager';");
-            await connection.ExecuteAsync(
-                "ALTER TABLE AssetGroupShares DROP CONSTRAINT IF EXISTS CK_AssetGroupShares_Role;");
-            await connection.ExecuteAsync(
-                """
-                ALTER TABLE AssetGroupShares
-                ADD CONSTRAINT CK_AssetGroupShares_Role
-                CHECK (Role IN ('Viewer', 'Contributor', 'Admin'));
-                """);
+            await connection.ExecuteAsync("ALTER TABLE AssetGroupShares DROP CONSTRAINT IF EXISTS CK_AssetGroupShares_Role;");
+            await connection.ExecuteAsync("ALTER TABLE AssetGroupShares DROP COLUMN IF EXISTS Role;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_AssetGroupShares_GroupId ON AssetGroupShares (GroupId);");
             await connection.ExecuteAsync(
@@ -212,7 +226,7 @@ namespace EduCollab.Infrastructure.Database
                 CREATE TABLE IF NOT EXISTS WorkspaceMembers (
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
                     UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
-                    Role VARCHAR(50) NOT NULL DEFAULT 'Member',
+                    Role VARCHAR(50) NOT NULL DEFAULT 'Viewer',
                     JoinedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (WorkspaceId, UserId)
                 );
@@ -222,11 +236,13 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 """
                 INSERT INTO WorkspaceMembers (WorkspaceId, UserId, Role, JoinedAtUtc)
-                SELECT WorkspaceId, Id, 'Member', NOW()
+                SELECT WorkspaceId, Id, 'Viewer', NOW()
                 FROM Users
                 WHERE WorkspaceId IS NOT NULL
                 ON CONFLICT (WorkspaceId, UserId) DO NOTHING;
                 """);
+            await connection.ExecuteAsync("UPDATE WorkspaceMembers SET Role = 'Manager' WHERE Role = 'Admin';");
+            await connection.ExecuteAsync("UPDATE WorkspaceMembers SET Role = 'Viewer' WHERE Role = 'Member';");
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS PasswordHash TEXT;");
             await connection.ExecuteAsync(
                 """
@@ -279,6 +295,7 @@ namespace EduCollab.Infrastructure.Database
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
                     Email VARCHAR(255) NOT NULL,
                     TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    Role VARCHAR(32) NOT NULL DEFAULT 'Viewer',
                     ExpiresAt TIMESTAMPTZ NOT NULL,
                     CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     UsedAt TIMESTAMPTZ NULL,
@@ -290,12 +307,18 @@ namespace EduCollab.Infrastructure.Database
                 ADD COLUMN IF NOT EXISTS InvitedByUserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL;
                 """);
             await connection.ExecuteAsync(
+                """
+                ALTER TABLE WorkspaceInvitations
+                ADD COLUMN IF NOT EXISTS Role VARCHAR(32) NOT NULL DEFAULT 'Viewer';
+                """);
+            await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_WorkspaceId ON WorkspaceInvitations (WorkspaceId);");
             await connection.ExecuteAsync(
                 "CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkspaceInvitations_TokenHash ON WorkspaceInvitations (TokenHash);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_Email ON WorkspaceInvitations (Email);");
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS EmailConfirmedAtUtc TIMESTAMPTZ NULL;");
+            await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS IsPlatformAdmin BOOLEAN NOT NULL DEFAULT FALSE;");
             await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS UserEmailConfirmationTokens (
@@ -333,6 +356,30 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Notifications_Type ON Notifications (Type);");
 
+            await SeedPlatformAdminUserAsync(connection);
+        }
+
+        private async Task SeedPlatformAdminUserAsync(System.Data.IDbConnection connection)
+        {
+            var email = _platformAdminOptions.Email?.Trim();
+            var password = _platformAdminOptions.Password;
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                return;
+
+            var existingAdminId = await connection.QuerySingleOrDefaultAsync<int?>(
+                "SELECT Id FROM Users WHERE IsPlatformAdmin = TRUE LIMIT 1;");
+            if (existingAdminId is not null)
+                return;
+
+            var hashingUser = new PasswordHasherUser { Id = email };
+            var passwordHash = _passwordHasher.HashPassword(hashingUser, password);
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc, IsPlatformAdmin)
+                VALUES ('Platform', 'Admin', @Email, @PasswordHash, NOW(), TRUE);
+                """,
+                new { Email = email, PasswordHash = passwordHash });
         }
     }
 }

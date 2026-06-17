@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
+using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 
@@ -24,7 +25,7 @@ public sealed class WorkspaceApiIntegrationTests
         var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        var createWorkspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspaces", new CreateWorkspaceRequest
+        var createWorkspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
         {
             Name = "Edu Workspace",
             Description = "Integration tests",
@@ -33,70 +34,126 @@ public sealed class WorkspaceApiIntegrationTests
         createWorkspaceResponse.EnsureSuccessStatusCode();
         var workspace = await createWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
 
-        var listWorkspacesResponse = await ownerClient.GetAsync("/api/workspaces");
-        listWorkspacesResponse.EnsureSuccessStatusCode();
-        var workspacesList = await listWorkspacesResponse.ReadAsJsonAsync<WorkspacesResponse>();
+        var listAsOwnerResponse = await ownerClient.GetAsync("/api/admin/workspaces");
+        Assert.Equal(HttpStatusCode.Forbidden, listAsOwnerResponse.StatusCode);
+        var forbiddenBody = await listAsOwnerResponse.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("Insufficient rights.", forbiddenBody.ErrorDescription);
+
+        using var adminClient = factory.CreateClient();
+        var adminTokens = await adminClient.LoginAsync("admin@educollab.local", "Admin123!");
+        adminClient.SetBearerToken(adminTokens.AccessToken);
+
+        var listAsAdminResponse = await adminClient.GetAsync("/api/admin/workspaces");
+        listAsAdminResponse.EnsureSuccessStatusCode();
+        var workspacesList = await listAsAdminResponse.ReadAsJsonAsync<WorkspacesResponse>();
         Assert.Contains(workspacesList.Workspaces, w => w.Id == workspace.Id);
 
         factory.EmailSender.Clear();
 
-        var inviteResponse = await ownerClient.PostAsJsonAsync($"/api/workspaces/{workspace.Id}/invite", new InviteUserRequest
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
+            Role = "Manager",
         });
 
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
         var invitationToken = factory.GetInvitationToken(memberEmail);
 
-        var acceptResponse = await memberClient.PostAsJsonAsync($"/api/workspaces/{workspace.Id}/invite/{invitationToken}/accept", new RegisterUserRequest
+        var acceptResponse = await memberClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
         {
             FirstName = "Member",
             LastName = "User",
             Email = memberEmail,
             Password = memberPassword,
-            ConfirmPassword = memberPassword,
         });
 
-        Assert.Equal(HttpStatusCode.Created, acceptResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
         var membership = await acceptResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
+        Assert.Equal("Manager", membership.Role);
 
         var memberTokens = await memberClient.LoginAsync(memberEmail, memberPassword);
         memberClient.SetBearerToken(memberTokens.AccessToken);
 
-        var getMemberResponse = await ownerClient.GetAsync($"/api/workspaces/{workspace.Id}/users/{membership.UserId}");
+        var getMemberResponse = await ownerClient.GetAsync($"/api/workspace/users/{membership.UserId}");
         getMemberResponse.EnsureSuccessStatusCode();
 
-        var getMembersResponse = await ownerClient.GetAsync($"/api/workspaces/{workspace.Id}/users");
+        var getMembersResponse = await ownerClient.GetAsync("/api/workspace/users");
         getMembersResponse.EnsureSuccessStatusCode();
         var members = await getMembersResponse.ReadAsJsonAsync<WorkspaceMembersResponse>();
         Assert.Equal(2, members.Members.Count);
 
-        var promoteResponse = await ownerClient.PutAsJsonAsync($"/api/workspaces/{workspace.Id}/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
+        var promoteResponse = await ownerClient.PutAsJsonAsync($"/api/workspace/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
         {
-            Role = "Admin",
+            Role = "Creator",
         });
 
         promoteResponse.EnsureSuccessStatusCode();
         var promoted = await promoteResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("Admin", promoted.Role);
+        Assert.Equal("Creator", promoted.Role);
 
-        var memberWorkspaceResponse = await memberClient.GetAsync($"/api/workspaces/{workspace.Id}");
+        var memberWorkspaceResponse = await memberClient.GetAsync("/api/workspace");
         memberWorkspaceResponse.EnsureSuccessStatusCode();
         var memberWorkspace = await memberWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
-        Assert.Equal("Admin", memberWorkspace.CurrentUserRole);
+        Assert.Equal("Manager", memberWorkspace.CurrentUserRole);
 
-        var updateWorkspaceResponse = await memberClient.PutAsJsonAsync($"/api/workspaces/{workspace.Id}", new UpdateWorkspaceRequest
+        var updateWorkspaceResponse = await memberClient.PutAsJsonAsync("/api/workspace", new UpdateWorkspaceRequest
         {
             Name = "Updated Workspace",
-            Description = "Updated by admin",
+            Description = "Updated by manager",
         });
 
-        updateWorkspaceResponse.EnsureSuccessStatusCode();
-        var updatedWorkspace = await updateWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
-        Assert.Equal("Updated Workspace", updatedWorkspace.Name);
+        Assert.Equal(HttpStatusCode.Forbidden, updateWorkspaceResponse.StatusCode);
 
-        var removeMemberResponse = await ownerClient.DeleteAsync($"/api/workspaces/{workspace.Id}/users/{membership.UserId}");
+        var removeMemberResponse = await ownerClient.DeleteAsync($"/api/workspace/users/{membership.UserId}");
         Assert.Equal(HttpStatusCode.NoContent, removeMemberResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExistingUser_CanJoinWorkspace_FromInvitation_WithAssignedRole()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var existingUserClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var memberEmail = $"member-{Guid.NewGuid():N}@example.com";
+        const string ownerPassword = "Owner123!";
+        const string memberPassword = "Member123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        var createWorkspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
+        {
+            Name = "Existing User Workspace",
+            Description = "Invitation join test",
+        });
+        createWorkspaceResponse.EnsureSuccessStatusCode();
+
+        await existingUserClient.RegisterAndConfirmAsync(factory, "Existing", "User", memberEmail, memberPassword);
+
+        factory.EmailSender.Clear();
+
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = memberEmail,
+            Role = "Manager",
+        });
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+        var invitationToken = factory.GetInvitationToken(memberEmail);
+        var memberTokens = await existingUserClient.LoginAsync(memberEmail, memberPassword);
+        existingUserClient.SetBearerToken(memberTokens.AccessToken);
+
+        var joinResponse = await existingUserClient.PostAsync($"/api/workspace-invitations/{invitationToken}/join", null);
+        joinResponse.EnsureSuccessStatusCode();
+        var membership = await joinResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
+        Assert.Equal("Manager", membership.Role);
+
+        var workspaceResponse = await existingUserClient.GetAsync("/api/workspace");
+        workspaceResponse.EnsureSuccessStatusCode();
+        var workspace = await workspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("Manager", workspace.CurrentUserRole);
     }
 }

@@ -37,7 +37,16 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, cancellationToken);
+            if (!WorkspaceRoleExtensions.TryFromPersisted(inviteUserRequest.Role, out var role))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "invalid_role",
+                    ErrorDescription = "Role must be one of: Owner, Manager, Creator, Viewer.",
+                });
+            }
+
+            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, role, cancellationToken);
             return Ok();
         }
 
@@ -76,6 +85,36 @@ namespace EduCollab.Api.Controllers
                 {
                     Error = "creation_failed",
                     ErrorDescription = "User was created but workspace membership could not be loaded.",
+                });
+            }
+
+            return Ok(member.MapToResponse());
+        }
+
+        /// <summary>
+        /// Joins the current user to a workspace using an invitation token (existing accounts).
+        /// </summary>
+        /// <param name="invitationToken">Invitation token.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">User joined the workspace.</response>
+        /// <response code="400">Invalid invitation attempt. Returns an error message.</response>
+        /// <response code="401">User is unauthorized.</response>
+        /// <response code="403">User is forbidden from accessing this resource.</response>
+        [Authorize]
+        [HttpPost(ApiEndpoints.WorkspaceInvitations.Join)]
+        [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<WorkspaceMemberResponse>> JoinWorkspaceFromInvitation([FromRoute] string invitationToken, CancellationToken cancellationToken)
+        {
+            var member = await _workspaceService.JoinWorkspaceFromInvitationAsync(invitationToken, cancellationToken);
+            if (member is null)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "join_failed",
+                    ErrorDescription = "The invitation is invalid, expired, or could not be accepted.",
                 });
             }
 

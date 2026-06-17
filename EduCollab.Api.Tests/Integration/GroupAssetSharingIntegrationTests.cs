@@ -39,7 +39,8 @@ public sealed class GroupAssetSharingIntegrationTests
 
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
-            Email = memberEmail
+            Email = memberEmail,
+            Role = "Viewer",
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -49,8 +50,7 @@ public sealed class GroupAssetSharingIntegrationTests
             FirstName = "Member",
             LastName = "User",
             Email = memberEmail,
-            Password = memberPassword,
-            ConfirmPassword = memberPassword
+            Password = memberPassword
         });
         acceptResponse.EnsureSuccessStatusCode();
 
@@ -72,7 +72,6 @@ public sealed class GroupAssetSharingIntegrationTests
         var addMemberResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/groups/{group.Id}/users", new CreateGroupMemberRequest
         {
             UserId = checked((int)member.Id),
-            Role = "Viewer"
         });
         addMemberResponse.EnsureSuccessStatusCode();
 
@@ -138,7 +137,6 @@ public sealed class GroupAssetSharingIntegrationTests
         var shareFolderResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/asset-folders/{sharedFolder.Id}/groups", new ShareWithGroupRequest
         {
             GroupId = group.Id,
-            Role = "Viewer"
         });
         shareFolderResponse.EnsureSuccessStatusCode();
         var sharedFolderAfterShare = await shareFolderResponse.ReadAsJsonAsync<AssetFolderResponse>();
@@ -147,7 +145,6 @@ public sealed class GroupAssetSharingIntegrationTests
         var shareHiddenAssetResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/assets/{directFolderAsset.Id}/groups", new ShareWithGroupRequest
         {
             GroupId = group.Id,
-            Role = "Viewer"
         });
         shareHiddenAssetResponse.EnsureSuccessStatusCode();
         var sharedHiddenAsset = await shareHiddenAssetResponse.ReadAsJsonAsync<AssetResponse>();
@@ -156,7 +153,6 @@ public sealed class GroupAssetSharingIntegrationTests
         var shareRootAssetResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/assets/{directRootAsset.Id}/groups", new ShareWithGroupRequest
         {
             GroupId = group.Id,
-            Role = "Viewer"
         });
         shareRootAssetResponse.EnsureSuccessStatusCode();
         var sharedRootAsset = await shareRootAssetResponse.ReadAsJsonAsync<AssetResponse>();

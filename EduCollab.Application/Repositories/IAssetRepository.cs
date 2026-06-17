@@ -13,6 +13,7 @@ namespace EduCollab.Application.Repositories
         Task<bool> DeleteAssetAsync(int workspaceId, int assetId, CancellationToken cancellationToken);
         Task<Asset?> MoveAssetAsync(int workspaceId, int assetId, int? folderId, CancellationToken cancellationToken);
         Task<List<AssetGroupShare>> GetAssetSharesAsync(int workspaceId, int assetId, CancellationToken cancellationToken);
+        Task<List<AssetGroupShare>> GetWorkspaceAssetSharesAsync(int workspaceId, CancellationToken cancellationToken);
         Task<List<AssetGroupShare>> GetAssetSharesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken);
         Task<AssetGroupShare?> CreateAssetShareAsync(int workspaceId, AssetGroupShare share, CancellationToken cancellationToken);
         Task<bool> DeleteAssetShareAsync(int workspaceId, int assetId, int groupId, CancellationToken cancellationToken);

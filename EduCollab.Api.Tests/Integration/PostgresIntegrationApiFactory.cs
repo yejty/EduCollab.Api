@@ -13,7 +13,7 @@ namespace EduCollab.Api.Tests;
 public sealed class PostgresIntegrationApiFactory : WebApplicationFactory<Program>, IAsyncDisposable
 {
     private const string DefaultAdminConnectionString =
-        "Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=postgres;Pooling=false";
+        "Host=localhost;Port=5433;Database=postgres;Username=postgres;Password=postgres;Pooling=false";
 
     private readonly string _databaseName;
     private readonly string _adminConnectionString;
@@ -68,6 +68,8 @@ public sealed class PostgresIntegrationApiFactory : WebApplicationFactory<Progra
                 ["LoginCode:CodeExpirationMinutes"] = "3",
                 ["LoginCode:MaxAttempts"] = "3",
                 ["WorkspaceInvitation:TokenExpirationHours"] = "168",
+                ["PlatformAdmin:Email"] = "admin@educollab.local",
+                ["PlatformAdmin:Password"] = "Admin123!",
             });
         });
 

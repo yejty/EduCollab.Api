@@ -30,12 +30,13 @@ namespace EduCollab.Application.Repositories
             int workspaceId,
             string email,
             string tokenHashSha256Hex,
+            WorkspaceRole role,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,
             CancellationToken cancellationToken);
 
-        Task<int?> GetActiveWorkspaceInvitationWorkspaceIdAsync(
+        Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(
             string tokenHashSha256Hex,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken);
@@ -50,8 +51,18 @@ namespace EduCollab.Application.Repositories
             DateTimeOffset utcNow,
             CancellationToken cancellationToken);
 
+        Task<WorkspaceMember?> AcceptWorkspaceInvitationForExistingUserAsync(
+            int workspaceId,
+            string tokenHashSha256Hex,
+            int userId,
+            string email,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
         Task<bool> RemoveWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
 
         Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken);
+
+        Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken);
     }
 }

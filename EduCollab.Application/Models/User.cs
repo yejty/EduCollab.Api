@@ -23,5 +23,10 @@ namespace EduCollab.Application.Models
         /// At most one workspace per user: when set, this user belongs only to this workspace.
         /// </summary>
         public int? WorkspaceId { get; set; }
+
+        /// <summary>
+        /// Platform-wide administrator (not a workspace role).
+        /// </summary>
+        public bool IsPlatformAdmin { get; set; }
     }
 }

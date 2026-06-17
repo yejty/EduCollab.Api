@@ -221,7 +221,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         s.FolderId,
                         s.GroupId,
-                        s.Role,
                         s.CreatedByUserId,
                         s.CreatedAtUtc
                     FROM AssetFolderGroupShares s
@@ -248,7 +247,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         s.FolderId,
                         s.GroupId,
-                        s.Role,
                         s.CreatedByUserId,
                         s.CreatedAtUtc
                     FROM AssetFolderGroupShares s
@@ -275,13 +273,11 @@ namespace EduCollab.Infrastructure.Repositories
                     INSERT INTO AssetFolderGroupShares (
                         FolderId,
                         GroupId,
-                        Role,
                         CreatedByUserId,
                         CreatedAtUtc)
                     SELECT
                         @FolderId,
                         @GroupId,
-                        @Role,
                         @CreatedByUserId,
                         @CreatedAtUtc
                     WHERE EXISTS (
@@ -297,13 +293,12 @@ namespace EduCollab.Infrastructure.Repositories
                           AND g.WorkspaceId = @WorkspaceId
                     )
                     ON CONFLICT (FolderId, GroupId) DO NOTHING
-                    RETURNING FolderId, GroupId, Role, CreatedByUserId, CreatedAtUtc;
+                    RETURNING FolderId, GroupId, CreatedByUserId, CreatedAtUtc;
                     """,
                     new
                     {
                         share.FolderId,
                         share.GroupId,
-                        Role = share.Role.ToString(),
                         share.CreatedByUserId,
                         share.CreatedAtUtc,
                         WorkspaceId = workspaceId
@@ -331,6 +326,31 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return deleted > 0;
+        }
+
+        public async Task<List<AssetFolderGroupShare>> GetWorkspaceAssetFolderSharesAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var shares = await connection.QueryAsync<AssetFolderGroupShare>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        s.FolderId,
+                        s.GroupId,
+                        s.CreatedByUserId,
+                        s.CreatedAtUtc
+                    FROM AssetFolderGroupShares s
+                    INNER JOIN AssetFolders f ON f.Id = s.FolderId
+                    INNER JOIN Groups g ON g.Id = s.GroupId
+                    WHERE f.WorkspaceId = @WorkspaceId
+                      AND g.WorkspaceId = @WorkspaceId
+                    ORDER BY s.CreatedAtUtc, s.FolderId, s.GroupId;
+                    """,
+                    new { WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return shares.AsList();
         }
     }
 }

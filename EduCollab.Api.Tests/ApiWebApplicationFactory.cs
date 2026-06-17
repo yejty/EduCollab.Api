@@ -19,6 +19,9 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
     public FakeAccessTokenService AccessTokenService { get; } = new();
     public FakeRefreshTokenService RefreshTokenService { get; } = new();
 
+    public FakePlatformAdminAuthorization PlatformAdminAuthorization =>
+        Services.GetRequiredService<FakePlatformAdminAuthorization>();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -30,12 +33,15 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IWorkspaceService>();
             services.RemoveAll<IAccessTokenService>();
             services.RemoveAll<IRefreshTokenService>();
+            services.RemoveAll<IPlatformAdminAuthorization>();
 
             services.AddSingleton<IUserService>(UserService);
             services.AddSingleton<IUserPreferencesService>(UserPreferencesService);
             services.AddSingleton<IWorkspaceService>(WorkspaceService);
             services.AddSingleton<IAccessTokenService>(AccessTokenService);
             services.AddSingleton<IRefreshTokenService>(RefreshTokenService);
+            services.AddSingleton<FakePlatformAdminAuthorization>();
+            services.AddSingleton<IPlatformAdminAuthorization>(sp => sp.GetRequiredService<FakePlatformAdminAuthorization>());
 
             services.AddAuthentication(options =>
             {

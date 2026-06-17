@@ -6,8 +6,5 @@ namespace EduCollab.Contracts.Requests.Groups
     {
         [Required]
         public int UserId { get; set; }
-
-        [Required]
-        public string Role { get; set; } = string.Empty;
     }
 }

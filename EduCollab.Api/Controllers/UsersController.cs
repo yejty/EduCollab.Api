@@ -45,15 +45,6 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Register([FromBody] RegisterUserRequest request, CancellationToken cancellationToken)
         {
-            if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "password_mismatch",
-                    ErrorDescription = "Password and confirmation password do not match.",
-                });
-            }
-
             var user = request.MapToUser();
             try
             {
@@ -290,25 +281,17 @@ namespace EduCollab.Api.Controllers
         /// Replace opaque web-client preferences for the current user.
         /// </summary>
         /// <remarks>
-        /// The backend validates only that the payload is valid JSON, without understanding its schema.
+        /// The request body is stored as opaque JSON without schema binding or validation.
         /// </remarks>
         [Authorize]
         [HttpPut(ApiEndpoints.Users.Preferences)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> PutPreferences([FromBody] JsonNode? preferences, CancellationToken cancellationToken)
+        public async Task<IActionResult> PutPreferences([FromBody] JsonNode preferences, CancellationToken cancellationToken)
         {
-            if (preferences is null)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "bad_request",
-                    ErrorDescription = "Preferences payload is required."
-                });
-            }
-
-            var savedJson = await _userPreferencesService.SaveCurrentUserPreferencesAsync(preferences.ToJsonString(), cancellationToken);
+            var json = preferences.ToJsonString();
+            var savedJson = await _userPreferencesService.SaveCurrentUserPreferencesAsync(json, cancellationToken);
             return Content(savedJson, "application/json");
         }
 

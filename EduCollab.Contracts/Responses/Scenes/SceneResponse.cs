@@ -15,5 +15,6 @@ namespace EduCollab.Contracts.Responses.Scenes
         public DateTime UpdatedAtUtc { get; set; }
         public bool CanEdit { get; set; }
         public bool CanManage { get; set; }
+        public List<int> GroupIds { get; set; } = new();
     }
 }

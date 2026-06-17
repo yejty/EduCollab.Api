@@ -2,8 +2,7 @@ using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
-using System.Linq;
-
+using EduCollab.Application.Services.Content;
 namespace EduCollab.Application.Services.Assets
 {
     public class AssetService : IAssetService
@@ -63,10 +62,138 @@ namespace EduCollab.Application.Services.Assets
             return (workspaceId, membership);
         }
 
-        private static bool CanManageByWorkspaceRole(WorkspaceMember membership)
+        private static void EnsureCanCreateAsset(WorkspaceMember membership)
         {
-            return membership.Role is WorkspaceRole.Owner or WorkspaceRole.Admin;
+            if (!WorkspaceRolePermissions.CanCrudAssets(membership.Role))
+                throw new AccessDeniedException("You do not have permission to create assets.");
         }
+
+        private async Task<bool> IsAssetInSharedFolderAsync(int workspaceId, Asset asset, int userId, CancellationToken cancellationToken)
+        {
+            if (asset.FolderId is not int folderId)
+                return false;
+
+            var userGroupIds = await _groupRepository.GetUserGroupIdsAsync(workspaceId, userId, cancellationToken);
+            if (userGroupIds.Count == 0)
+                return false;
+
+            foreach (var groupId in userGroupIds)
+            {
+                var folderShares = await _assetFolderRepository.GetAssetFolderSharesByGroupAsync(workspaceId, groupId, cancellationToken);
+                if (folderShares.Any(share => share.FolderId == folderId))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> IsAssetSharedWithUserGroupsAsync(int workspaceId, int assetId, int userId, CancellationToken cancellationToken)
+        {
+            var userGroupIds = await _groupRepository.GetUserGroupIdsAsync(workspaceId, userId, cancellationToken);
+            if (userGroupIds.Count == 0)
+                return false;
+
+            var shares = await _assetRepository.GetAssetSharesAsync(workspaceId, assetId, cancellationToken);
+            return shares.Any(share => userGroupIds.Contains(share.GroupId));
+        }
+
+        private async Task EnsureCanManageAssetAsync(int workspaceId, Asset asset, CancellationToken cancellationToken)
+        {
+            var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                return;
+
+            if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+                throw new AccessDeniedException("Viewers have read-only access to assets.");
+
+            if (membership.Role == WorkspaceRole.Creator)
+                return;
+
+            if (membership.Role == WorkspaceRole.Manager)
+            {
+                if (asset.OwnerUserId == userId
+                    || await IsAssetSharedWithUserGroupsAsync(workspaceId, asset.Id, userId, cancellationToken)
+                    || await IsAssetInSharedFolderAsync(workspaceId, asset, userId, cancellationToken))
+                {
+                    return;
+                }
+            }
+
+            if (asset.OwnerUserId == userId)
+                return;
+
+            throw new AccessDeniedException("You do not have permission to manage this asset.");
+        }
+
+        private async Task EnsureCanShareWithGroupOnCreateAsync(int workspaceId, int groupId, WorkspaceMember membership, int userId, CancellationToken cancellationToken)
+        {
+            if (WorkspaceRolePermissions.CanShareContent(membership.Role))
+                return;
+
+            var groupMember = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            if (groupMember is null)
+                throw new AccessDeniedException("You must belong to the selected group to share with it.");
+        }
+
+        private async Task<List<AssetFolder>> GetAllFoldersAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            var rootFolders = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, null, cancellationToken);
+            var result = new List<AssetFolder>(rootFolders);
+            var queue = new Queue<AssetFolder>(rootFolders);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                var children = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, current.Id, cancellationToken);
+                foreach (var child in children)
+                {
+                    result.Add(child);
+                    queue.Enqueue(child);
+                }
+            }
+
+            return result;
+        }
+
+        private sealed record AssetVisibilityContext(
+            bool CanSeeAllContent,
+            int UserId,
+            HashSet<int> UserGroupIds,
+            HashSet<int> VisibleFolderIds,
+            HashSet<int> DirectlySharedAssetIds);
+
+        private async Task<AssetVisibilityContext> BuildAssetVisibilityContextAsync(
+            int workspaceId,
+            WorkspaceMember membership,
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                return new AssetVisibilityContext(true, userId, [], [], []);
+
+            var userGroupIds = (await _groupRepository.GetUserGroupIdsAsync(workspaceId, userId, cancellationToken)).ToHashSet();
+            var folders = await GetAllFoldersAsync(workspaceId, cancellationToken);
+            var folderShares = await _assetFolderRepository.GetWorkspaceAssetFolderSharesAsync(workspaceId, cancellationToken);
+            var visibleFolderIds = WorkspaceContentVisibility.BuildVisibleFolderIds(folders, folderShares, userGroupIds);
+            var assetShares = await _assetRepository.GetWorkspaceAssetSharesAsync(workspaceId, cancellationToken);
+            var directlySharedAssetIds = assetShares
+                .Where(share => userGroupIds.Contains(share.GroupId))
+                .Select(share => share.AssetId)
+                .ToHashSet();
+
+            return new AssetVisibilityContext(false, userId, userGroupIds, visibleFolderIds, directlySharedAssetIds);
+        }
+
+        private static bool IsAssetVisible(Asset asset, AssetVisibilityContext context) =>
+            WorkspaceContentVisibility.IsAssetVisibleToUser(
+                asset,
+                context.UserId,
+                context.CanSeeAllContent,
+                context.UserGroupIds,
+                context.DirectlySharedAssetIds,
+                context.VisibleFolderIds);
 
         private async Task EnsureFolderBelongsToWorkspaceAsync(int workspaceId, int? folderId, CancellationToken cancellationToken)
         {
@@ -88,23 +215,12 @@ namespace EduCollab.Application.Services.Assets
                 throw new KeyNotFoundException("Group not found.");
         }
 
-        private async Task EnsureCanManageAssetAsync(int workspaceId, Asset asset, CancellationToken cancellationToken)
-        {
-            var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var userId = RequireCurrentUserId();
-
-            if (asset.OwnerUserId == userId)
-                return;
-
-            if (!CanManageByWorkspaceRole(membership))
-                throw new AccessDeniedException("Only the asset owner or workspace owners/admins can manage this asset.");
-        }
-
-        public async Task<bool> CreateAssetAsync(Asset asset, CancellationToken cancellationToken)
+        public async Task<bool> CreateAssetAsync(Asset asset, int? groupId, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(asset);
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanCreateAsset(membership);
             var userId = RequireCurrentUserId();
 
             await EnsureFolderBelongsToWorkspaceAsync(workspaceId, asset.FolderId, cancellationToken);
@@ -124,13 +240,33 @@ namespace EduCollab.Application.Services.Assets
                 return false;
 
             asset.Id = id;
+
+            if (groupId is int selectedGroupId)
+            {
+                await EnsureGroupBelongsToWorkspaceAsync(workspaceId, selectedGroupId, cancellationToken);
+                await EnsureCanShareWithGroupOnCreateAsync(workspaceId, selectedGroupId, membership, userId, cancellationToken);
+
+                var share = new AssetGroupShare
+                {
+                    AssetId = id,
+                    GroupId = selectedGroupId,
+                    CreatedByUserId = userId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+
+                await _assetRepository.CreateAssetShareAsync(workspaceId, share, cancellationToken);
+            }
+
             return true;
         }
 
         public async Task<List<Asset>> GetAllAssetsAsync(CancellationToken cancellationToken)
         {
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            return await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+            var assets = await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            return assets.Where(asset => IsAssetVisible(asset, context)).ToList();
         }
 
         public async Task<List<Asset>> GetAssetsInFolderAsync(int folderId, CancellationToken cancellationToken)
@@ -138,9 +274,12 @@ namespace EduCollab.Application.Services.Assets
             if (folderId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(folderId));
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             await EnsureFolderBelongsToWorkspaceAsync(workspaceId, folderId, cancellationToken);
-            return await _assetRepository.GetAssetsByFolderAsync(workspaceId, folderId, cancellationToken);
+            var userId = RequireCurrentUserId();
+            var assets = await _assetRepository.GetAssetsByFolderAsync(workspaceId, folderId, cancellationToken);
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            return assets.Where(asset => IsAssetVisible(asset, context)).ToList();
         }
 
         public async Task<List<Asset>> GetMyAssetsAsync(CancellationToken cancellationToken)
@@ -155,8 +294,14 @@ namespace EduCollab.Application.Services.Assets
             if (assetId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(assetId));
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            return await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (asset is null)
+                return null;
+
+            var userId = RequireCurrentUserId();
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            return IsAssetVisible(asset, context) ? asset : null;
         }
 
         public async Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken)
@@ -213,15 +358,19 @@ namespace EduCollab.Application.Services.Assets
             return await _assetRepository.DeleteAssetAsync(workspaceId, assetId, cancellationToken);
         }
 
-        public async Task<bool> ShareAssetAsync(int assetId, int groupId, GroupRole role, CancellationToken cancellationToken)
+        public async Task<bool> ShareAssetAsync(int assetId, int groupId, CancellationToken cancellationToken)
         {
             if (assetId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(assetId));
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
             if (existing is null)
                 return false;
+
+            var userId = RequireCurrentUserId();
+            if (!WorkspaceRolePermissions.CanShareContent(membership.Role) && existing.OwnerUserId != userId)
+                throw new AccessDeniedException("Only workspace owners and managers can share assets with groups.");
 
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
             await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
@@ -230,7 +379,6 @@ namespace EduCollab.Application.Services.Assets
             {
                 AssetId = assetId,
                 GroupId = groupId,
-                Role = role,
                 CreatedByUserId = RequireCurrentUserId(),
                 CreatedAtUtc = DateTime.UtcNow
             };
@@ -258,9 +406,22 @@ namespace EduCollab.Application.Services.Assets
         {
             try
             {
-                var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+                var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
                 var userId = RequireCurrentUserId();
-                return userId == ownerUserId || CanManageByWorkspaceRole(membership);
+
+                if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                    return true;
+
+                if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+                    return false;
+
+                if (membership.Role == WorkspaceRole.Creator)
+                    return true;
+
+                if (userId == ownerUserId)
+                    return true;
+
+                return membership.Role == WorkspaceRole.Manager;
             }
             catch (UnauthorizedAccessException)
             {

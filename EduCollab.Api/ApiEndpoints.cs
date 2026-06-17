@@ -60,6 +60,7 @@ namespace EduCollab.Api
         {
             private const string Base = $"{ApiBase}/workspace-invitations";
             public const string Accept = $"{Base}/{{invitationToken}}/accept";
+            public const string Join = $"{Base}/{{invitationToken}}/join";
         }
 
         public static class Groups
@@ -74,7 +75,6 @@ namespace EduCollab.Api
             public const string GetAllMembers = $"{Base}/{{groupId}}/users";
             public const string CreateMember = $"{Base}/{{groupId}}/users";
             public const string GetMember = $"{Base}/{{groupId}}/users/{{userId}}";
-            public const string UpdateMember = $"{Base}/{{groupId}}/users/{{userId}}";
             public const string DeleteMember = $"{Base}/{{groupId}}/users/{{userId}}";
 
             public const string GetFolders = $"{Base}/{{groupId}}/folders";
@@ -120,6 +120,8 @@ namespace EduCollab.Api
             public const string Update = $"{Base}/{{sceneId}}";
             public const string Delete = $"{Base}/{{sceneId}}";
             public const string GetMine = $"{Base}/mine";
+            public const string Share = $"{Base}/{{sceneId}}/groups";
+            public const string Unshare = $"{Base}/{{sceneId}}/groups/{{groupId}}";
         }
     }
 }

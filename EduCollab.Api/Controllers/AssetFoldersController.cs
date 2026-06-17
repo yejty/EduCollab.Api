@@ -41,7 +41,7 @@ namespace EduCollab.Api.Controllers
         public async Task<IActionResult> CreateAssetFolder([FromBody] CreateAssetFolderRequest request, CancellationToken cancellationToken)
         {
             var folder = request.MapToAssetFolder();
-            var created = await _assetFolderService.CreateAssetFolderAsync(folder, cancellationToken);
+            var created = await _assetFolderService.CreateAssetFolderAsync(folder, request.GroupId, cancellationToken);
             if (!created)
             {
                 return BadRequest(new ErrorResponse
@@ -181,7 +181,7 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetFolderResponse>> ShareAssetFolder(int folderId, [FromBody] ShareWithGroupRequest request, CancellationToken cancellationToken)
         {
-            var shared = await _assetFolderService.ShareAssetFolderAsync(folderId, request.GroupId, request.MapToGroupRole(), cancellationToken);
+            var shared = await _assetFolderService.ShareAssetFolderAsync(folderId, request.GroupId, cancellationToken);
             if (!shared)
             {
                 return BadRequest(new ErrorResponse

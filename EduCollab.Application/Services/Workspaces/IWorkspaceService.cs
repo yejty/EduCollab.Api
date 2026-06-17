@@ -6,8 +6,9 @@ namespace EduCollab.Application.Services.Workspaces
     {
         Task<bool> CreateUserInWorkspaceAsync(int workspaceId, User user, string password, string invitationToken, CancellationToken cancellationToken);
         Task<bool> CreateUserFromInvitationAsync(User user, string password, string invitationToken, CancellationToken cancellationToken);
-        Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken);
-        Task InviteUserToCurrentWorkspaceAsync(string email, CancellationToken cancellationToken);
+        Task InviteUserToWorkspaceAsync(int workspaceId, string email, WorkspaceRole role, CancellationToken cancellationToken);
+        Task InviteUserToCurrentWorkspaceAsync(string email, WorkspaceRole role, CancellationToken cancellationToken);
+        Task<WorkspaceMember?> JoinWorkspaceFromInvitationAsync(string invitationToken, CancellationToken cancellationToken);
         Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken);
         Task<Workspace?> GetCurrentWorkspaceAsync(CancellationToken cancellationToken);
 

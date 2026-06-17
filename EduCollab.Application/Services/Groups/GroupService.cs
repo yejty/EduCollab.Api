@@ -1,7 +1,7 @@
-﻿using EduCollab.Application.Identity;
-using EduCollab.Application.Repositories;
-using EduCollab.Application.Exceptions;
+﻿using EduCollab.Application.Exceptions;
+using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
+using EduCollab.Application.Repositories;
 
 namespace EduCollab.Application.Services.Groups
 {
@@ -50,15 +50,19 @@ namespace EduCollab.Application.Services.Groups
             return (workspaceId, membership);
         }
 
-        private static bool CanManageWorkspace(WorkspaceRole role) =>
-            role is WorkspaceRole.Owner or WorkspaceRole.Admin;
+        public async Task<WorkspaceRole> GetCurrentUserWorkspaceRoleAsync(CancellationToken cancellationToken)
+        {
+            var (_, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            return membership.Role;
+        }
 
         private async Task EnsureCurrentUserCanAccessGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
         {
             var (_, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
             if (workspaceId != workspaceMember.WorkspaceId)
                 throw new AccessDeniedException("You cannot access groups outside your workspace.");
-            if (CanManageWorkspace(workspaceMember.Role))
+
+            if (WorkspaceRolePermissions.CanSeeAllContent(workspaceMember.Role))
                 return;
 
             var currentUserId = RequireCurrentUserId();
@@ -67,31 +71,21 @@ namespace EduCollab.Application.Services.Groups
                 throw new AccessDeniedException("You must be a member of this group to access it.");
         }
 
-        private async Task EnsureCurrentUserCanManageGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        private async Task EnsureCurrentUserCanManageGroupsAsync(CancellationToken cancellationToken)
         {
             var (_, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (workspaceId != workspaceMember.WorkspaceId)
+            if (!WorkspaceRolePermissions.CanManageGroups(workspaceMember.Role))
+                throw new AccessDeniedException("Only workspace owners and managers can manage groups.");
+        }
+
+        private async Task EnsureCurrentUserCanManageGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            await EnsureCurrentUserCanManageGroupsAsync(cancellationToken);
+
+            if (workspaceId != (await ResolveCurrentWorkspaceMembershipAsync(cancellationToken)).WorkspaceId)
                 throw new AccessDeniedException("You cannot manage groups outside your workspace.");
-            if (CanManageWorkspace(workspaceMember.Role))
-                return;
 
-            var currentUserId = RequireCurrentUserId();
-            var groupMembership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
-            if (groupMembership is null)
-                throw new AccessDeniedException("You must be a member of this group to manage it.");
-
-            if (groupMembership.Role != GroupRole.Admin)
-                throw new AccessDeniedException("Only group admins can manage this group.");
-        }
-
-        private async Task EnsureCurrentUserIsGroupMemberAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
-        {
-            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
-        }
-
-        private async Task EnsureCurrentUserIsGroupAdminAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
-        {
-            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
+            await RequireGroupAsync(workspaceId, groupId, cancellationToken);
         }
 
         private async Task<Group> RequireGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
@@ -158,20 +152,28 @@ namespace EduCollab.Application.Services.Groups
             if (groupId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
-            var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
             await RequireGroupAsync(workspaceId, groupId, cancellationToken);
-            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+
+            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
 
             var folders = await GetAllFoldersAsync(workspaceId, cancellationToken);
+
             var shares = await _assetFolderRepository.GetAssetFolderSharesByGroupAsync(workspaceId, groupId, cancellationToken);
-            var visibleFolderIds = BuildVisibleFolderIds(folders, shares);
+            var visibleFolderIds = WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
+                ? folders.Select(f => f.Id).ToHashSet()
+                : BuildVisibleFolderIds(folders, shares);
+
             return (workspaceId, visibleFolderIds, folders);
         }
 
         public async Task<bool> CreateGroupAsync(Group group, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(group);
-            var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            if (!WorkspaceRolePermissions.CanManageGroups(membership.Role))
+                throw new AccessDeniedException("Only workspace owners and managers can create groups.");
 
             var now = DateTimeOffset.UtcNow;
             group.CreatedAtUtc = now.UtcDateTime;
@@ -198,8 +200,11 @@ namespace EduCollab.Application.Services.Groups
 
         public async Task<List<Group>> GetAllGroupsAsync(CancellationToken cancellationToken)
         {
-            var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            return await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                return await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+
+            return await _groupRepository.GetGroupsForMemberAsync(workspaceId, membership.UserId, cancellationToken);
         }
 
         public async Task<Group?> GetGroupByIdAsync(int groupId, CancellationToken cancellationToken)
@@ -224,9 +229,7 @@ namespace EduCollab.Application.Services.Groups
 
             var existing = await _groupRepository.GetGroupByIdAsync(workspaceId, group.Id, cancellationToken);
             if (existing is null)
-            {
                 return null;
-            }
 
             group.CreatedAtUtc = existing.CreatedAtUtc;
             group.CreatedByUserId = existing.CreatedByUserId;
@@ -249,7 +252,7 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await EnsureCurrentUserIsGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.GetAllGroupMembersAsync(workspaceId, groupId, cancellationToken);
         }
 
@@ -261,7 +264,7 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(userId));
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await EnsureCurrentUserIsGroupMemberAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
         }
 
@@ -285,19 +288,8 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentException("User must be a member of the workspace before joining the group.");
 
             member.GroupId = groupId;
+            member.JoinedAtUtc = DateTime.UtcNow;
             return await _groupRepository.CreateGroupMemberAsync(workspaceId, member, cancellationToken);
-        }
-
-        public async Task<GroupMember?> UpdateGroupMemberAsync(int groupId, int userId, GroupRole role, CancellationToken cancellationToken)
-        {
-            if (groupId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(groupId));
-            if (userId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(userId));
-
-            var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
-            return await _groupRepository.UpdateGroupMemberAsync(workspaceId, groupId, userId, role, cancellationToken);
         }
 
         public async Task<bool> DeleteGroupMemberAsync(int groupId, int userId, CancellationToken cancellationToken)
@@ -308,12 +300,22 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(userId));
 
             var (workspaceId, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!CanManageWorkspace(workspaceMember.Role))
+            var isSelf = workspaceMember.UserId == userId;
+
+            if (!WorkspaceRolePermissions.CanManageGroups(workspaceMember.Role))
             {
-                if (workspaceMember.UserId != userId)
-                    await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
-                else
-                    await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+                if (!isSelf)
+                    throw new AccessDeniedException("Only workspace owners and managers can remove other group members.");
+
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+            }
+            else if (!isSelf)
+            {
+                await RequireGroupAsync(workspaceId, groupId, cancellationToken);
+            }
+            else
+            {
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
             }
 
             return await _groupRepository.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
@@ -364,12 +366,27 @@ namespace EduCollab.Application.Services.Groups
 
         public async Task<List<Asset>> GetVisibleRootAssetsAsync(int groupId, CancellationToken cancellationToken)
         {
-            var (workspaceId, visibleFolderIds, _) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            await RequireGroupAsync(workspaceId, groupId, cancellationToken);
+
+            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+
+            var (_, visibleFolderIds, _) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
             var sharedAssetIds = (await _assetRepository.GetAssetSharesByGroupAsync(workspaceId, groupId, cancellationToken))
                 .Select(share => share.AssetId)
                 .ToHashSet();
 
             var assets = await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
+
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            {
+                return assets
+                    .OrderBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(asset => asset.Id)
+                    .ToList();
+            }
+
             return assets
                 .Where(asset =>
                     sharedAssetIds.Contains(asset.Id)

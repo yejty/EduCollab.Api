@@ -14,6 +14,7 @@ namespace EduCollab.Infrastructure.Repositories
         {
             _dbConnectionFactory = dbConnectionFactory;
         }
+
         public async Task<int> CreateGroupAsync(int workspaceId, Group group, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -47,14 +48,13 @@ namespace EduCollab.Infrastructure.Repositories
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    INSERT INTO GroupMembers (GroupId, UserId, Role, JoinedAtUtc)
-                    VALUES (@GroupId, @UserId, @Role, @JoinedAtUtc);
+                    INSERT INTO GroupMembers (GroupId, UserId, JoinedAtUtc)
+                    VALUES (@GroupId, @UserId, @JoinedAtUtc);
                     """,
                     new
                     {
                         GroupId = groupId,
                         UserId = group.CreatedByUserId,
-                        Role = GroupRole.Admin.ToString(),
                         JoinedAtUtc = group.CreatedAtUtc,
                     },
                     transaction: tx,
@@ -99,6 +99,32 @@ namespace EduCollab.Infrastructure.Repositories
                     ORDER BY Name ASC, Id ASC;
                     """,
                     new { WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return groups.AsList();
+        }
+
+        public async Task<List<Group>> GetGroupsForMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var groups = await connection.QueryAsync<Group>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        g.Id,
+                        g.Name,
+                        g.Description,
+                        g.CreatedAtUtc,
+                        g.UpdatedAtUtc,
+                        g.CreatedByUserId,
+                        g.UserCount
+                    FROM Groups g
+                    INNER JOIN GroupMembers gm ON gm.GroupId = g.Id
+                    WHERE g.WorkspaceId = @WorkspaceId
+                      AND gm.UserId = @UserId
+                    ORDER BY g.Name ASC, g.Id ASC;
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId },
                     cancellationToken: cancellationToken));
 
             return groups.AsList();
@@ -176,7 +202,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         gm.GroupId,
                         gm.UserId,
-                        gm.Role,
                         gm.JoinedAtUtc
                     FROM GroupMembers gm
                     INNER JOIN Groups g ON g.Id = gm.GroupId
@@ -199,7 +224,6 @@ namespace EduCollab.Infrastructure.Repositories
                     SELECT
                         gm.GroupId,
                         gm.UserId,
-                        gm.Role,
                         gm.JoinedAtUtc
                     FROM GroupMembers gm
                     INNER JOIN Groups g ON g.Id = gm.GroupId
@@ -219,8 +243,8 @@ namespace EduCollab.Infrastructure.Repositories
             var created = await connection.QuerySingleOrDefaultAsync<GroupMember>(
                 new CommandDefinition(
                     """
-                    INSERT INTO GroupMembers (GroupId, UserId, Role, JoinedAtUtc)
-                    SELECT @GroupId, @UserId, @Role, @JoinedAtUtc
+                    INSERT INTO GroupMembers (GroupId, UserId, JoinedAtUtc)
+                    SELECT @GroupId, @UserId, @JoinedAtUtc
                     WHERE EXISTS (
                         SELECT 1
                         FROM Groups g
@@ -228,13 +252,12 @@ namespace EduCollab.Infrastructure.Repositories
                           AND g.WorkspaceId = @WorkspaceId
                     )
                     ON CONFLICT (GroupId, UserId) DO NOTHING
-                    RETURNING GroupId, UserId, Role, JoinedAtUtc;
+                    RETURNING GroupId, UserId, JoinedAtUtc;
                     """,
                     new
                     {
                         member.GroupId,
                         member.UserId,
-                        Role = member.Role.ToString(),
                         member.JoinedAtUtc,
                         WorkspaceId = workspaceId,
                     },
@@ -259,28 +282,6 @@ namespace EduCollab.Infrastructure.Repositories
             }
 
             return created;
-        }
-
-        public async Task<GroupMember?> UpdateGroupMemberAsync(int workspaceId, int groupId, int userId, GroupRole role, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var updated = await connection.QuerySingleOrDefaultAsync<GroupMember>(
-                new CommandDefinition(
-                    """
-                    UPDATE GroupMembers gm
-                    SET Role = @Role
-                    FROM Groups g
-                    WHERE gm.GroupId = @GroupId
-                      AND gm.UserId = @UserId
-                      AND g.Id = gm.GroupId
-                      AND g.WorkspaceId = @WorkspaceId
-                    RETURNING gm.GroupId, gm.UserId, gm.Role, gm.JoinedAtUtc;
-                    """,
-                    new { GroupId = groupId, UserId = userId, WorkspaceId = workspaceId, Role = role.ToString() },
-                    cancellationToken: cancellationToken));
-
-            return updated;
         }
 
         public async Task<bool> DeleteGroupMemberAsync(int workspaceId, int groupId, int userId, CancellationToken cancellationToken)
@@ -328,6 +329,24 @@ namespace EduCollab.Infrastructure.Repositories
 
             await tx.CommitAsync(cancellationToken);
             return deleted > 0;
+        }
+
+        public async Task<List<int>> GetUserGroupIdsAsync(int workspaceId, int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var groupIds = await connection.QueryAsync<int>(
+                new CommandDefinition(
+                    """
+                    SELECT gm.GroupId
+                    FROM GroupMembers gm
+                    INNER JOIN Groups g ON g.Id = gm.GroupId
+                    WHERE g.WorkspaceId = @WorkspaceId
+                      AND gm.UserId = @UserId;
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId },
+                    cancellationToken: cancellationToken));
+
+            return groupIds.AsList();
         }
     }
 }

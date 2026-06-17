@@ -16,10 +16,10 @@ namespace EduCollab.Infrastructure.Database
         {
             if (value is string s)
             {
-                return WorkspaceRoleExtensions.FromPersistedOrMember(s);
+                return WorkspaceRoleExtensions.FromPersistedOrViewer(s);
             }
 
-            return WorkspaceRole.Member;
+            return WorkspaceRole.Viewer;
         }
     }
 }

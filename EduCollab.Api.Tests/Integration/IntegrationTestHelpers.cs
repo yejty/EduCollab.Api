@@ -29,7 +29,6 @@ internal static partial class IntegrationTestHelpers
             LastName = lastName,
             Email = email,
             Password = password,
-            ConfirmPassword = password,
         });
 
         registerResponse.EnsureSuccessStatusCode();

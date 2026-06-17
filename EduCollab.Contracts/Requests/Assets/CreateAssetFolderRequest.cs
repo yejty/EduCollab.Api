@@ -9,5 +9,11 @@ namespace EduCollab.Contracts.Requests.Assets
         public string Name { get; set; } = string.Empty;
 
         public int? ParentFolderId { get; set; }
+
+        /// <summary>
+        /// Optional group to share with on create. When omitted, the folder is private to the creator and workspace owner.
+        /// </summary>
+        [Range(1, int.MaxValue)]
+        public int? GroupId { get; set; }
     }
 }

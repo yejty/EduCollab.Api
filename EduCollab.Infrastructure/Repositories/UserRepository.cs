@@ -302,12 +302,27 @@ namespace EduCollab.Infrastructure.Repositories
             return await connection.QuerySingleOrDefaultAsync<User>(
                 new CommandDefinition(
                     """
-                    SELECT Id, FirstName, LastName, Email, WorkspaceId
+                    SELECT Id, FirstName, LastName, Email, WorkspaceId, IsPlatformAdmin
                     FROM Users
                     WHERE Id = @Id
                     LIMIT 1;
                     """,
                     new { Id = id },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<bool> IsPlatformAdminAsync(int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            return await connection.QuerySingleOrDefaultAsync<bool>(
+                new CommandDefinition(
+                    """
+                    SELECT IsPlatformAdmin
+                    FROM Users
+                    WHERE Id = @UserId
+                    LIMIT 1;
+                    """,
+                    new { UserId = userId },
                     cancellationToken: cancellationToken));
         }
 

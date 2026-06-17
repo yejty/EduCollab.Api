@@ -28,6 +28,7 @@ namespace EduCollab.Application.Repositories
         Task<UserCredentialRecordDto?> GetCredentialByEmailAsync(string email, CancellationToken cancellationToken);
         Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken);
         Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken);
+        Task<bool> IsPlatformAdminAsync(int userId, CancellationToken cancellationToken);
         Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
         Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);

@@ -23,7 +23,6 @@ public sealed class UserApiIntegrationTests
             LastName = "Doe",
             Email = email,
             Password = password,
-            ConfirmPassword = password,
         });
 
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
@@ -171,7 +170,6 @@ public sealed class UserApiIntegrationTests
             LastName = "User",
             Email = email,
             Password = password,
-            ConfirmPassword = password,
         });
 
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);

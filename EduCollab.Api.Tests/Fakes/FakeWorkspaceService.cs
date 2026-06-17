@@ -7,8 +7,9 @@ public sealed class FakeWorkspaceService : IWorkspaceService
 {
     public Func<int, User, string, string, CancellationToken, Task<bool>>? CreateUserInWorkspaceAsyncHandler { get; set; }
     public Func<User, string, string, CancellationToken, Task<bool>>? CreateUserFromInvitationAsyncHandler { get; set; }
-    public Func<int, string, CancellationToken, Task>? InviteUserToWorkspaceAsyncHandler { get; set; }
-    public Func<string, CancellationToken, Task>? InviteUserToCurrentWorkspaceAsyncHandler { get; set; }
+    public Func<int, string, WorkspaceRole, CancellationToken, Task>? InviteUserToWorkspaceAsyncHandler { get; set; }
+    public Func<string, WorkspaceRole, CancellationToken, Task>? InviteUserToCurrentWorkspaceAsyncHandler { get; set; }
+    public Func<string, CancellationToken, Task<WorkspaceMember?>>? JoinWorkspaceFromInvitationAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<Workspace?>>? GetWorkspaceAsyncHandler { get; set; }
     public Func<CancellationToken, Task<Workspace?>>? GetCurrentWorkspaceAsyncHandler { get; set; }
     public Func<CancellationToken, Task<List<Workspace>>>? GetWorkspacesAsyncHandler { get; set; }
@@ -36,11 +37,14 @@ public sealed class FakeWorkspaceService : IWorkspaceService
         CreateUserFromInvitationAsyncHandler?.Invoke(user, password, invitationToken, cancellationToken)
         ?? Task.FromResult(true);
 
-    public Task InviteUserToWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken) =>
-        InviteUserToWorkspaceAsyncHandler?.Invoke(workspaceId, email, cancellationToken) ?? Task.CompletedTask;
+    public Task InviteUserToWorkspaceAsync(int workspaceId, string email, WorkspaceRole role, CancellationToken cancellationToken) =>
+        InviteUserToWorkspaceAsyncHandler?.Invoke(workspaceId, email, role, cancellationToken) ?? Task.CompletedTask;
 
-    public Task InviteUserToCurrentWorkspaceAsync(string email, CancellationToken cancellationToken) =>
-        InviteUserToCurrentWorkspaceAsyncHandler?.Invoke(email, cancellationToken) ?? Task.CompletedTask;
+    public Task InviteUserToCurrentWorkspaceAsync(string email, WorkspaceRole role, CancellationToken cancellationToken) =>
+        InviteUserToCurrentWorkspaceAsyncHandler?.Invoke(email, role, cancellationToken) ?? Task.CompletedTask;
+
+    public Task<WorkspaceMember?> JoinWorkspaceFromInvitationAsync(string invitationToken, CancellationToken cancellationToken) =>
+        JoinWorkspaceFromInvitationAsyncHandler?.Invoke(invitationToken, cancellationToken) ?? Task.FromResult<WorkspaceMember?>(null);
 
     public Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken) =>
         GetWorkspaceAsyncHandler?.Invoke(id, cancellationToken) ?? Task.FromResult<Workspace?>(null);

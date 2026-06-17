@@ -20,11 +20,13 @@ namespace EduCollab.Application
             services.Configure<EmailConfirmationSettings>(configuration.GetSection(EmailConfirmationSettings.SectionName));
             services.Configure<LoginCodeSettings>(configuration.GetSection(LoginCodeSettings.SectionName));
             services.Configure<WorkspaceInvitationSettings>(configuration.GetSection(WorkspaceInvitationSettings.SectionName));
+            services.Configure<PlatformAdminOptions>(configuration.GetSection(PlatformAdminOptions.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IUserPreferencesService, UserPreferencesService>();
+            services.AddScoped<IPlatformAdminAuthorization, PlatformAdminAuthorization>();
             services.AddScoped<IWorkspaceService, WorkspaceService>();
             services.AddScoped<IGroupService, GroupService>();
             services.AddScoped<IAssetFolderService, AssetFolderService>();

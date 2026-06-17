@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<TestSequence>
+  <Test Name="EduCollab.Api.Tests.Integration.GroupAssetSharingIntegrationTests.GroupScopedAssetLibrary_UsesFolderSharesAndDirectAssetShares" DisplayName="EduCollab.Api.Tests.Integration.GroupAssetSharingIntegrationTests.GroupScopedAssetLibrary_UsesFolderSharesAndDirectAssetShares" Source="c:\Users\janat\Desktop\EduCollab.Api\EduCollab.Api.Tests\bin\Debug\net8.0\EduCollab.Api.Tests.dll" Completed="False" />
+</TestSequence>
