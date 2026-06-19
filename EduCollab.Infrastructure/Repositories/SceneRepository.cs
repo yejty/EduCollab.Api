@@ -28,6 +28,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Description,
                         JsonContent,
                         ETag,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc)
                     VALUES (
@@ -37,6 +38,7 @@ namespace EduCollab.Infrastructure.Repositories
                         @Description,
                         CAST(@JsonContent AS jsonb),
                         @ETag,
+                        @CurrentVersionNumber,
                         @CreatedAtUtc,
                         @UpdatedAtUtc)
                     RETURNING Id;
@@ -47,8 +49,9 @@ namespace EduCollab.Infrastructure.Repositories
                         scene.OwnerUserId,
                         scene.Name,
                         scene.Description,
-                        scene.JsonContent,
+                        JsonContent = "{}",
                         scene.ETag,
+                        scene.CurrentVersionNumber,
                         scene.CreatedAtUtc,
                         scene.UpdatedAtUtc
                     },
@@ -70,8 +73,9 @@ namespace EduCollab.Infrastructure.Repositories
                         OwnerUserId,
                         Name,
                         Description,
-                        JsonContent::text AS JsonContent,
+                        '' AS JsonContent,
                         ETag,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Scenes
@@ -97,8 +101,9 @@ namespace EduCollab.Infrastructure.Repositories
                         OwnerUserId,
                         Name,
                         Description,
-                        JsonContent::text AS JsonContent,
+                        '' AS JsonContent,
                         ETag,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Scenes
@@ -127,6 +132,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Description,
                         JsonContent::text AS JsonContent,
                         ETag,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Scenes
@@ -148,8 +154,8 @@ namespace EduCollab.Infrastructure.Repositories
                     UPDATE Scenes
                     SET Name = @Name,
                         Description = @Description,
-                        JsonContent = CAST(@JsonContent AS jsonb),
                         ETag = @ETag,
+                        CurrentVersionNumber = @CurrentVersionNumber,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE Id = @Id
                       AND WorkspaceId = @WorkspaceId
@@ -159,8 +165,9 @@ namespace EduCollab.Infrastructure.Repositories
                         OwnerUserId,
                         Name,
                         Description,
-                        JsonContent::text AS JsonContent,
+                        '' AS JsonContent,
                         ETag,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc;
                     """,
@@ -170,8 +177,8 @@ namespace EduCollab.Infrastructure.Repositories
                         WorkspaceId = workspaceId,
                         scene.Name,
                         scene.Description,
-                        scene.JsonContent,
                         scene.ETag,
+                        scene.CurrentVersionNumber,
                         UpdatedAtUtc = scene.UpdatedAtUtc
                     },
                     cancellationToken: cancellationToken));
@@ -192,6 +199,136 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return deleted > 0;
+        }
+
+        public async Task<SceneVersion?> CreateSceneVersionAsync(int workspaceId, SceneVersion version, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            return await connection.QuerySingleOrDefaultAsync<SceneVersion>(
+                new CommandDefinition(
+                    """
+                    INSERT INTO SceneVersions (
+                        SceneId,
+                        VersionNumber,
+                        Name,
+                        Description,
+                        ETag,
+                        CreatedByUserId,
+                        CreatedAtUtc)
+                    SELECT
+                        @SceneId,
+                        @VersionNumber,
+                        @Name,
+                        @Description,
+                        @ETag,
+                        @CreatedByUserId,
+                        @CreatedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Scenes s
+                        WHERE s.Id = @SceneId
+                          AND s.WorkspaceId = @WorkspaceId
+                    )
+                    RETURNING
+                        SceneId,
+                        VersionNumber,
+                        Name,
+                        Description,
+                        ETag,
+                        CreatedByUserId,
+                        CreatedAtUtc;
+                    """,
+                    new
+                    {
+                        version.SceneId,
+                        version.VersionNumber,
+                        version.Name,
+                        version.Description,
+                        version.ETag,
+                        version.CreatedByUserId,
+                        version.CreatedAtUtc,
+                        WorkspaceId = workspaceId
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<List<SceneVersion>> GetSceneVersionsAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var versions = await connection.QueryAsync<SceneVersion>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        v.SceneId,
+                        v.VersionNumber,
+                        v.Name,
+                        v.Description,
+                        v.ETag,
+                        v.CreatedByUserId,
+                        v.CreatedAtUtc
+                    FROM SceneVersions v
+                    INNER JOIN Scenes s ON s.Id = v.SceneId
+                    WHERE v.SceneId = @SceneId
+                      AND s.WorkspaceId = @WorkspaceId
+                    ORDER BY v.VersionNumber DESC;
+                    """,
+                    new { SceneId = sceneId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return versions.AsList();
+        }
+
+        public async Task<SceneVersion?> GetSceneVersionAsync(int workspaceId, int sceneId, int versionNumber, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            return await connection.QuerySingleOrDefaultAsync<SceneVersion>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        v.SceneId,
+                        v.VersionNumber,
+                        v.Name,
+                        v.Description,
+                        v.ETag,
+                        v.CreatedByUserId,
+                        v.CreatedAtUtc
+                    FROM SceneVersions v
+                    INNER JOIN Scenes s ON s.Id = v.SceneId
+                    WHERE v.SceneId = @SceneId
+                      AND v.VersionNumber = @VersionNumber
+                      AND s.WorkspaceId = @WorkspaceId
+                    LIMIT 1;
+                    """,
+                    new { SceneId = sceneId, VersionNumber = versionNumber, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<bool> UpdateSceneCurrentVersionAsync(int workspaceId, int sceneId, int currentVersionNumber, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var updated = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Scenes
+                    SET CurrentVersionNumber = @CurrentVersionNumber,
+                        UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE Id = @SceneId
+                      AND WorkspaceId = @WorkspaceId;
+                    """,
+                    new
+                    {
+                        SceneId = sceneId,
+                        WorkspaceId = workspaceId,
+                        CurrentVersionNumber = currentVersionNumber,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken: cancellationToken));
+
+            return updated > 0;
         }
 
         public async Task<List<SceneGroupShare>> GetSceneSharesAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)

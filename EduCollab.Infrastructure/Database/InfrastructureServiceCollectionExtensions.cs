@@ -1,9 +1,12 @@
 using Dapper;
 using EduCollab.Application.Repositories;
+using EduCollab.Application.Services.Content;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Infrastructure.Repositories;
 using EduCollab.Infrastructure.Services.Notifications;
+using EduCollab.Infrastructure.Services.Content;
 using EduCollab.Infrastructure.Services.Users;
+using EduCollab.Infrastructure.Services.Workspaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,9 +29,14 @@ namespace EduCollab.Infrastructure.Database
 
             services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
             services.Configure<UserPreferencesStorageOptions>(configuration.GetSection(UserPreferencesStorageOptions.SectionName));
+            services.Configure<WorkspaceThumbnailStorageOptions>(configuration.GetSection(WorkspaceThumbnailStorageOptions.SectionName));
+            services.Configure<WorkspaceContentStorageOptions>(configuration.GetSection(WorkspaceContentStorageOptions.SectionName));
 
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddSingleton<IUserPreferencesStore, FileUserPreferencesStore>();
+            services.AddSingleton<IWorkspaceThumbnailStore, FileWorkspaceThumbnailStore>();
+            services.AddSingleton<IAssetContentStore, FileAssetContentStore>();
+            services.AddSingleton<ISceneContentStore, FileSceneContentStore>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
             services.AddScoped<IAssetFolderRepository, AssetFolderRepository>();
             services.AddScoped<IAssetRepository, AssetRepository>();
@@ -36,6 +44,7 @@ namespace EduCollab.Infrastructure.Database
             services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+            services.AddScoped<IWorkspaceCreationRequestRepository, WorkspaceCreationRequestRepository>();
             services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
             return services;

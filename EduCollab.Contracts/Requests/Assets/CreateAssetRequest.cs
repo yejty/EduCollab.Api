@@ -16,17 +16,13 @@ namespace EduCollab.Contracts.Requests.Assets
         [MaxLength(50)]
         public string AssetType { get; set; } = string.Empty;
 
-        [Required]
-        [Url]
-        public string StorageUrl { get; set; } = string.Empty;
-
         [MaxLength(50)]
         public string? Version { get; set; }
 
         /// <summary>
-        /// Optional group to share with on create. When omitted, the asset is private to the creator and workspace owner.
+        /// Group that receives access to this asset when it is created.
         /// </summary>
-        [Range(1, int.MaxValue)]
-        public int? GroupId { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "GroupId is required.")]
+        public int GroupId { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Assets;
+using EduCollab.Application.Services.Content;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Application.Services.Scenes;
@@ -21,6 +22,8 @@ namespace EduCollab.Application
             services.Configure<LoginCodeSettings>(configuration.GetSection(LoginCodeSettings.SectionName));
             services.Configure<WorkspaceInvitationSettings>(configuration.GetSection(WorkspaceInvitationSettings.SectionName));
             services.Configure<PlatformAdminOptions>(configuration.GetSection(PlatformAdminOptions.SectionName));
+            services.Configure<WorkspaceContentStorageOptions>(configuration.GetSection(WorkspaceContentStorageOptions.SectionName));
+            services.Configure<WorkspaceCreationApprovalSettings>(configuration.GetSection(WorkspaceCreationApprovalSettings.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<INotificationService, NotificationService>();
@@ -28,6 +31,8 @@ namespace EduCollab.Application
             services.AddScoped<IUserPreferencesService, UserPreferencesService>();
             services.AddScoped<IPlatformAdminAuthorization, PlatformAdminAuthorization>();
             services.AddScoped<IWorkspaceService, WorkspaceService>();
+            services.AddScoped<IWorkspaceThumbnailService, WorkspaceThumbnailService>();
+            services.AddScoped<IWorkspaceCreationRequestService, WorkspaceCreationRequestService>();
             services.AddScoped<IGroupService, GroupService>();
             services.AddScoped<IAssetFolderService, AssetFolderService>();
             services.AddScoped<IAssetService, AssetService>();

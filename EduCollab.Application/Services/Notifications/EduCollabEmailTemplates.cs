@@ -198,6 +198,146 @@ namespace EduCollab.Application.Services.Notifications
                 EmailHtmlBuilder.WrapDocument(BrandName, "Sign-in code", innerHtml));
         }
 
+        public static EmailContent WorkspaceCreationRequestAdminNotification(
+            string requesterFirstName,
+            string requesterLastName,
+            string requesterEmail,
+            string workspaceName,
+            string? description,
+            string? approveUrl,
+            string? denyUrl)
+        {
+            var nameEncoded = EmailHtmlBuilder.Encode($"{requesterFirstName} {requesterLastName}".Trim());
+            var emailEncoded = EmailHtmlBuilder.Encode(requesterEmail);
+            var workspaceEncoded = EmailHtmlBuilder.Encode(workspaceName);
+            var descriptionText = string.IsNullOrWhiteSpace(description) ? "(none)" : description.Trim();
+            var hasReviewLinks = !string.IsNullOrWhiteSpace(approveUrl) && !string.IsNullOrWhiteSpace(denyUrl);
+
+            var plain =
+                "A new workspace creation request is waiting for platform admin review." + Environment.NewLine + Environment.NewLine +
+                $"Requester: {requesterFirstName} {requesterLastName} ({requesterEmail})" + Environment.NewLine +
+                $"Requested workspace name: {workspaceName}" + Environment.NewLine +
+                $"Description: {descriptionText}";
+
+            if (hasReviewLinks)
+            {
+                plain +=
+                    Environment.NewLine + Environment.NewLine +
+                    "Approve this request:" + Environment.NewLine +
+                    approveUrl + Environment.NewLine + Environment.NewLine +
+                    "Deny this request:" + Environment.NewLine +
+                    denyUrl + Environment.NewLine + Environment.NewLine +
+                    "The requester will receive an email after you approve or deny.";
+            }
+
+            var innerHtml =
+                EmailHtmlBuilder.Paragraph("A new workspace creation request is waiting for your review.") +
+                EmailHtmlBuilder.Paragraph($"Requester: <strong>{nameEncoded}</strong> (<a href=\"mailto:{emailEncoded}\">{emailEncoded}</a>)") +
+                EmailHtmlBuilder.Paragraph($"Requested workspace name: <strong>{workspaceEncoded}</strong>") +
+                EmailHtmlBuilder.Paragraph($"Description: {EmailHtmlBuilder.Encode(descriptionText)}");
+
+            if (hasReviewLinks)
+            {
+                innerHtml +=
+                    EmailHtmlBuilder.Muted("The requester will receive an email after you approve or deny.") +
+                    EmailHtmlBuilder.ActionList(new[]
+                    {
+                        new NotificationAction("Approve request", approveUrl!),
+                        new NotificationAction("Deny request", denyUrl!, NotificationActionStyle.Danger),
+                    }) +
+                    EmailHtmlBuilder.UrlFallback(approveUrl!) +
+                    EmailHtmlBuilder.Label("Deny link") +
+                    "<p style=\"margin:0 0 16px;font-size:13px;line-height:1.45;color:#9aa4b2;word-break:break-all;\">" +
+                    EmailHtmlBuilder.Encode(denyUrl!) + "</p>";
+            }
+            else
+            {
+                innerHtml += EmailHtmlBuilder.FinePrint(
+                    "Set WorkspaceCreationApproval:AdminReviewUrlBase to receive Approve and Deny buttons in this email.");
+            }
+
+            return new EmailContent(
+                $"New {BrandName} workspace creation request",
+                plain,
+                EmailHtmlBuilder.WrapDocument(BrandName, "Workspace creation request", innerHtml));
+        }
+
+        public static EmailContent WorkspaceCreationApproved(
+            string requesterFirstName,
+            string workspaceName,
+            string? createUrl,
+            string plaintextTokenFallback,
+            int validForHours)
+        {
+            var validityText = FormatValidityDaysFromHours(validForHours);
+            var first = EmailHtmlBuilder.Encode(requesterFirstName);
+            var workspaceEncoded = EmailHtmlBuilder.Encode(workspaceName);
+
+            if (!string.IsNullOrWhiteSpace(createUrl))
+            {
+                var plain =
+                    $"Hello {requesterFirstName}," + Environment.NewLine + Environment.NewLine +
+                    $"Your request to create the workspace \"{workspaceName}\" was approved." + Environment.NewLine + Environment.NewLine +
+                    $"Use this link to create your workspace (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
+                    createUrl + Environment.NewLine + Environment.NewLine +
+                    $"When creating the workspace, include this approval token: {plaintextTokenFallback}";
+
+                var innerHtml =
+                    EmailHtmlBuilder.Paragraph($"Hello <strong>{first}</strong>,") +
+                    EmailHtmlBuilder.Paragraph($"Your request to create <strong>{workspaceEncoded}</strong> was approved.") +
+                    EmailHtmlBuilder.Muted($"This link and token expire in {validityText}.") +
+                    EmailHtmlBuilder.ActionList(new[] { new NotificationAction("Create workspace", createUrl) }) +
+                    EmailHtmlBuilder.Label("Approval token") +
+                    EmailHtmlBuilder.CodeBlock(plaintextTokenFallback);
+
+                return new EmailContent(
+                    $"Your {BrandName} workspace request was approved",
+                    plain,
+                    EmailHtmlBuilder.WrapDocument(BrandName, "Workspace request approved", innerHtml));
+            }
+
+            var plainTokenOnly =
+                $"Hello {requesterFirstName}," + Environment.NewLine + Environment.NewLine +
+                $"Your request to create the workspace \"{workspaceName}\" was approved." + Environment.NewLine + Environment.NewLine +
+                $"Use this approval token when creating your workspace (valid for {validityText}):" + Environment.NewLine + Environment.NewLine +
+                plaintextTokenFallback;
+
+            var innerTokenOnly =
+                EmailHtmlBuilder.Paragraph($"Hello <strong>{first}</strong>,") +
+                EmailHtmlBuilder.Paragraph($"Your request to create <strong>{workspaceEncoded}</strong> was approved.") +
+                EmailHtmlBuilder.Label($"Approval token (expires in {validityText})") +
+                EmailHtmlBuilder.CodeBlock(plaintextTokenFallback);
+
+            return new EmailContent(
+                $"Your {BrandName} workspace request was approved",
+                plainTokenOnly,
+                EmailHtmlBuilder.WrapDocument(BrandName, "Workspace request approved", innerTokenOnly));
+        }
+
+        public static EmailContent WorkspaceCreationDenied(string requesterFirstName, string workspaceName, string? reason)
+        {
+            var first = EmailHtmlBuilder.Encode(requesterFirstName);
+            var workspaceEncoded = EmailHtmlBuilder.Encode(workspaceName);
+            var reasonText = string.IsNullOrWhiteSpace(reason)
+                ? "No reason was provided."
+                : reason.Trim();
+
+            var plain =
+                $"Hello {requesterFirstName}," + Environment.NewLine + Environment.NewLine +
+                $"Your request to create the workspace \"{workspaceName}\" was denied." + Environment.NewLine + Environment.NewLine +
+                reasonText;
+
+            var innerHtml =
+                EmailHtmlBuilder.Paragraph($"Hello <strong>{first}</strong>,") +
+                EmailHtmlBuilder.Paragraph($"Your request to create <strong>{workspaceEncoded}</strong> was denied.") +
+                EmailHtmlBuilder.WarningCallout(EmailHtmlBuilder.Encode(reasonText));
+
+            return new EmailContent(
+                $"Your {BrandName} workspace request was denied",
+                plain,
+                EmailHtmlBuilder.WrapDocument(BrandName, "Workspace request denied", innerHtml));
+        }
+
         private static string FormatValidityDaysFromHours(int validForHours)
         {
             if (validForHours <= 0)

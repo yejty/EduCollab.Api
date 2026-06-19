@@ -15,9 +15,9 @@ namespace EduCollab.Contracts.Requests.Scenes
         public JsonNode? JsonContent { get; set; }
 
         /// <summary>
-        /// Optional group to share with on create. When omitted, the scene is private to the creator and workspace owner.
+        /// Group that receives access to this scene when it is created.
         /// </summary>
-        [Range(1, int.MaxValue)]
-        public int? GroupId { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "GroupId is required.")]
+        public int GroupId { get; set; }
     }
 }

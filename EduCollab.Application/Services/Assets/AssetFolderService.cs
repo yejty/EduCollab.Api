@@ -168,9 +168,12 @@ namespace EduCollab.Application.Services.Assets
                 context.CanSeeAllContent,
                 context.VisibleFolderIds);
 
-        public async Task<bool> CreateAssetFolderAsync(AssetFolder folder, int? groupId, CancellationToken cancellationToken)
+        public async Task<bool> CreateAssetFolderAsync(AssetFolder folder, int groupId, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(folder);
+
+            if (groupId <= 0)
+                throw new ArgumentException("GroupId is required.", nameof(groupId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             EnsureCanManageAssetFolders(membership);
@@ -192,21 +195,18 @@ namespace EduCollab.Application.Services.Assets
 
             folder.Id = id;
 
-            if (groupId is int selectedGroupId)
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCanShareWithGroupOnCreateAsync(workspaceId, groupId, membership, userId, cancellationToken);
+
+            var share = new AssetFolderGroupShare
             {
-                await EnsureGroupBelongsToWorkspaceAsync(workspaceId, selectedGroupId, cancellationToken);
-                await EnsureCanShareWithGroupOnCreateAsync(workspaceId, selectedGroupId, membership, userId, cancellationToken);
+                FolderId = id,
+                GroupId = groupId,
+                CreatedByUserId = userId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
 
-                var share = new AssetFolderGroupShare
-                {
-                    FolderId = id,
-                    GroupId = selectedGroupId,
-                    CreatedByUserId = userId,
-                    CreatedAtUtc = DateTime.UtcNow
-                };
-
-                await _assetFolderRepository.CreateAssetFolderShareAsync(workspaceId, share, cancellationToken);
-            }
+            await _assetFolderRepository.CreateAssetFolderShareAsync(workspaceId, share, cancellationToken);
 
             return true;
         }

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
+using EduCollab.Application.Repositories;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses;
@@ -176,7 +177,7 @@ public sealed class WorkspacesControllerEndpointTests
     public async Task CreateWorkspace_ReturnsCreated_WithOwnerRole()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.WorkspaceService.CreateWorkspaceAsyncHandler = (workspace, _) =>
+        factory.WorkspaceService.CreateWorkspaceAsyncHandler = (workspace, _, _) =>
         {
             workspace.Id = 55;
             return Task.FromResult(true);
@@ -188,6 +189,7 @@ public sealed class WorkspacesControllerEndpointTests
         {
             Name = "Alpha",
             Description = "Team workspace",
+            ApprovalToken = "approval-token-123",
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -200,7 +202,7 @@ public sealed class WorkspacesControllerEndpointTests
     public async Task UpdateWorkspace_ReturnsBadRequest_WhenServiceReturnsFalse()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.WorkspaceService.UpdateWorkspaceAsyncHandler = (_, _) => Task.FromResult(false);
+        factory.WorkspaceService.UpdateCurrentWorkspaceAsyncHandler = (_, _) => Task.FromResult(false);
 
         using var client = factory.CreateClient(userId: 34);
 
@@ -243,7 +245,7 @@ public sealed class WorkspacesControllerEndpointTests
     public async Task UpdateWorkspaceMember_ReturnsUpdatedMember_WhenServiceReturnsMember()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.WorkspaceService.UpdateWorkspaceMemberAsyncHandler = (_, _, member, _) => Task.FromResult<WorkspaceMember?>(new WorkspaceMember
+        factory.WorkspaceService.UpdateCurrentWorkspaceMemberAsyncHandler = (_, member, _) => Task.FromResult<WorkspaceMember?>(new WorkspaceMember
         {
             UserId = member.UserId,
             WorkspaceId = member.WorkspaceId,
@@ -262,5 +264,77 @@ public sealed class WorkspacesControllerEndpointTests
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(77, body.UserId);
         Assert.Equal("Manager", body.Role);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceThumbnail_ReturnsImage_WhenThumbnailExists()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.WorkspaceThumbnailService.GetCurrentWorkspaceThumbnailAsyncHandler = _ =>
+            Task.FromResult<WorkspaceThumbnailContent?>(new WorkspaceThumbnailContent("image/png", [1, 2, 3]));
+
+        using var client = factory.CreateClient(userId: 38);
+
+        var response = await client.GetAsync("/api/workspace/thumbnail");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        Assert.Equal(new byte[] { 1, 2, 3 }, bytes);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceThumbnail_ReturnsNotFound_WhenThumbnailDoesNotExist()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 38);
+
+        var response = await client.GetAsync("/api/workspace/thumbnail");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PutWorkspaceThumbnail_ReturnsNoContent_WhenUploadSucceeds()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 39);
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent([9, 8, 7])
+        {
+            Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") },
+        }, "file", "thumb.png");
+
+        var response = await client.PutAsync("/api/workspace/thumbnail", content);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PutWorkspaceThumbnail_ReturnsBadRequest_WhenFileIsEmpty()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 39);
+
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent([]), "file", "empty.png");
+
+        var response = await client.PutAsync("/api/workspace/thumbnail", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("invalid_thumbnail", body.Error);
+    }
+
+    [Fact]
+    public async Task DeleteWorkspaceThumbnail_ReturnsNoContent()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 40);
+
+        var response = await client.DeleteAsync("/api/workspace/thumbnail");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 }

@@ -222,6 +222,85 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_AssetGroupShares_GroupId ON AssetGroupShares (GroupId);");
             await connection.ExecuteAsync(
+                "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS CurrentVersionNumber INT NOT NULL DEFAULT 1;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE Scenes ADD COLUMN IF NOT EXISTS CurrentVersionNumber INT NOT NULL DEFAULT 1;");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS AssetVersions (
+                    AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
+                    VersionNumber INT NOT NULL,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    AssetType VARCHAR(50) NOT NULL,
+                    VersionLabel VARCHAR(50) NULL,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (AssetId, VersionNumber)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetVersions_AssetId ON AssetVersions (AssetId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SceneVersions (
+                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
+                    VersionNumber INT NOT NULL,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    ETag VARCHAR(100) NOT NULL,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (SceneId, VersionNumber)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SceneVersions_SceneId ON SceneVersions (SceneId);");
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO AssetVersions (
+                    AssetId,
+                    VersionNumber,
+                    Name,
+                    Description,
+                    AssetType,
+                    VersionLabel,
+                    CreatedByUserId,
+                    CreatedAtUtc)
+                SELECT
+                    Id,
+                    1,
+                    Name,
+                    Description,
+                    COALESCE(AssetType, ''),
+                    Version,
+                    OwnerUserId,
+                    CreatedAtUtc
+                FROM Assets
+                ON CONFLICT (AssetId, VersionNumber) DO NOTHING;
+                """);
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO SceneVersions (
+                    SceneId,
+                    VersionNumber,
+                    Name,
+                    Description,
+                    ETag,
+                    CreatedByUserId,
+                    CreatedAtUtc)
+                SELECT
+                    Id,
+                    1,
+                    Name,
+                    Description,
+                    ETag,
+                    OwnerUserId,
+                    CreatedAtUtc
+                FROM Scenes
+                ON CONFLICT (SceneId, VersionNumber) DO NOTHING;
+                """);
+            await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS WorkspaceMembers (
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
@@ -355,6 +434,59 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_Notifications_Status ON Notifications (Status);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Notifications_Type ON Notifications (Type);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceCreationRequests (
+                    Id BIGSERIAL PRIMARY KEY,
+                    RequestedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    Status VARCHAR(32) NOT NULL DEFAULT 'Pending',
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    ReviewedAtUtc TIMESTAMPTZ NULL,
+                    ReviewedByUserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL,
+                    DenialReason TEXT NULL
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationRequests_Status ON WorkspaceCreationRequests (Status);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationRequests_RequestedByUserId ON WorkspaceCreationRequests (RequestedByUserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_WorkspaceCreationRequests_PendingUser
+                ON WorkspaceCreationRequests (RequestedByUserId)
+                WHERE Status = 'Pending';
+                """);
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceCreationApprovalTokens (
+                    Id BIGSERIAL PRIMARY KEY,
+                    RequestId BIGINT NOT NULL REFERENCES WorkspaceCreationRequests(Id) ON DELETE CASCADE,
+                    TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    ExpiresAt TIMESTAMPTZ NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UsedAt TIMESTAMPTZ NULL
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationApprovalTokens_RequestId ON WorkspaceCreationApprovalTokens (RequestId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceCreationAdminReviewTokens (
+                    Id BIGSERIAL PRIMARY KEY,
+                    RequestId BIGINT NOT NULL REFERENCES WorkspaceCreationRequests(Id) ON DELETE CASCADE,
+                    TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    Action VARCHAR(16) NOT NULL,
+                    ExpiresAt TIMESTAMPTZ NOT NULL,
+                    CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UsedAt TIMESTAMPTZ NULL
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
             await SeedPlatformAdminUserAsync(connection);
         }

@@ -136,7 +136,7 @@ public sealed class UsersControllerEndpointTests
     public async Task Login_ReturnsUnauthorized_WhenCredentialsAreInvalid()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.UserService.LoginAsyncHandler = (_, _, _) => Task.FromResult<User?>(null);
+        factory.UserService.LoginAsyncHandler = (_, _, _) => Task.FromResult(new LoginResult());
 
         using var client = factory.CreateClient();
 
@@ -149,6 +149,44 @@ public sealed class UsersControllerEndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.ReadAsJsonAsync<ErrorResponse>();
         Assert.Equal("invalid_login", body.Error);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsUnauthorized_WhenUserDoesNotExist()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserService.LoginAsyncHandler = (_, _, _) => Task.FromResult(new LoginResult { UserNotFound = true });
+
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new LoginRequest
+        {
+            Email = "missing@example.com",
+            Password = "Pass123!",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("user_not_found", body.Error);
+    }
+
+    [Fact]
+    public async Task RequestLoginCode_ReturnsUnauthorized_WhenUserDoesNotExist()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserService.RequestLoginCodeAsyncHandler = (_, _) =>
+            throw new ArgumentException("No account found for this email address.");
+
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login/request-code", new RequestLoginCodeRequest
+        {
+            Email = "missing@example.com",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("user_not_found", body.Error);
     }
 
     [Fact]

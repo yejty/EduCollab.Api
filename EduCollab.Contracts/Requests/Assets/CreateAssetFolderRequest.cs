@@ -11,9 +11,9 @@ namespace EduCollab.Contracts.Requests.Assets
         public int? ParentFolderId { get; set; }
 
         /// <summary>
-        /// Optional group to share with on create. When omitted, the folder is private to the creator and workspace owner.
+        /// Group that receives access to this folder when it is created.
         /// </summary>
-        [Range(1, int.MaxValue)]
-        public int? GroupId { get; set; }
+        [Range(1, int.MaxValue, ErrorMessage = "GroupId is required.")]
+        public int GroupId { get; set; }
     }
 }

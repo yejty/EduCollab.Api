@@ -15,5 +15,9 @@ namespace EduCollab.Application.Repositories
         Task<List<SceneGroupShare>> GetSceneSharesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken);
         Task<SceneGroupShare?> CreateSceneShareAsync(int workspaceId, SceneGroupShare share, CancellationToken cancellationToken);
         Task<bool> DeleteSceneShareAsync(int workspaceId, int sceneId, int groupId, CancellationToken cancellationToken);
+        Task<SceneVersion?> CreateSceneVersionAsync(int workspaceId, SceneVersion version, CancellationToken cancellationToken);
+        Task<List<SceneVersion>> GetSceneVersionsAsync(int workspaceId, int sceneId, CancellationToken cancellationToken);
+        Task<SceneVersion?> GetSceneVersionAsync(int workspaceId, int sceneId, int versionNumber, CancellationToken cancellationToken);
+        Task<bool> UpdateSceneCurrentVersionAsync(int workspaceId, int sceneId, int currentVersionNumber, CancellationToken cancellationToken);
     }
 }

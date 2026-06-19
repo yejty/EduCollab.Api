@@ -27,13 +27,11 @@ public sealed class GroupAssetSharingIntegrationTests
         var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        var workspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
-        {
-            Name = "Shared Library Workspace",
-            Description = "Group asset sharing integration test"
-        });
-        workspaceResponse.EnsureSuccessStatusCode();
-        _ = await workspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Shared Library Workspace",
+            "Group asset sharing integration test");
 
         factory.EmailSender.Clear();
 
@@ -65,6 +63,14 @@ public sealed class GroupAssetSharingIntegrationTests
         createGroupResponse.EnsureSuccessStatusCode();
         var group = await createGroupResponse.ReadAsJsonAsync<GroupResponse>();
 
+        var createPrivateGroupResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Owner Only",
+            Description = "Content hidden from the viewer member"
+        });
+        createPrivateGroupResponse.EnsureSuccessStatusCode();
+        var privateGroup = await createPrivateGroupResponse.ReadAsJsonAsync<GroupResponse>();
+
         var meResponse = await memberClient.GetAsync("/api/users/me");
         meResponse.EnsureSuccessStatusCode();
         var member = await meResponse.ReadAsJsonAsync<EduCollab.Contracts.Responses.Users.UserResponse>();
@@ -77,7 +83,8 @@ public sealed class GroupAssetSharingIntegrationTests
 
         var sharedFolderResponse = await ownerClient.PostAsJsonAsync("/api/workspace/asset-folders", new CreateAssetFolderRequest
         {
-            Name = "Shared Root"
+            Name = "Shared Root",
+            GroupId = group.Id,
         });
         sharedFolderResponse.EnsureSuccessStatusCode();
         var sharedFolder = await sharedFolderResponse.ReadAsJsonAsync<AssetFolderResponse>();
@@ -85,14 +92,16 @@ public sealed class GroupAssetSharingIntegrationTests
         var nestedFolderResponse = await ownerClient.PostAsJsonAsync("/api/workspace/asset-folders", new CreateAssetFolderRequest
         {
             Name = "Nested",
-            ParentFolderId = sharedFolder.Id
+            ParentFolderId = sharedFolder.Id,
+            GroupId = group.Id,
         });
         nestedFolderResponse.EnsureSuccessStatusCode();
         var nestedFolder = await nestedFolderResponse.ReadAsJsonAsync<AssetFolderResponse>();
 
         var hiddenFolderResponse = await ownerClient.PostAsJsonAsync("/api/workspace/asset-folders", new CreateAssetFolderRequest
         {
-            Name = "Hidden Root"
+            Name = "Hidden Root",
+            GroupId = privateGroup.Id,
         });
         hiddenFolderResponse.EnsureSuccessStatusCode();
         var hiddenFolder = await hiddenFolderResponse.ReadAsJsonAsync<AssetFolderResponse>();
@@ -102,7 +111,7 @@ public sealed class GroupAssetSharingIntegrationTests
             Name = "Inherited Asset",
             FolderId = nestedFolder.Id,
             AssetType = "Model",
-            StorageUrl = "https://example.com/assets/inherited.glb"
+            GroupId = group.Id,
         });
         inheritedAssetResponse.EnsureSuccessStatusCode();
         var inheritedAsset = await inheritedAssetResponse.ReadAsJsonAsync<AssetResponse>();
@@ -112,7 +121,7 @@ public sealed class GroupAssetSharingIntegrationTests
             Name = "Direct Hidden Asset",
             FolderId = hiddenFolder.Id,
             AssetType = "Texture",
-            StorageUrl = "https://example.com/assets/direct-hidden.png"
+            GroupId = privateGroup.Id,
         });
         directFolderAssetResponse.EnsureSuccessStatusCode();
         var directFolderAsset = await directFolderAssetResponse.ReadAsJsonAsync<AssetResponse>();
@@ -121,7 +130,7 @@ public sealed class GroupAssetSharingIntegrationTests
         {
             Name = "Direct Root Asset",
             AssetType = "Model",
-            StorageUrl = "https://example.com/assets/direct-root.glb"
+            GroupId = group.Id,
         });
         directRootAssetResponse.EnsureSuccessStatusCode();
         var directRootAsset = await directRootAssetResponse.ReadAsJsonAsync<AssetResponse>();
@@ -130,17 +139,9 @@ public sealed class GroupAssetSharingIntegrationTests
         {
             Name = "Unshared Asset",
             AssetType = "Model",
-            StorageUrl = "https://example.com/assets/unshared.glb"
+            GroupId = privateGroup.Id,
         });
         unsharedAssetResponse.EnsureSuccessStatusCode();
-
-        var shareFolderResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/asset-folders/{sharedFolder.Id}/groups", new ShareWithGroupRequest
-        {
-            GroupId = group.Id,
-        });
-        shareFolderResponse.EnsureSuccessStatusCode();
-        var sharedFolderAfterShare = await shareFolderResponse.ReadAsJsonAsync<AssetFolderResponse>();
-        Assert.Contains(group.Id, sharedFolderAfterShare.GroupIds);
 
         var shareHiddenAssetResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/assets/{directFolderAsset.Id}/groups", new ShareWithGroupRequest
         {
@@ -149,14 +150,6 @@ public sealed class GroupAssetSharingIntegrationTests
         shareHiddenAssetResponse.EnsureSuccessStatusCode();
         var sharedHiddenAsset = await shareHiddenAssetResponse.ReadAsJsonAsync<AssetResponse>();
         Assert.Contains(group.Id, sharedHiddenAsset.GroupIds);
-
-        var shareRootAssetResponse = await ownerClient.PostAsJsonAsync($"/api/workspace/assets/{directRootAsset.Id}/groups", new ShareWithGroupRequest
-        {
-            GroupId = group.Id,
-        });
-        shareRootAssetResponse.EnsureSuccessStatusCode();
-        var sharedRootAsset = await shareRootAssetResponse.ReadAsJsonAsync<AssetResponse>();
-        Assert.Contains(group.Id, sharedRootAsset.GroupIds);
 
         var visibleRootFoldersResponse = await memberClient.GetAsync($"/api/workspace/groups/{group.Id}/folders");
         visibleRootFoldersResponse.EnsureSuccessStatusCode();

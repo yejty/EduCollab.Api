@@ -6,6 +6,9 @@ namespace EduCollab.Application.Services.Notifications
         PasswordReset,
         LoginCode,
         WorkspaceInvitation,
+        WorkspaceCreationRequestSubmitted,
+        WorkspaceCreationApproved,
+        WorkspaceCreationDenied,
         ProfileUpdated,
         PasswordChanged
     }

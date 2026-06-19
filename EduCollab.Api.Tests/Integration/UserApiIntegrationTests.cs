@@ -156,6 +156,39 @@ public sealed class UserApiIntegrationTests
     }
 
     [Fact]
+    public async Task Login_ReturnsUserNotFound_WhenEmailDoesNotExist()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new LoginRequest
+        {
+            Email = $"missing-{Guid.NewGuid():N}@example.com",
+            Password = "Pass123!",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("user_not_found", body.Error);
+    }
+
+    [Fact]
+    public async Task RequestLoginCode_ReturnsUserNotFound_WhenEmailDoesNotExist()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login/request-code", new RequestLoginCodeRequest
+        {
+            Email = $"missing-{Guid.NewGuid():N}@example.com",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        Assert.Equal("user_not_found", body.Error);
+    }
+
+    [Fact]
     public async Task ResendEmailConfirmation_ReplacesOldToken_And_AllowsConfirmation()
     {
         await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();

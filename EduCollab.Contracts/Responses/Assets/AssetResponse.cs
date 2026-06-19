@@ -11,6 +11,7 @@ namespace EduCollab.Contracts.Responses.Assets
         public string AssetType { get; set; } = string.Empty;
         public string StorageUrl { get; set; } = string.Empty;
         public string? Version { get; set; }
+        public int CurrentVersionNumber { get; set; }
         public List<int> GroupIds { get; set; } = new();
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }

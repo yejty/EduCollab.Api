@@ -170,6 +170,92 @@ namespace EduCollab.Api.Controllers
         }
 
         [Authorize]
+        [HttpGet(ApiEndpoints.Assets.Content)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetAssetContent(int assetId, [FromQuery] int? versionNumber, CancellationToken cancellationToken)
+        {
+            var content = await _assetService.GetAssetContentAsync(assetId, versionNumber, cancellationToken);
+            if (content is null)
+            {
+                return NotFound();
+            }
+
+            return File(content.Data, content.ContentType);
+        }
+
+        [Authorize]
+        [HttpPut(ApiEndpoints.Assets.Content)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> PutAssetContent(int assetId, IFormFile file, CancellationToken cancellationToken)
+        {
+            if (file is null || file.Length == 0)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "invalid_content",
+                    ErrorDescription = "A non-empty file is required.",
+                });
+            }
+
+            await using var stream = file.OpenReadStream();
+            await _assetService.SaveAssetContentAsync(assetId, file.ContentType, file.FileName, stream, cancellationToken);
+            return NoContent();
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Assets.GetVersions)]
+        [ProducesResponseType(typeof(AssetVersionsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetVersionsResponse>> GetAssetVersions(int assetId, CancellationToken cancellationToken)
+        {
+            var asset = await _assetService.GetAssetByIdAsync(assetId, cancellationToken);
+            if (asset is null)
+                return NotFound();
+
+            var versions = await _assetService.GetAssetVersionsAsync(assetId, cancellationToken);
+            return Ok(versions.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Assets.GetVersion)]
+        [ProducesResponseType(typeof(AssetVersionResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AssetVersionResponse>> GetAssetVersion(int assetId, int versionNumber, CancellationToken cancellationToken)
+        {
+            var version = await _assetService.GetAssetVersionAsync(assetId, versionNumber, cancellationToken);
+            if (version is null)
+                return NotFound();
+
+            return Ok(version.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Assets.GetVersionContent)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetAssetVersionContent(int assetId, int versionNumber, CancellationToken cancellationToken)
+        {
+            var content = await _assetService.GetAssetContentAsync(assetId, versionNumber, cancellationToken);
+            if (content is null)
+                return NotFound();
+
+            return File(content.Data, content.ContentType);
+        }
+
+        [Authorize]
         [HttpPost(ApiEndpoints.Assets.Share)]
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]

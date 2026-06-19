@@ -132,7 +132,6 @@ namespace EduCollab.Api.Mapping
                 Description = request.Description,
                 FolderId = request.FolderId,
                 AssetType = request.AssetType,
-                StorageUrl = request.StorageUrl,
                 Version = request.Version,
             };
         }
@@ -146,7 +145,6 @@ namespace EduCollab.Api.Mapping
                 Description = request.Description,
                 FolderId = request.FolderId,
                 AssetType = request.AssetType,
-                StorageUrl = request.StorageUrl,
                 Version = request.Version,
             };
         }
@@ -229,6 +227,28 @@ namespace EduCollab.Api.Mapping
             return new WorkspaceMembersResponse
             {
                 Members = workspaceMembers.Select(m => m.MapToResponse()).ToList(),
+            };
+        }
+
+        public static WorkspaceCreationRequestResponse MapToResponse(this WorkspaceCreationRequest request)
+        {
+            return new WorkspaceCreationRequestResponse
+            {
+                Id = request.Id,
+                Name = request.Name,
+                Description = request.Description,
+                Status = request.Status.ToString(),
+                CreatedAtUtc = request.CreatedAtUtc,
+                ReviewedAtUtc = request.ReviewedAtUtc,
+                DenialReason = request.DenialReason,
+            };
+        }
+
+        public static WorkspaceCreationRequestsResponse MapToResponse(this IEnumerable<WorkspaceCreationRequest> requests)
+        {
+            return new WorkspaceCreationRequestsResponse
+            {
+                Requests = requests.Select(r => r.MapToResponse()).ToList(),
             };
         }
 
@@ -327,6 +347,7 @@ namespace EduCollab.Api.Mapping
                 AssetType = asset.AssetType,
                 StorageUrl = asset.StorageUrl,
                 Version = asset.Version,
+                CurrentVersionNumber = asset.CurrentVersionNumber,
                 CreatedAtUtc = asset.CreatedAtUtc,
                 UpdatedAtUtc = asset.UpdatedAtUtc
             };
@@ -337,6 +358,51 @@ namespace EduCollab.Api.Mapping
             return new AssetsResponse
             {
                 Assets = assets.Select(a => a.MapToResponse()).ToList()
+            };
+        }
+
+        public static AssetVersionResponse MapToResponse(this AssetVersion version)
+        {
+            return new AssetVersionResponse
+            {
+                AssetId = version.AssetId,
+                VersionNumber = version.VersionNumber,
+                Name = version.Name,
+                Description = version.Description,
+                AssetType = version.AssetType,
+                VersionLabel = version.VersionLabel,
+                CreatedByUserId = version.CreatedByUserId,
+                CreatedAtUtc = version.CreatedAtUtc
+            };
+        }
+
+        public static AssetVersionsResponse MapToResponse(this IEnumerable<AssetVersion> versions)
+        {
+            return new AssetVersionsResponse
+            {
+                Versions = versions.Select(v => v.MapToResponse()).ToList()
+            };
+        }
+
+        public static SceneVersionResponse MapToResponse(this SceneVersion version)
+        {
+            return new SceneVersionResponse
+            {
+                SceneId = version.SceneId,
+                VersionNumber = version.VersionNumber,
+                Name = version.Name,
+                Description = version.Description,
+                ETag = version.ETag,
+                CreatedByUserId = version.CreatedByUserId,
+                CreatedAtUtc = version.CreatedAtUtc
+            };
+        }
+
+        public static SceneVersionsResponse MapToResponse(this IEnumerable<SceneVersion> versions)
+        {
+            return new SceneVersionsResponse
+            {
+                Versions = versions.Select(v => v.MapToResponse()).ToList()
             };
         }
 
@@ -351,6 +417,7 @@ namespace EduCollab.Api.Mapping
                 Description = scene.Description,
                 JsonContent = ParseJsonContent(scene.JsonContent),
                 ETag = scene.ETag,
+                CurrentVersionNumber = scene.CurrentVersionNumber,
                 CreatedAtUtc = scene.CreatedAtUtc,
                 UpdatedAtUtc = scene.UpdatedAtUtc
             };

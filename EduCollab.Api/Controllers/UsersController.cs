@@ -129,12 +129,26 @@ namespace EduCollab.Api.Controllers
         /// </summary>
         /// <param name="request">Sign-in code request payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">The request was accepted. For privacy, the same response is returned even when the email does not exist.</response>
+        /// <response code="200">The sign-in code was sent to the confirmed email address.</response>
+        /// <response code="401">No account exists for the provided email address.</response>
         [HttpPost(ApiEndpoints.Users.LoginRequestCode)]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> RequestLoginCode([FromBody] RequestLoginCodeRequest request, CancellationToken cancellationToken)
         {
-            await _userService.RequestLoginCodeAsync(request.Email, cancellationToken);
+            try
+            {
+                await _userService.RequestLoginCodeAsync(request.Email, cancellationToken);
+            }
+            catch (ArgumentException ex)
+            {
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "user_not_found",
+                    ErrorDescription = ex.Message,
+                });
+            }
+
             return Ok();
         }
 
@@ -190,8 +204,17 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> Login([FromBody] LoginRequest loginRequest, CancellationToken cancellationToken)
         {
-            var user = await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
-            if (user is null)
+            var loginResult = await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
+            if (loginResult.UserNotFound)
+            {
+                return Unauthorized(new ErrorResponse
+                {
+                    Error = "user_not_found",
+                    ErrorDescription = "No account found for this email address.",
+                });
+            }
+
+            if (loginResult.User is null)
             {
                 return Unauthorized(new ErrorResponse
                 {
@@ -200,8 +223,8 @@ namespace EduCollab.Api.Controllers
                 });
             }
 
-            var accessToken = _accessTokenService.Create(user.Id, user.Email);
-            var refreshToken = await _refreshTokenService.CreateAsync(user.Id, cancellationToken);
+            var accessToken = _accessTokenService.Create(loginResult.User.Id, loginResult.User.Email);
+            var refreshToken = await _refreshTokenService.CreateAsync(loginResult.User.Id, cancellationToken);
             var response = (accessToken, refreshToken).MapToResponse();
             return Ok(response);
         }

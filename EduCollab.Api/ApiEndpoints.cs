@@ -54,6 +54,24 @@ namespace EduCollab.Api
             public const string UpdateMember = $"{Base}/users/{{userId}}";
             public const string DeleteMember = $"{Base}/users/{{userId}}";
             public const string Invite = $"{Base}/invitations";
+            public const string Thumbnail = $"{Base}/thumbnail";
+            public const string RequestCreation = $"{Base}/creation-requests";
+            public const string GetMyCreationRequest = $"{Base}/creation-requests/me";
+        }
+
+        public static class AdminWorkspaceCreationRequests
+        {
+            private const string Base = $"{ApiBase}/admin/workspace-creation-requests";
+            public const string GetAll = Base;
+            public const string Approve = $"{Base}/{{requestId}}/approve";
+            public const string Deny = $"{Base}/{{requestId}}/deny";
+        }
+
+        public static class WorkspaceCreationReview
+        {
+            private const string Base = $"{ApiBase}/workspace-creation-review";
+            public const string Approve = $"{Base}/{{reviewToken}}/approve";
+            public const string Deny = $"{Base}/{{reviewToken}}/deny";
         }
 
         public static class WorkspaceInvitations
@@ -107,8 +125,12 @@ namespace EduCollab.Api
             public const string Delete = $"{Base}/{{assetId}}";
             public const string GetMine = $"{Base}/mine";
             public const string Move = $"{Base}/{{assetId}}/move";
+            public const string Content = $"{Base}/{{assetId}}/content";
             public const string Share = $"{Base}/{{assetId}}/groups";
             public const string Unshare = $"{Base}/{{assetId}}/groups/{{groupId}}";
+            public const string GetVersions = $"{Base}/{{assetId}}/versions";
+            public const string GetVersion = $"{Base}/{{assetId}}/versions/{{versionNumber}}";
+            public const string GetVersionContent = $"{Base}/{{assetId}}/versions/{{versionNumber}}/content";
         }
 
         public static class Scenes
@@ -122,6 +144,8 @@ namespace EduCollab.Api
             public const string GetMine = $"{Base}/mine";
             public const string Share = $"{Base}/{{sceneId}}/groups";
             public const string Unshare = $"{Base}/{{sceneId}}/groups/{{groupId}}";
+            public const string GetVersions = $"{Base}/{{sceneId}}/versions";
+            public const string GetVersion = $"{Base}/{{sceneId}}/versions/{{versionNumber}}";
         }
     }
 }

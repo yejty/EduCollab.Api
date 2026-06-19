@@ -40,7 +40,7 @@
               "RelativeDocumentMoniker": "EduCollab.Api.Tests\\Integration\\PostgresIntegrationApiFactory.cs",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api.Tests\\Integration\\PostgresIntegrationApiFactory.cs",
               "RelativeToolTip": "EduCollab.Api.Tests\\Integration\\PostgresIntegrationApiFactory.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA8AAAAhAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAeAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-06-17T12:04:09.509Z",
               "EditorCaption": ""
@@ -55,8 +55,7 @@
               "RelativeToolTip": "EduCollab.Api.Tests\\ApiWebApplicationFactory.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-17T12:04:01.018Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-17T12:04:01.018Z"
             },
             {
               "$type": "Document",
@@ -68,8 +67,7 @@
               "RelativeToolTip": "EduCollab.Api\\appsettings.Development.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAzAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-06-17T12:03:33.961Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-17T12:03:33.961Z"
             },
             {
               "$type": "Document",
@@ -81,21 +79,19 @@
               "RelativeToolTip": "docker-compose.yml",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003775|",
-              "WhenOpened": "2026-06-17T12:03:17.746Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-17T12:03:17.746Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 4,
-              "Title": "docker-compose",
+              "Title": "docker-compose.dcproj",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\docker-compose.dcproj",
               "RelativeDocumentMoniker": "docker-compose.dcproj",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\docker-compose.dcproj",
               "RelativeToolTip": "docker-compose.dcproj",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-17T12:03:15.286Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-17T12:03:15.286Z"
             }
           ]
         }

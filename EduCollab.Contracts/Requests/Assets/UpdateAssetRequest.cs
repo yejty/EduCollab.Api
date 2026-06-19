@@ -16,10 +16,6 @@ namespace EduCollab.Contracts.Requests.Assets
         [MaxLength(50)]
         public string AssetType { get; set; } = string.Empty;
 
-        [Required]
-        [Url]
-        public string StorageUrl { get; set; } = string.Empty;
-
         [MaxLength(50)]
         public string? Version { get; set; }
     }

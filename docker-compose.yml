@@ -44,6 +44,9 @@ services:
       EmailConfirmation__FrontendConfirmUrl: ${EmailConfirmation__FrontendConfirmUrl:-https://skyform.space/auth/confirm-email}
     ports:
       - "8080:8080"
+    volumes:
+      - app-data:/app/App_Data
 
 volumes:
   postgres-data:
+  app-data:

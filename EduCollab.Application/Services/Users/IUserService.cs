@@ -9,7 +9,7 @@ namespace EduCollab.Application.Services.Users
         Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);
         Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken);
         Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken);   
-        Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken);
+        Task<LoginResult> LoginAsync(string email, string password, CancellationToken cancellationToken);
         Task RequestLoginCodeAsync(string email, CancellationToken cancellationToken);
         Task<LoginWithCodeResult> LoginWithCodeAsync(string email, string code, CancellationToken cancellationToken);
         Task<bool> RegisterAsync(User user, string password, CancellationToken cancellationToken);

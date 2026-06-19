@@ -19,7 +19,7 @@ public sealed class FakeWorkspaceService : IWorkspaceService
     public Func<int, CancellationToken, Task<WorkspaceMember?>>? GetCurrentWorkspaceMemberAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<WorkspaceMember?>>? GetCurrentUserWorkspaceMemberAsyncHandler { get; set; }
     public Func<CancellationToken, Task<WorkspaceMember?>>? GetCurrentUserWorkspaceMemberForCurrentWorkspaceAsyncHandler { get; set; }
-    public Func<Workspace, CancellationToken, Task<bool>>? CreateWorkspaceAsyncHandler { get; set; }
+    public Func<Workspace, string, CancellationToken, Task<bool>>? CreateWorkspaceAsyncHandler { get; set; }
     public Func<Workspace, CancellationToken, Task<bool>>? UpdateWorkspaceAsyncHandler { get; set; }
     public Func<Workspace, CancellationToken, Task<bool>>? UpdateCurrentWorkspaceAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<bool>>? DeleteWorkspaceAsyncHandler { get; set; }
@@ -73,8 +73,8 @@ public sealed class FakeWorkspaceService : IWorkspaceService
     public Task<WorkspaceMember?> GetCurrentUserWorkspaceMemberAsync(CancellationToken cancellationToken) =>
         GetCurrentUserWorkspaceMemberForCurrentWorkspaceAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult<WorkspaceMember?>(null);
 
-    public Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken) =>
-        CreateWorkspaceAsyncHandler?.Invoke(workspace, cancellationToken) ?? Task.FromResult(true);
+    public Task<bool> CreateWorkspaceAsync(Workspace workspace, string approvalToken, CancellationToken cancellationToken) =>
+        CreateWorkspaceAsyncHandler?.Invoke(workspace, approvalToken, cancellationToken) ?? Task.FromResult(true);
 
     public Task<bool> UpdateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken) =>
         UpdateWorkspaceAsyncHandler?.Invoke(workspace, cancellationToken) ?? Task.FromResult(true);

@@ -14,10 +14,17 @@ namespace EduCollab.Api.Controllers
     public class WorkspacesController : ControllerBase
     {
         private readonly IWorkspaceService _workspaceService;
+        private readonly IWorkspaceThumbnailService _workspaceThumbnailService;
+        private readonly IWorkspaceCreationRequestService _workspaceCreationRequestService;
 
-        public WorkspacesController(IWorkspaceService workspaceService)
+        public WorkspacesController(
+            IWorkspaceService workspaceService,
+            IWorkspaceThumbnailService workspaceThumbnailService,
+            IWorkspaceCreationRequestService workspaceCreationRequestService)
         {
             _workspaceService = workspaceService;
+            _workspaceThumbnailService = workspaceThumbnailService;
+            _workspaceCreationRequestService = workspaceCreationRequestService;
         }
 
         /// <summary>
@@ -145,6 +152,54 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
+        /// Submit a workspace creation request for platform admin approval.
+        /// </summary>
+        [Authorize]
+        [HttpPost(ApiEndpoints.Workspace.RequestCreation)]
+        [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> RequestWorkspaceCreation(
+            [FromBody] RequestWorkspaceCreationRequest request,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var created = await _workspaceCreationRequestService.SubmitRequestAsync(
+                    request.Name,
+                    request.Description,
+                    cancellationToken);
+
+                return StatusCode(StatusCodes.Status201Created, created.MapToResponse());
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "request_failed",
+                    ErrorDescription = ex.Message,
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get the current user's latest workspace creation request.
+        /// </summary>
+        [Authorize]
+        [HttpGet(ApiEndpoints.Workspace.GetMyCreationRequest)]
+        [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<WorkspaceCreationRequestResponse>> GetMyWorkspaceCreationRequest(CancellationToken cancellationToken)
+        {
+            var request = await _workspaceCreationRequestService.GetCurrentUserLatestRequestAsync(cancellationToken);
+            if (request is null)
+                return NotFound();
+
+            return Ok(request.MapToResponse());
+        }
+
+        /// <summary>
         /// Create a new workspace and assign the current user as the owner.
         /// </summary>
         /// <param name="request">Workspace creation payload.</param>
@@ -161,16 +216,27 @@ namespace EduCollab.Api.Controllers
         {
             var workspace = request.MapToWorkspace();
 
-            var created = await _workspaceService.CreateWorkspaceAsync(workspace, cancellationToken);
-            if (!created)
+            try
+            {
+                var created = await _workspaceService.CreateWorkspaceAsync(workspace, request.ApprovalToken, cancellationToken);
+                if (!created)
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "creation_failed",
+                        ErrorDescription = "Workspace could not be created."
+                    });
+                }
+            }
+            catch (ArgumentException ex)
             {
                 return BadRequest(new ErrorResponse
                 {
-                    Error = "creation_failed",
-                    ErrorDescription = "Workspace could not be created."
+                    Error = "invalid_approval_token",
+                    ErrorDescription = ex.Message,
                 });
-
             }
+
             var response = workspace.MapToResponse();
             response.CurrentUserRole = WorkspaceRole.Owner.ToString();
             return CreatedAtAction(nameof(GetCurrentWorkspace), null, response);
@@ -217,6 +283,65 @@ namespace EduCollab.Api.Controllers
 
             var members = await _workspaceService.GetCurrentWorkspaceMembersAsync(cancellationToken);
             return Ok(members.MapToResponse());
+        }
+
+        /// <summary>
+        /// Retrieve the current workspace thumbnail image.
+        /// </summary>
+        [Authorize]
+        [HttpGet(ApiEndpoints.Workspace.Thumbnail)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetWorkspaceThumbnail(CancellationToken cancellationToken)
+        {
+            var thumbnail = await _workspaceThumbnailService.GetCurrentWorkspaceThumbnailAsync(cancellationToken);
+            if (thumbnail is null)
+            {
+                return NotFound();
+            }
+
+            return File(thumbnail.Data, thumbnail.ContentType);
+        }
+
+        /// <summary>
+        /// Upload or replace the current workspace thumbnail image.
+        /// </summary>
+        [Authorize]
+        [HttpPut(ApiEndpoints.Workspace.Thumbnail)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> PutWorkspaceThumbnail(IFormFile file, CancellationToken cancellationToken)
+        {
+            if (file is null || file.Length == 0)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Error = "invalid_thumbnail",
+                    ErrorDescription = "A non-empty image file is required.",
+                });
+            }
+
+            await using var stream = file.OpenReadStream();
+            await _workspaceThumbnailService.SaveCurrentWorkspaceThumbnailAsync(file.ContentType, stream, cancellationToken);
+            return NoContent();
+        }
+
+        /// <summary>
+        /// Delete the current workspace thumbnail image.
+        /// </summary>
+        [Authorize]
+        [HttpDelete(ApiEndpoints.Workspace.Thumbnail)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> DeleteWorkspaceThumbnail(CancellationToken cancellationToken)
+        {
+            await _workspaceThumbnailService.DeleteCurrentWorkspaceThumbnailAsync(cancellationToken);
+            return NoContent();
         }
 
         /// <summary>

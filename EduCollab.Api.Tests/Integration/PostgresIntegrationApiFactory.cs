@@ -68,6 +68,9 @@ public sealed class PostgresIntegrationApiFactory : WebApplicationFactory<Progra
                 ["LoginCode:CodeExpirationMinutes"] = "3",
                 ["LoginCode:MaxAttempts"] = "3",
                 ["WorkspaceInvitation:TokenExpirationHours"] = "168",
+                ["WorkspaceCreationApproval:TokenExpirationHours"] = "168",
+                ["WorkspaceCreationApproval:AdminReviewUrlBase"] = "http://localhost/api/workspace-creation-review",
+                ["WorkspaceCreationApproval:AdminReviewTokenExpirationHours"] = "168",
                 ["PlatformAdmin:Email"] = "admin@educollab.local",
                 ["PlatformAdmin:Password"] = "Admin123!",
             });

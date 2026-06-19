@@ -25,23 +25,20 @@ public sealed class WorkspaceApiIntegrationTests
         var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        var createWorkspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
-        {
-            Name = "Edu Workspace",
-            Description = "Integration tests",
-        });
+        using var adminClient = factory.CreateClient();
+        var adminTokens = await adminClient.LoginAsync("admin@educollab.local", "Admin123!");
+        adminClient.SetBearerToken(adminTokens.AccessToken);
 
-        createWorkspaceResponse.EnsureSuccessStatusCode();
-        var workspace = await createWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        var workspace = await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Edu Workspace",
+            "Integration tests");
 
         var listAsOwnerResponse = await ownerClient.GetAsync("/api/admin/workspaces");
         Assert.Equal(HttpStatusCode.Forbidden, listAsOwnerResponse.StatusCode);
         var forbiddenBody = await listAsOwnerResponse.ReadAsJsonAsync<ErrorResponse>();
         Assert.Equal("Insufficient rights.", forbiddenBody.ErrorDescription);
-
-        using var adminClient = factory.CreateClient();
-        var adminTokens = await adminClient.LoginAsync("admin@educollab.local", "Admin123!");
-        adminClient.SetBearerToken(adminTokens.AccessToken);
 
         var listAsAdminResponse = await adminClient.GetAsync("/api/admin/workspaces");
         listAsAdminResponse.EnsureSuccessStatusCode();
@@ -124,12 +121,11 @@ public sealed class WorkspaceApiIntegrationTests
         var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        var createWorkspaceResponse = await ownerClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
-        {
-            Name = "Existing User Workspace",
-            Description = "Invitation join test",
-        });
-        createWorkspaceResponse.EnsureSuccessStatusCode();
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Existing User Workspace",
+            "Invitation join test");
 
         await existingUserClient.RegisterAndConfirmAsync(factory, "Existing", "User", memberEmail, memberPassword);
 

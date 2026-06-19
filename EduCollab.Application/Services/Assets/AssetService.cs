@@ -3,31 +3,38 @@ using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Content;
+using Microsoft.Extensions.Options;
 namespace EduCollab.Application.Services.Assets
 {
     public class AssetService : IAssetService
     {
         private readonly IAssetRepository _assetRepository;
+        private readonly IAssetContentStore _assetContentStore;
         private readonly IAssetFolderRepository _assetFolderRepository;
         private readonly IGroupRepository _groupRepository;
         private readonly IWorkspaceRepository _workspaceRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUser _currentUser;
+        private readonly long _maxAssetBytes;
 
         public AssetService(
             IAssetRepository assetRepository,
+            IAssetContentStore assetContentStore,
             IAssetFolderRepository assetFolderRepository,
             IGroupRepository groupRepository,
             IWorkspaceRepository workspaceRepository,
             IUserRepository userRepository,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IOptions<WorkspaceContentStorageOptions> contentStorageOptions)
         {
             _assetRepository = assetRepository;
+            _assetContentStore = assetContentStore;
             _assetFolderRepository = assetFolderRepository;
             _groupRepository = groupRepository;
             _workspaceRepository = workspaceRepository;
             _userRepository = userRepository;
             _currentUser = currentUser;
+            _maxAssetBytes = contentStorageOptions.Value.MaxAssetBytes;
         }
 
         private int RequireCurrentUserId()
@@ -137,6 +144,19 @@ namespace EduCollab.Application.Services.Assets
                 throw new AccessDeniedException("You must belong to the selected group to share with it.");
         }
 
+        private static AssetVersion CreateAssetVersionSnapshot(Asset asset, int versionNumber, int createdByUserId) =>
+            new()
+            {
+                AssetId = asset.Id,
+                VersionNumber = versionNumber,
+                Name = asset.Name,
+                Description = asset.Description,
+                AssetType = asset.AssetType,
+                VersionLabel = asset.Version,
+                CreatedByUserId = createdByUserId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
         private async Task<List<AssetFolder>> GetAllFoldersAsync(int workspaceId, CancellationToken cancellationToken)
         {
             var rootFolders = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, null, cancellationToken);
@@ -215,9 +235,12 @@ namespace EduCollab.Application.Services.Assets
                 throw new KeyNotFoundException("Group not found.");
         }
 
-        public async Task<bool> CreateAssetAsync(Asset asset, int? groupId, CancellationToken cancellationToken)
+        public async Task<bool> CreateAssetAsync(Asset asset, int groupId, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(asset);
+
+            if (groupId <= 0)
+                throw new ArgumentException("GroupId is required.", nameof(groupId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             EnsureCanCreateAsset(membership);
@@ -230,8 +253,9 @@ namespace EduCollab.Application.Services.Assets
             asset.Name = RequireTrimmed(asset.Name, nameof(asset.Name));
             asset.Description = string.IsNullOrWhiteSpace(asset.Description) ? null : asset.Description.Trim();
             asset.AssetType = RequireTrimmed(asset.AssetType, nameof(asset.AssetType));
-            asset.StorageUrl = RequireTrimmed(asset.StorageUrl, nameof(asset.StorageUrl));
+            asset.StorageUrl = string.Empty;
             asset.Version = string.IsNullOrWhiteSpace(asset.Version) ? null : asset.Version.Trim();
+            asset.CurrentVersionNumber = 1;
             asset.CreatedAtUtc = DateTime.UtcNow;
             asset.UpdatedAtUtc = asset.CreatedAtUtc;
 
@@ -240,22 +264,23 @@ namespace EduCollab.Application.Services.Assets
                 return false;
 
             asset.Id = id;
+            asset.StorageUrl = AssetContentUrls.GetRelativeUrl(id);
 
-            if (groupId is int selectedGroupId)
+            await _assetRepository.UpdateAssetStorageUrlAsync(workspaceId, id, asset.StorageUrl, cancellationToken);
+            await _assetRepository.CreateAssetVersionAsync(workspaceId, CreateAssetVersionSnapshot(asset, 1, userId), cancellationToken);
+
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCanShareWithGroupOnCreateAsync(workspaceId, groupId, membership, userId, cancellationToken);
+
+            var share = new AssetGroupShare
             {
-                await EnsureGroupBelongsToWorkspaceAsync(workspaceId, selectedGroupId, cancellationToken);
-                await EnsureCanShareWithGroupOnCreateAsync(workspaceId, selectedGroupId, membership, userId, cancellationToken);
+                AssetId = id,
+                GroupId = groupId,
+                CreatedByUserId = userId,
+                CreatedAtUtc = DateTime.UtcNow
+            };
 
-                var share = new AssetGroupShare
-                {
-                    AssetId = id,
-                    GroupId = selectedGroupId,
-                    CreatedByUserId = userId,
-                    CreatedAtUtc = DateTime.UtcNow
-                };
-
-                await _assetRepository.CreateAssetShareAsync(workspaceId, share, cancellationToken);
-            }
+            await _assetRepository.CreateAssetShareAsync(workspaceId, share, cancellationToken);
 
             return true;
         }
@@ -318,14 +343,117 @@ namespace EduCollab.Application.Services.Assets
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
             await EnsureFolderBelongsToWorkspaceAsync(workspaceId, asset.FolderId, cancellationToken);
 
+            var previousVersionNumber = existing.CurrentVersionNumber;
+            var newVersionNumber = previousVersionNumber + 1;
+            var userId = RequireCurrentUserId();
+
             existing.Name = RequireTrimmed(asset.Name, nameof(asset.Name));
             existing.Description = string.IsNullOrWhiteSpace(asset.Description) ? null : asset.Description.Trim();
             existing.FolderId = asset.FolderId;
             existing.AssetType = RequireTrimmed(asset.AssetType, nameof(asset.AssetType));
-            existing.StorageUrl = RequireTrimmed(asset.StorageUrl, nameof(asset.StorageUrl));
             existing.Version = string.IsNullOrWhiteSpace(asset.Version) ? null : asset.Version.Trim();
+            existing.CurrentVersionNumber = newVersionNumber;
 
-            return await _assetRepository.UpdateAssetAsync(workspaceId, existing, cancellationToken);
+            var updated = await _assetRepository.UpdateAssetAsync(workspaceId, existing, cancellationToken);
+            if (updated is null)
+                return null;
+
+            await _assetRepository.CreateAssetVersionAsync(workspaceId, CreateAssetVersionSnapshot(updated, newVersionNumber, userId), cancellationToken);
+            await _assetContentStore.CopyContentAsync(workspaceId, asset.Id, previousVersionNumber, newVersionNumber, cancellationToken);
+
+            return updated;
+        }
+
+        public async Task<List<AssetVersion>> GetAssetVersionsAsync(int assetId, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (asset is null)
+                return [];
+
+            var userId = RequireCurrentUserId();
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            if (!IsAssetVisible(asset, context))
+                return [];
+
+            return await _assetRepository.GetAssetVersionsAsync(workspaceId, assetId, cancellationToken);
+        }
+
+        public async Task<AssetVersion?> GetAssetVersionAsync(int assetId, int versionNumber, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+            if (versionNumber <= 0)
+                throw new ArgumentOutOfRangeException(nameof(versionNumber));
+
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (asset is null)
+                return null;
+
+            var userId = RequireCurrentUserId();
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            if (!IsAssetVisible(asset, context))
+                return null;
+
+            return await _assetRepository.GetAssetVersionAsync(workspaceId, assetId, versionNumber, cancellationToken);
+        }
+
+        public async Task<AssetContent?> GetAssetContentAsync(int assetId, int? versionNumber, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (asset is null)
+                return null;
+
+            var userId = RequireCurrentUserId();
+            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken)
+                ?? throw new AccessDeniedException("You are not a member of this workspace.");
+            var context = await BuildAssetVisibilityContextAsync(workspaceId, membership, userId, cancellationToken);
+            if (!IsAssetVisible(asset, context))
+                return null;
+
+            var resolvedVersionNumber = versionNumber ?? asset.CurrentVersionNumber;
+            return await _assetContentStore.GetAsync(workspaceId, assetId, resolvedVersionNumber, cancellationToken);
+        }
+
+        public async Task SaveAssetContentAsync(int assetId, string contentType, string? fileName, Stream content, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(content);
+
+            if (string.IsNullOrWhiteSpace(contentType))
+                throw new ArgumentException("Content type is required.", nameof(contentType));
+
+            if (content.CanSeek && content.Length > _maxAssetBytes)
+                throw new ArgumentException($"Asset content must be {_maxAssetBytes / (1024 * 1024)} MB or smaller.");
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken)
+                ?? throw new KeyNotFoundException("Asset not found.");
+
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+
+            var previousVersionNumber = existing.CurrentVersionNumber;
+            var newVersionNumber = previousVersionNumber + 1;
+            var userId = RequireCurrentUserId();
+
+            await using var buffered = new MemoryStream();
+            await content.CopyToAsync(buffered, cancellationToken);
+            if (buffered.Length > _maxAssetBytes)
+                throw new ArgumentException($"Asset content must be {_maxAssetBytes / (1024 * 1024)} MB or smaller.");
+
+            buffered.Position = 0;
+            await _assetContentStore.SaveAsync(workspaceId, assetId, newVersionNumber, contentType.Trim(), fileName, buffered, cancellationToken);
+
+            existing.CurrentVersionNumber = newVersionNumber;
+            await _assetRepository.UpdateAssetCurrentVersionAsync(workspaceId, assetId, newVersionNumber, cancellationToken);
+            await _assetRepository.CreateAssetVersionAsync(workspaceId, CreateAssetVersionSnapshot(existing, newVersionNumber, userId), cancellationToken);
         }
 
         public async Task<Asset?> MoveAssetAsync(int assetId, int? folderId, CancellationToken cancellationToken)
@@ -355,6 +483,7 @@ namespace EduCollab.Application.Services.Assets
                 return false;
 
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+            await _assetContentStore.DeleteAllVersionsAsync(workspaceId, assetId, cancellationToken);
             return await _assetRepository.DeleteAssetAsync(workspaceId, assetId, cancellationToken);
         }
 

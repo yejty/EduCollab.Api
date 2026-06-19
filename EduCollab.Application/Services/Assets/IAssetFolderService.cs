@@ -4,7 +4,7 @@ namespace EduCollab.Application.Services.Assets
 {
     public interface IAssetFolderService
     {
-        Task<bool> CreateAssetFolderAsync(AssetFolder folder, int? groupId, CancellationToken cancellationToken);
+        Task<bool> CreateAssetFolderAsync(AssetFolder folder, int groupId, CancellationToken cancellationToken);
         Task<List<AssetFolder>> GetRootAssetFoldersAsync(CancellationToken cancellationToken);
         Task<List<AssetFolder>> GetSubFoldersAsync(int folderId, CancellationToken cancellationToken);
         Task<AssetFolder?> GetAssetFolderByIdAsync(int folderId, CancellationToken cancellationToken);

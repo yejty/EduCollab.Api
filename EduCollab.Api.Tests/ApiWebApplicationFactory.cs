@@ -16,6 +16,8 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
     public FakeUserService UserService { get; } = new();
     public FakeUserPreferencesService UserPreferencesService { get; } = new();
     public FakeWorkspaceService WorkspaceService { get; } = new();
+    public FakeWorkspaceThumbnailService WorkspaceThumbnailService { get; } = new();
+    public FakeWorkspaceCreationRequestService WorkspaceCreationRequestService { get; } = new();
     public FakeAccessTokenService AccessTokenService { get; } = new();
     public FakeRefreshTokenService RefreshTokenService { get; } = new();
 
@@ -31,6 +33,8 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IUserService>();
             services.RemoveAll<IUserPreferencesService>();
             services.RemoveAll<IWorkspaceService>();
+            services.RemoveAll<IWorkspaceThumbnailService>();
+            services.RemoveAll<IWorkspaceCreationRequestService>();
             services.RemoveAll<IAccessTokenService>();
             services.RemoveAll<IRefreshTokenService>();
             services.RemoveAll<IPlatformAdminAuthorization>();
@@ -38,6 +42,8 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IUserService>(UserService);
             services.AddSingleton<IUserPreferencesService>(UserPreferencesService);
             services.AddSingleton<IWorkspaceService>(WorkspaceService);
+            services.AddSingleton<IWorkspaceThumbnailService>(WorkspaceThumbnailService);
+            services.AddSingleton<IWorkspaceCreationRequestService>(WorkspaceCreationRequestService);
             services.AddSingleton<IAccessTokenService>(AccessTokenService);
             services.AddSingleton<IRefreshTokenService>(RefreshTokenService);
             services.AddSingleton<FakePlatformAdminAuthorization>();

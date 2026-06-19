@@ -10,7 +10,7 @@ public sealed class FakeUserService : IUserService
     public Func<int, CancellationToken, Task<bool>>? DeleteUserByIdAsyncHandler { get; set; }
     public Func<CancellationToken, Task<User?>>? GetCurrentUserAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<User?>>? GetUserByIdAsyncHandler { get; set; }
-    public Func<string, string, CancellationToken, Task<User?>>? LoginAsyncHandler { get; set; }
+    public Func<string, string, CancellationToken, Task<LoginResult>>? LoginAsyncHandler { get; set; }
     public Func<string, CancellationToken, Task>? RequestLoginCodeAsyncHandler { get; set; }
     public Func<string, string, CancellationToken, Task<LoginWithCodeResult>>? LoginWithCodeAsyncHandler { get; set; }
     public Func<User, string, CancellationToken, Task<bool>>? RegisterAsyncHandler { get; set; }
@@ -34,8 +34,8 @@ public sealed class FakeUserService : IUserService
     public Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken) =>
         GetUserByIdAsyncHandler?.Invoke(id, cancellationToken) ?? Task.FromResult<User?>(null);
 
-    public Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken) =>
-        LoginAsyncHandler?.Invoke(email, password, cancellationToken) ?? Task.FromResult<User?>(null);
+    public Task<LoginResult> LoginAsync(string email, string password, CancellationToken cancellationToken) =>
+        LoginAsyncHandler?.Invoke(email, password, cancellationToken) ?? Task.FromResult(new LoginResult());
 
     public Task RequestLoginCodeAsync(string email, CancellationToken cancellationToken) =>
         RequestLoginCodeAsyncHandler?.Invoke(email, cancellationToken) ?? Task.CompletedTask;

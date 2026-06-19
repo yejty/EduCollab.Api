@@ -11,6 +11,7 @@ namespace EduCollab.Application.Models
         public string AssetType { get; set; } = string.Empty;
         public string StorageUrl { get; set; } = string.Empty;
         public string? Version { get; set; }
+        public int CurrentVersionNumber { get; set; } = 1;
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
     }

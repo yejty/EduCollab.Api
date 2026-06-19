@@ -30,6 +30,7 @@ namespace EduCollab.Infrastructure.Repositories
                         AssetType,
                         StorageUrl,
                         Version,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc)
                     SELECT
@@ -41,6 +42,7 @@ namespace EduCollab.Infrastructure.Repositories
                         @AssetType,
                         @StorageUrl,
                         @Version,
+                        @CurrentVersionNumber,
                         @CreatedAtUtc,
                         @UpdatedAtUtc
                     WHERE @FolderId IS NULL
@@ -62,6 +64,7 @@ namespace EduCollab.Infrastructure.Repositories
                         asset.AssetType,
                         asset.StorageUrl,
                         asset.Version,
+                        asset.CurrentVersionNumber,
                         asset.CreatedAtUtc,
                         asset.UpdatedAtUtc,
                     },
@@ -87,6 +90,7 @@ namespace EduCollab.Infrastructure.Repositories
                         AssetType,
                         StorageUrl,
                         Version,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -116,6 +120,7 @@ namespace EduCollab.Infrastructure.Repositories
                         AssetType,
                         StorageUrl,
                         Version,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -146,6 +151,7 @@ namespace EduCollab.Infrastructure.Repositories
                         AssetType,
                         StorageUrl,
                         Version,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -176,6 +182,7 @@ namespace EduCollab.Infrastructure.Repositories
                         AssetType,
                         StorageUrl,
                         Version,
+                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Assets
@@ -199,8 +206,8 @@ namespace EduCollab.Infrastructure.Repositories
                         Name = @Name,
                         Description = @Description,
                         AssetType = @AssetType,
-                        StorageUrl = @StorageUrl,
                         Version = @Version,
+                        CurrentVersionNumber = @CurrentVersionNumber,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE a.Id = @Id
                       AND a.WorkspaceId = @WorkspaceId
@@ -223,6 +230,7 @@ namespace EduCollab.Infrastructure.Repositories
                         a.AssetType,
                         a.StorageUrl,
                         a.Version,
+                        a.CurrentVersionNumber,
                         a.CreatedAtUtc,
                         a.UpdatedAtUtc;
                     """,
@@ -234,8 +242,31 @@ namespace EduCollab.Infrastructure.Repositories
                         asset.Name,
                         asset.Description,
                         asset.AssetType,
-                        asset.StorageUrl,
                         asset.Version,
+                        asset.CurrentVersionNumber,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task UpdateAssetStorageUrlAsync(int workspaceId, int assetId, string storageUrl, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Assets
+                    SET StorageUrl = @StorageUrl,
+                        UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE Id = @AssetId
+                      AND WorkspaceId = @WorkspaceId;
+                    """,
+                    new
+                    {
+                        AssetId = assetId,
+                        WorkspaceId = workspaceId,
+                        StorageUrl = storageUrl,
                         UpdatedAtUtc = DateTime.UtcNow
                     },
                     cancellationToken: cancellationToken));
@@ -289,6 +320,7 @@ namespace EduCollab.Infrastructure.Repositories
                         a.AssetType,
                         a.StorageUrl,
                         a.Version,
+                        a.CurrentVersionNumber,
                         a.CreatedAtUtc,
                         a.UpdatedAtUtc;
                     """,
@@ -442,6 +474,142 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return shares.AsList();
+        }
+
+        public async Task<AssetVersion?> CreateAssetVersionAsync(int workspaceId, AssetVersion version, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            return await connection.QuerySingleOrDefaultAsync<AssetVersion>(
+                new CommandDefinition(
+                    """
+                    INSERT INTO AssetVersions (
+                        AssetId,
+                        VersionNumber,
+                        Name,
+                        Description,
+                        AssetType,
+                        VersionLabel,
+                        CreatedByUserId,
+                        CreatedAtUtc)
+                    SELECT
+                        @AssetId,
+                        @VersionNumber,
+                        @Name,
+                        @Description,
+                        @AssetType,
+                        @VersionLabel,
+                        @CreatedByUserId,
+                        @CreatedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Assets a
+                        WHERE a.Id = @AssetId
+                          AND a.WorkspaceId = @WorkspaceId
+                    )
+                    RETURNING
+                        AssetId,
+                        VersionNumber,
+                        Name,
+                        Description,
+                        AssetType,
+                        VersionLabel,
+                        CreatedByUserId,
+                        CreatedAtUtc;
+                    """,
+                    new
+                    {
+                        version.AssetId,
+                        version.VersionNumber,
+                        version.Name,
+                        version.Description,
+                        version.AssetType,
+                        version.VersionLabel,
+                        version.CreatedByUserId,
+                        version.CreatedAtUtc,
+                        WorkspaceId = workspaceId
+                    },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<List<AssetVersion>> GetAssetVersionsAsync(int workspaceId, int assetId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var versions = await connection.QueryAsync<AssetVersion>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        v.AssetId,
+                        v.VersionNumber,
+                        v.Name,
+                        v.Description,
+                        v.AssetType,
+                        v.VersionLabel,
+                        v.CreatedByUserId,
+                        v.CreatedAtUtc
+                    FROM AssetVersions v
+                    INNER JOIN Assets a ON a.Id = v.AssetId
+                    WHERE v.AssetId = @AssetId
+                      AND a.WorkspaceId = @WorkspaceId
+                    ORDER BY v.VersionNumber DESC;
+                    """,
+                    new { AssetId = assetId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return versions.AsList();
+        }
+
+        public async Task<AssetVersion?> GetAssetVersionAsync(int workspaceId, int assetId, int versionNumber, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            return await connection.QuerySingleOrDefaultAsync<AssetVersion>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        v.AssetId,
+                        v.VersionNumber,
+                        v.Name,
+                        v.Description,
+                        v.AssetType,
+                        v.VersionLabel,
+                        v.CreatedByUserId,
+                        v.CreatedAtUtc
+                    FROM AssetVersions v
+                    INNER JOIN Assets a ON a.Id = v.AssetId
+                    WHERE v.AssetId = @AssetId
+                      AND v.VersionNumber = @VersionNumber
+                      AND a.WorkspaceId = @WorkspaceId
+                    LIMIT 1;
+                    """,
+                    new { AssetId = assetId, VersionNumber = versionNumber, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+        }
+
+        public async Task<bool> UpdateAssetCurrentVersionAsync(int workspaceId, int assetId, int currentVersionNumber, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var updated = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Assets
+                    SET CurrentVersionNumber = @CurrentVersionNumber,
+                        UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE Id = @AssetId
+                      AND WorkspaceId = @WorkspaceId;
+                    """,
+                    new
+                    {
+                        AssetId = assetId,
+                        WorkspaceId = workspaceId,
+                        CurrentVersionNumber = currentVersionNumber,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken: cancellationToken));
+
+            return updated > 0;
         }
     }
 }

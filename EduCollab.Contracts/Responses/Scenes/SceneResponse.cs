@@ -11,6 +11,7 @@ namespace EduCollab.Contracts.Responses.Scenes
         public string? Description { get; set; }
         public JsonNode? JsonContent { get; set; }
         public string ETag { get; set; } = string.Empty;
+        public int CurrentVersionNumber { get; set; }
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public bool CanEdit { get; set; }

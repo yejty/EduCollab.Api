@@ -103,7 +103,7 @@ namespace EduCollab.Application.Services.Users
             await NotifyPasswordChangedAsync(normalizedEmail, cancellationToken);
         }
 
-        public async Task<User?> LoginAsync(string email, string password, CancellationToken cancellationToken)
+        public async Task<LoginResult> LoginAsync(string email, string password, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(email))
                 throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
@@ -112,21 +112,27 @@ namespace EduCollab.Application.Services.Users
                 throw new ArgumentException($"'{nameof(password)}' cannot be null or empty.", nameof(password));
 
             var userCredentialRecord = await _userRepository.GetCredentialByEmailAsync(email, cancellationToken);
-            if (userCredentialRecord is null || string.IsNullOrEmpty(userCredentialRecord.PasswordHash))
-                return null;
+            if (userCredentialRecord is null)
+                return new LoginResult { UserNotFound = true };
+
+            if (string.IsNullOrEmpty(userCredentialRecord.PasswordHash))
+                return new LoginResult();
 
             var hashingUser = new PasswordHasherUser { Id = userCredentialRecord.Id.ToString() };
             var verification = _passwordHasher.VerifyHashedPassword(hashingUser, userCredentialRecord.PasswordHash, password);
             if (verification == PasswordVerificationResult.Failed)
-                return null;
+                return new LoginResult();
 
             if (!userCredentialRecord.EmailConfirmedAtUtc.HasValue)
-                return null;
+                return new LoginResult();
 
-            return new User
+            return new LoginResult
             {
-                Id = userCredentialRecord.Id,
-                Email = userCredentialRecord.Email
+                User = new User
+                {
+                    Id = userCredentialRecord.Id,
+                    Email = userCredentialRecord.Email
+                }
             };
         }
 
@@ -137,7 +143,10 @@ namespace EduCollab.Application.Services.Users
 
             var normalizedEmail = email.Trim();
             var cred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
-            if (cred is null || !cred.EmailConfirmedAtUtc.HasValue)
+            if (cred is null)
+                throw new ArgumentException("No account found for this email address.");
+
+            if (!cred.EmailConfirmedAtUtc.HasValue)
                 return;
 
             var now = DateTimeOffset.UtcNow;

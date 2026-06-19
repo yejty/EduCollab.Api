@@ -93,9 +93,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<SceneResponse>> GetScene(int sceneId, CancellationToken cancellationToken)
+        public async Task<ActionResult<SceneResponse>> GetScene(int sceneId, [FromQuery] int? versionNumber, CancellationToken cancellationToken)
         {
-            var scene = await _sceneService.GetSceneByIdAsync(sceneId, cancellationToken);
+            var scene = await _sceneService.GetSceneByIdAsync(sceneId, versionNumber, cancellationToken);
             if (scene is null)
             {
                 return NotFound();
@@ -151,6 +151,40 @@ namespace EduCollab.Api.Controllers
         }
 
         [Authorize]
+        [HttpGet(ApiEndpoints.Scenes.GetVersions)]
+        [ProducesResponseType(typeof(SceneVersionsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<SceneVersionsResponse>> GetSceneVersions(int sceneId, CancellationToken cancellationToken)
+        {
+            var scene = await _sceneService.GetSceneByIdAsync(sceneId, null, cancellationToken);
+            if (scene is null)
+                return NotFound();
+
+            var versions = await _sceneService.GetSceneVersionsAsync(sceneId, cancellationToken);
+            return Ok(versions.MapToResponse());
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Scenes.GetVersion)]
+        [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<SceneResponse>> GetSceneVersion(int sceneId, int versionNumber, CancellationToken cancellationToken)
+        {
+            var scene = await _sceneService.GetSceneByIdAsync(sceneId, versionNumber, cancellationToken);
+            if (scene is null)
+                return NotFound();
+
+            var response = scene.MapToResponse();
+            await PopulateAccessMetadataAsync(response, cancellationToken);
+            Response.Headers.ETag = scene.ETag;
+            return Ok(response);
+        }
+
+        [Authorize]
         [HttpPost(ApiEndpoints.Scenes.Share)]
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -169,7 +203,7 @@ namespace EduCollab.Api.Controllers
                 });
             }
 
-            var scene = await _sceneService.GetSceneByIdAsync(sceneId, cancellationToken);
+            var scene = await _sceneService.GetSceneByIdAsync(sceneId, null, cancellationToken);
             if (scene is null)
                 return NotFound();
 

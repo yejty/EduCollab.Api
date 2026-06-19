@@ -14,6 +14,7 @@ namespace EduCollab.Application.Services.Workspaces
     {
         private readonly IUserRepository _userRepository;
         private readonly IWorkspaceRepository _workspaceRepository;
+        private readonly IWorkspaceCreationRequestRepository _creationRequestRepository;
         private readonly ICurrentUser _currentUser;
         private readonly IOptions<WorkspaceInvitationSettings> _invitationSettings;
         private readonly INotificationService _notificationService;
@@ -23,6 +24,7 @@ namespace EduCollab.Application.Services.Workspaces
         public WorkspaceService(
             IUserRepository userRepository,
             IWorkspaceRepository workspaceRepository,
+            IWorkspaceCreationRequestRepository creationRequestRepository,
             ICurrentUser currentUser,
             IOptions<WorkspaceInvitationSettings> invitationSettings,
             INotificationService notificationService,
@@ -31,6 +33,7 @@ namespace EduCollab.Application.Services.Workspaces
         {
             _userRepository = userRepository;
             _workspaceRepository = workspaceRepository;
+            _creationRequestRepository = creationRequestRepository;
             _currentUser = currentUser;
             _invitationSettings = invitationSettings;
             _notificationService = notificationService;
@@ -340,9 +343,12 @@ namespace EduCollab.Application.Services.Workspaces
             }
         }
 
-        public async Task<bool> CreateWorkspaceAsync(Workspace workspace, CancellationToken cancellationToken)
+        public async Task<bool> CreateWorkspaceAsync(Workspace workspace, string approvalToken, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(workspace);
+
+            if (string.IsNullOrWhiteSpace(approvalToken))
+                throw new ArgumentException("ApprovalToken is required.", nameof(approvalToken));
 
             if (workspace.Id != 0)
                 throw new ArgumentException("Workspace Id must not be set when creating.", nameof(workspace));
@@ -352,6 +358,27 @@ namespace EduCollab.Application.Services.Workspaces
             var alreadyInWorkspace = await _workspaceRepository.IsUserInAnyWorkspaceAsync(creatorUserId, cancellationToken);
             if (alreadyInWorkspace)
                 throw new ArgumentException("You already belong to a workspace.");
+
+            var normalizedName = string.IsNullOrWhiteSpace(workspace.Name)
+                ? throw new ArgumentException("Name is required.", nameof(workspace))
+                : workspace.Name.Trim();
+
+            workspace.Name = normalizedName;
+
+            var tokenHash = RefreshTokenGenerator.HashPlaintext(approvalToken.Trim());
+            var approvedRequest = await _creationRequestRepository.ConsumeApprovalTokenAsync(
+                creatorUserId,
+                tokenHash,
+                normalizedName,
+                DateTimeOffset.UtcNow,
+                cancellationToken);
+
+            if (approvedRequest is null)
+                throw new ArgumentException("The workspace creation approval token is invalid, expired, or does not match the requested workspace name.");
+
+            workspace.Description = string.IsNullOrWhiteSpace(workspace.Description)
+                ? approvedRequest.Description
+                : workspace.Description.Trim();
 
             var now = DateTimeOffset.UtcNow;
             workspace.CreatedByUserId = creatorUserId;
