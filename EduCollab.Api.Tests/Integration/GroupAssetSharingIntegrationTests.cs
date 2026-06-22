@@ -151,7 +151,7 @@ public sealed class GroupAssetSharingIntegrationTests
         var sharedHiddenAsset = await shareHiddenAssetResponse.ReadAsJsonAsync<AssetResponse>();
         Assert.Contains(group.Id, sharedHiddenAsset.GroupIds);
 
-        var visibleRootFoldersResponse = await memberClient.GetAsync($"/api/workspace/groups/{group.Id}/folders");
+        var visibleRootFoldersResponse = await memberClient.GetAsync($"/api/workspace/asset-folders?groupId={group.Id}");
         visibleRootFoldersResponse.EnsureSuccessStatusCode();
         var visibleRootFolders = await visibleRootFoldersResponse.ReadAsJsonAsync<AssetFoldersResponse>();
         Assert.Collection(
@@ -162,21 +162,21 @@ public sealed class GroupAssetSharingIntegrationTests
                 Assert.Contains(group.Id, folder.GroupIds);
             });
 
-        var visibleNestedFoldersResponse = await memberClient.GetAsync($"/api/workspace/groups/{group.Id}/folders/{sharedFolder.Id}/folders");
+        var visibleNestedFoldersResponse = await memberClient.GetAsync($"/api/workspace/asset-folders?groupId={group.Id}&parentFolderId={sharedFolder.Id}");
         visibleNestedFoldersResponse.EnsureSuccessStatusCode();
         var visibleNestedFolders = await visibleNestedFoldersResponse.ReadAsJsonAsync<AssetFoldersResponse>();
         Assert.Collection(
             visibleNestedFolders.Folders,
             folder => Assert.Equal(nestedFolder.Id, folder.Id));
 
-        var folderAssetsResponse = await memberClient.GetAsync($"/api/workspace/groups/{group.Id}/folders/{nestedFolder.Id}/assets");
+        var folderAssetsResponse = await memberClient.GetAsync($"/api/workspace/assets?groupId={group.Id}&folderId={nestedFolder.Id}");
         folderAssetsResponse.EnsureSuccessStatusCode();
         var folderAssets = await folderAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
         Assert.Collection(
             folderAssets.Assets,
             asset => Assert.Equal(inheritedAsset.Id, asset.Id));
 
-        var rootAssetsResponse = await memberClient.GetAsync($"/api/workspace/groups/{group.Id}/assets");
+        var rootAssetsResponse = await memberClient.GetAsync($"/api/workspace/assets?groupId={group.Id}");
         rootAssetsResponse.EnsureSuccessStatusCode();
         var rootAssets = await rootAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
 

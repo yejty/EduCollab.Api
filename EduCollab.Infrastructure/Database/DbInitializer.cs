@@ -195,6 +195,18 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_SceneGroupShares_GroupId ON SceneGroupShares (GroupId);");
             await connection.ExecuteAsync(
                 """
+                CREATE TABLE IF NOT EXISTS SceneAssets (
+                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
+                    AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (SceneId, AssetId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SceneAssets_AssetId ON SceneAssets (AssetId);");
+            await connection.ExecuteAsync(
+                """
                 CREATE TABLE IF NOT EXISTS AssetFolderGroupShares (
                     FolderId INT NOT NULL REFERENCES AssetFolders(Id) ON DELETE CASCADE,
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,

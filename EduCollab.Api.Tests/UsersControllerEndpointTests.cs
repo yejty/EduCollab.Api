@@ -128,7 +128,7 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("login_code_locked", body.Error);
     }
 
@@ -147,7 +147,7 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("invalid_login", body.Error);
     }
 
@@ -166,7 +166,7 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("user_not_found", body.Error);
     }
 
@@ -185,7 +185,7 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("user_not_found", body.Error);
     }
 
@@ -316,7 +316,7 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("forbidden", body.Error);
     }
 
@@ -362,5 +362,30 @@ public sealed class UsersControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ReturnsProblemDetailsWithRequestId_WhenCredentialsAreInvalid()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserService.LoginAsyncHandler = (_, _, _) => Task.FromResult(new LoginResult());
+
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login", new LoginRequest
+        {
+            Email = "jane@example.com",
+            Password = "wrong",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.True(response.Headers.Contains("X-Request-Id"));
+        Assert.False(string.IsNullOrWhiteSpace(response.Headers.GetValues("X-Request-Id").First()));
+
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("invalid_login", body.Error);
+        Assert.Equal("Invalid credentials or the email address has not been confirmed.", body.Detail);
+        Assert.False(string.IsNullOrWhiteSpace(body.RequestId));
     }
 }

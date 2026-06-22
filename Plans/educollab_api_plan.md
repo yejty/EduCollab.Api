@@ -5,14 +5,17 @@ overview: Plan the `EduCollab.Api` architecture and first-version endpoint surfa
 todos:
 
 - id: confirm-foundation
-content: Adopt controller-based architecture, JWT auth, Swagger, exception handling, and health checks based on the AssetManagement template, without API versioning for v1.
-status: pending
+content: Adopt controller-based architecture, JWT auth, OpenAPI contract, Problem Details, and health checks for v1.
+status: completed
+- id: openapi-contract
+content: Commit openapi/v1/openapi.json, Postman collection, and CI contract tests.
+status: completed
 - id: design-auth-users
 content: Define the full auth and user management contract, persistence fields, and controller/service/repository flow for `Users`.
-status: pending
+status: completed
 - id: design-workspace-model
 content: Model workspace tenancy, membership, user groups, and group-based sharing rules with workspace-scoped authorization.
-status: pending
+status: in_progress
 - id: design-scenes-assets
 content: Define the scene JSON model, asset library tree, ownership model, contextual asset visibility, and endpoint surface within a workspace.
 status: pending
@@ -39,6 +42,62 @@ Core product language:
 - `SceneAssets` = which smart assets are used inside a scene
 
 This framing keeps the API oriented toward educational collaboration instead of sounding like a generic file-sharing backend.
+
+## Implementation Status (June 2026)
+
+**Binding contract:** [`openapi/v1/openapi.json`](../openapi/v1/openapi.json) is the source of truth for the implemented HTTP surface. Regenerate with [`scripts/export-openapi.ps1`](../scripts/export-openapi.ps1). Postman collection: [`EduCollab.Api.postman_collection.json`](../EduCollab.Api.postman_collection.json) (from [`scripts/export-postman.ps1`](../scripts/export-postman.ps1)).
+
+Contract tests in `EduCollab.Api.Tests` fail when either committed artifact is stale. CI runs them via [`.github/workflows/api-contract.yml`](../.github/workflows/api-contract.yml).
+
+### Completed cross-cutting platform work
+
+| Area | Status | Notes |
+|------|--------|-------|
+| OpenAPI / Swagger | Done | Document `v1` at `/swagger/v1/swagger.json`; describes pagination, sort, errors |
+| Problem Details errors | Done | RFC 9457 `application/problem+json` for controllers, validation, JWT/auth middleware |
+| Request tracing | Done | `X-Request-Id` on every response; `requestId` in error bodies |
+| List pagination | Done | `page` (default 1), `pageSize` (default 20, max 100), `totalCount` in responses |
+| List sorting | Done | `sort` / `-field`; invalid sort → `400 invalid_sort` |
+| Auth middleware errors | Done | Unauthorized/forbidden use same Problem Details shape as controllers |
+
+### Tenancy model: plan vs implementation
+
+The **original plan** below uses explicit workspace id in every path: `/api/workspaces/{workspaceId}/...`.
+
+The **implemented v1 API** uses a **current-workspace** scope for tenant operations:
+
+| Plan (documented below) | Implemented v1 |
+|-------------------------|----------------|
+| `GET /api/workspaces/{workspaceId}/assets` | `GET /api/workspace/assets` |
+| `GET /api/workspaces/{workspaceId}/groups` | `GET /api/workspace/groups` |
+| `GET /api/workspaces/{workspaceId}/scenes` | `GET /api/workspace/scenes` |
+| `GET /api/workspaces/{workspaceId}/users` | `GET /api/workspace/users` |
+| `POST /api/workspaces` (tenant create) | `POST /api/workspace` (after approval flow) |
+| Platform admin list | `GET /api/admin/workspaces` |
+
+Workspace context is resolved from the authenticated user's membership (not from a path segment). Admin routes remain under `/api/admin/...`.
+
+Nested group browsing paths from the plan (e.g. `GET .../groups/{groupId}/assets`) are **implemented** as nested routes under `/api/workspace/groups/{groupId}/...` — a known divergence from strict api-skill flat-query filtering; see backlog.
+
+### Remaining API backlog (not in OpenAPI contract yet)
+
+- URL normalization to query-based collection filters (`?groupId=`, `?folderId=`) — breaking change; plan for v2 or coordinated client update
+- `PATCH` for partial updates; reserve `PUT` for full replacement
+- DB-level pagination (sort/page currently applied in memory after full fetch)
+- Reconcile remaining verb-style paths (`/approve`, `/move`, `/mine`) with interaction-resource pattern
+
+### Recently completed (June 2026)
+
+- JSON timestamps renamed to `createdAt` / `updatedAt` / `joinedAt` / `reviewedAt` in API responses (domain/DB columns unchanged)
+- Removed unused `POST /api/users` route constant
+- Scene `PUT` requires `If-Match`; stale ETag returns `412 precondition_failed`
+- Admin workspace list XML docs for `sort`, `page`, `pageSize`
+- Removed obsolete `ErrorResponse` DTO and stale `Helpers/endpointsCollection` OpenAPI export
+- API contract lives in `openapi/v1/openapi.json` + Postman collection only
+
+### Original endpoint plan (design reference)
+
+The sections below retain the **original URL design** for domain modeling and future normalization. For day-to-day integration, use **OpenAPI**, not this document's path literals.
 
 ## Recommended Direction
 
@@ -95,12 +154,17 @@ Controllers --> AuthPolicies
 
 Following the template, establish these platform concerns before expanding endpoints:
 
-- Swagger/OpenAPI for the current API surface.
-- JWT authentication and authorization fallback policy.
-- Central exception handling with consistent error responses.
-- Options-based configuration for database, JWT, and asset storage.
-- Health endpoint such as `/_health`.
-- Request validation using DTO annotations first; add FluentValidation only if complexity grows.
+- **OpenAPI contract** — committed at `openapi/v1/openapi.json`; Swagger UI at `/swagger`; export via `scripts/export-openapi.ps1`. **Done (June 2026).**
+- **JWT authentication** and authorization fallback policy. **Done.**
+- **Central exception handling** with RFC 9457 Problem Details (`error`, `requestId`). **Done.**
+- **List query contract** — `page`, `pageSize`, `sort` documented in OpenAPI info and parameter descriptions. **Done.**
+- Options-based configuration for database, JWT, and asset storage. **Done.**
+- Health endpoint `/_health`. **Done.**
+- Request validation using DTO annotations; `InvalidModelStateResponseFactory` + `CustomizeProblemDetails` for consistent validation errors. **Done.**
+- Postman collection generated from OpenAPI — `scripts/export-postman.ps1`. **Done.**
+- CI contract tests — `.github/workflows/api-contract.yml` runs unit + OpenAPI/Postman sync tests (no database). **Done.**
+
+Add FluentValidation only if annotation-based validation becomes insufficient.
 
 For `EduCollab.Api`, the best sequence is:
 
@@ -148,7 +212,7 @@ Keep the surface RESTful and grouped by resource. Recommended first-pass endpoin
 - `GET /api/users/{id}`
 - `GET /api/workspaces/{workspaceId}/users`
 
-This aligns well with the existing request/response DTO intent in `[CreateUserRequest.cs](C:\Users\janat\Desktop\EduCollab.Api\EduCollab.Contracts\Requests\CreateUserRequest.cs)`, `[LoginRequest.cs](C:\Users\janat\Desktop\EduCollab.Api\EduCollab.Contracts\Requests\LoginRequest.cs)`, `[ChangePasswordRequest.cs](C:\Users\janat\Desktop\EduCollab.Api\EduCollab.Contracts\Requests\ChangePasswordRequest.cs)`, `[ResetPasswordRequest.cs](C:\Users\janat\Desktop\EduCollab.Api\EduCollab.Contracts\Requests\ResetPasswordRequest.cs)`, and `[AccessTokenResponse.cs](C:\Users\janat\Desktop\EduCollab.Api\EduCollab.Contracts\Responses\AccessTokenResponse.cs)`.
+This aligns well with the existing request/response DTO intent in `[RegisterUserRequest.cs](../EduCollab.Contracts/Requests/Users/RegisterUserRequest.cs)`, `[LoginRequest.cs](../EduCollab.Contracts/Requests/Users/LoginRequest.cs)`, `[ChangePasswordRequest.cs](../EduCollab.Contracts/Requests/Users/ChangePasswordRequest.cs)`, `[ResetPasswordRequest.cs](../EduCollab.Contracts/Requests/Users/PasswordResetRequest.cs)`, and `[TokensResponse.cs](../EduCollab.Contracts/Responses/Users/TokensResponse.cs)`.
 
 ### Workspaces
 
@@ -837,7 +901,7 @@ erDiagram
 ## Implementation Phases
 
 1. Platform foundation
-  - Swagger, JWT, auth policies, error model, health checks
+  - OpenAPI contract, Swagger, JWT, auth policies, Problem Details error model, health checks — **complete**
 2. Identity foundation
   - complete `UsersController`, user service, repository, password/token storage
 3. Workspace module

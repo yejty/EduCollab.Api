@@ -1,17 +1,13 @@
-﻿using System.Net.NetworkInformation;
-
-namespace EduCollab.Api
+﻿namespace EduCollab.Api
 {
     public static class ApiEndpoints
     {
         private const string ApiBase = "api";
-        private const string ApiWorkspaceBase = $"{ApiBase}/workspaces/{{workspaceId}}";
         private const string ApiCurrentWorkspaceBase = $"{ApiBase}/workspace";
 
         public static class Users
         {
             private const string Base = $"{ApiBase}/users";
-            public const string Create = Base;
             public const string Get = $"{Base}/{{id}}";
             public const string Update = $"{Base}/{{id}}";
             public const string Delete = $"{Base}/{{id}}";
@@ -94,11 +90,6 @@ namespace EduCollab.Api
             public const string CreateMember = $"{Base}/{{groupId}}/users";
             public const string GetMember = $"{Base}/{{groupId}}/users/{{userId}}";
             public const string DeleteMember = $"{Base}/{{groupId}}/users/{{userId}}";
-
-            public const string GetFolders = $"{Base}/{{groupId}}/folders";
-            public const string GetSubFolders = $"{Base}/{{groupId}}/folders/{{folderId}}/folders";
-            public const string GetAssetsInFolders = $"{Base}/{{groupId}}/folders/{{folderId}}/assets";
-            public const string GetAssets = $"{Base}/{{groupId}}/assets";
         }
 
         public static class AssetFolders
@@ -109,8 +100,6 @@ namespace EduCollab.Api
             public const string Get = $"{Base}/{{folderId}}";
             public const string Update = $"{Base}/{{folderId}}";
             public const string Delete = $"{Base}/{{folderId}}";
-            public const string GetSubFolders = $"{Base}/{{folderId}}/folders";
-            public const string GetAssets = $"{Base}/{{folderId}}/assets";
             public const string Share = $"{Base}/{{folderId}}/groups";
             public const string Unshare = $"{Base}/{{folderId}}/groups/{{groupId}}";
         }
@@ -123,14 +112,18 @@ namespace EduCollab.Api
             public const string Get = $"{Base}/{{assetId}}";
             public const string Update = $"{Base}/{{assetId}}";
             public const string Delete = $"{Base}/{{assetId}}";
-            public const string GetMine = $"{Base}/mine";
-            public const string Move = $"{Base}/{{assetId}}/move";
             public const string Content = $"{Base}/{{assetId}}/content";
             public const string Share = $"{Base}/{{assetId}}/groups";
             public const string Unshare = $"{Base}/{{assetId}}/groups/{{groupId}}";
             public const string GetVersions = $"{Base}/{{assetId}}/versions";
             public const string GetVersion = $"{Base}/{{assetId}}/versions/{{versionNumber}}";
             public const string GetVersionContent = $"{Base}/{{assetId}}/versions/{{versionNumber}}/content";
+        }
+
+        public static class AssetMoves
+        {
+            private const string Base = $"{ApiCurrentWorkspaceBase}/asset-moves";
+            public const string Create = Base;
         }
 
         public static class Scenes
@@ -141,11 +134,18 @@ namespace EduCollab.Api
             public const string Get = $"{Base}/{{sceneId}}";
             public const string Update = $"{Base}/{{sceneId}}";
             public const string Delete = $"{Base}/{{sceneId}}";
-            public const string GetMine = $"{Base}/mine";
             public const string Share = $"{Base}/{{sceneId}}/groups";
             public const string Unshare = $"{Base}/{{sceneId}}/groups/{{groupId}}";
             public const string GetVersions = $"{Base}/{{sceneId}}/versions";
             public const string GetVersion = $"{Base}/{{sceneId}}/versions/{{versionNumber}}";
+        }
+
+        public static class SceneAssets
+        {
+            private const string Base = $"{ApiCurrentWorkspaceBase}/scene-assets";
+            public const string GetAll = Base;
+            public const string Create = Base;
+            public const string Delete = Base;
         }
     }
 }

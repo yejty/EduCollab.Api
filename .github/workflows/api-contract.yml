@@ -1,0 +1,29 @@
+name: API Contract
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  contract-tests:
+    name: Unit and contract tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore EduCollab.Api.sln
+
+      # Unit + OpenAPI/Postman contract tests only.
+      # Integration tests (Postgres on :5433) are run locally — not in CI.
+      - name: Run unit and contract tests
+        run: dotnet test EduCollab.Api.sln --configuration Release --no-restore --filter "FullyQualifiedName!~Integration" --verbosity normal

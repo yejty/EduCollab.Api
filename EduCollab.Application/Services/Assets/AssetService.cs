@@ -575,5 +575,11 @@ namespace EduCollab.Application.Services.Assets
             var shares = await _assetRepository.GetAssetSharesAsync(workspaceId, assetId, cancellationToken);
             return shares.Select(s => s.GroupId).ToList();
         }
+
+        public async Task<bool> CanCurrentUserViewAssetDirectlyAsync(int assetId, CancellationToken cancellationToken)
+        {
+            var asset = await GetAssetByIdAsync(assetId, cancellationToken);
+            return asset is not null;
+        }
     }
 }

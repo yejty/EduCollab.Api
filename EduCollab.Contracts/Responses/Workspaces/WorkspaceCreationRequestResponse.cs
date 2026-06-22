@@ -10,9 +10,9 @@ namespace EduCollab.Contracts.Responses.Workspaces
 
         public string Status { get; set; } = string.Empty;
 
-        public DateTime CreatedAtUtc { get; set; }
+        public DateTime CreatedAt { get; set; }
 
-        public DateTime? ReviewedAtUtc { get; set; }
+        public DateTime? ReviewedAt { get; set; }
 
         public string? DenialReason { get; set; }
     }

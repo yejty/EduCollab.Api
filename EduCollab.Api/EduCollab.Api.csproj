@@ -24,8 +24,4 @@
     <ProjectReference Include="..\EduCollab.Infrastructure\EduCollab.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Authorization\" />
-  </ItemGroup>
-
 </Project>

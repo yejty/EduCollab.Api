@@ -33,4 +33,11 @@ internal static class TestHttpClientExtensions
         var value = await response.Content.ReadFromJsonAsync<T>(JsonOptions);
         return value ?? throw new InvalidOperationException($"Response body could not be read as {typeof(T).Name}.");
     }
+
+    public static void AssertProblemJsonResponse(this HttpResponseMessage response)
+    {
+        Assert.Contains("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.True(response.Headers.Contains("X-Request-Id"));
+        Assert.False(string.IsNullOrWhiteSpace(response.Headers.GetValues("X-Request-Id").First()));
+    }
 }

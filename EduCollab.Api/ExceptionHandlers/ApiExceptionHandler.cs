@@ -1,6 +1,8 @@
+using EduCollab.Api.Middleware;
+using EduCollab.Api.Problems;
 using EduCollab.Application.Exceptions;
-using EduCollab.Contracts.Responses;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EduCollab.Api.ExceptionHandlers
 {
@@ -14,29 +16,29 @@ namespace EduCollab.Api.ExceptionHandlers
             CancellationToken cancellationToken)
         {
             var (statusCode, error, description) = MapException(exception);
+            var requestId = RequestIdMiddleware.GetRequestId(httpContext);
 
             if (statusCode >= StatusCodes.Status500InternalServerError)
             {
-                logger.LogError(exception, "Unhandled exception while processing request.");
+                logger.LogError(
+                    exception,
+                    "Unhandled exception while processing request {RequestId}.",
+                    requestId);
             }
             else
             {
-                logger.LogWarning(exception, "Handled exception while processing request.");
+                logger.LogWarning(
+                    exception,
+                    "Handled exception while processing request {RequestId}.",
+                    requestId);
             }
 
-            httpContext.Response.StatusCode = statusCode;
-            httpContext.Response.ContentType = "application/json";
+            var detail = environment.IsDevelopment()
+                ? $"{description} Details: {exception.Message}"
+                : description;
 
-            var response = new ErrorResponse
-            {
-                Error = error,
-                ErrorDescription = environment.IsDevelopment()
-                    ? $"{description} Details: {exception.Message}"
-                    : description
-            };
-
-            await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
-
+            var problem = ApiProblemDetailsFactory.Create(httpContext, statusCode, error, detail);
+            await ApiProblemDetailsWriter.WriteAsync(httpContext, problem, cancellationToken);
             return true;
         }
 
@@ -59,6 +61,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status403Forbidden,
                     "forbidden",
                     "You are not allowed to perform this operation."),
+                PreconditionFailedException preconditionFailed => (
+                    StatusCodes.Status412PreconditionFailed,
+                    "precondition_failed",
+                    preconditionFailed.Message),
                 KeyNotFoundException => (
                     StatusCodes.Status404NotFound,
                     "not_found",
@@ -70,7 +76,7 @@ namespace EduCollab.Api.ExceptionHandlers
                 _ => (
                     StatusCodes.Status500InternalServerError,
                     "server_error",
-                    "An unexpected error occurred.")
+                    "An unexpected error occurred."),
             };
     }
 }

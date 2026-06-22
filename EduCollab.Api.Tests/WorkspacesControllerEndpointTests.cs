@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EduCollab.Api.Query;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
@@ -42,7 +43,7 @@ public sealed class WorkspacesControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("forbidden", body.Error);
     }
 
@@ -74,7 +75,7 @@ public sealed class WorkspacesControllerEndpointTests
             Password = "Pass123!",
         });
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(41, body.UserId);
         Assert.Equal("Viewer", body.Role);
@@ -125,9 +126,39 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.GetAsync("/api/admin/workspaces");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("forbidden", body.Error);
-        Assert.Equal("Insufficient rights.", body.ErrorDescription);
+        Assert.Equal("Insufficient rights.", body.Detail);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceCreationRequests_ReturnsBadRequest_WhenStatusIsInvalid()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.PlatformAdminAuthorization.PlatformAdminUserIds.Add(34);
+
+        using var client = factory.CreateClient(userId: 34);
+
+        var response = await client.GetAsync("/api/admin/workspace-creation-requests?status=not-a-status");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("invalid_status", body.Error);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceCreationRequests_ReturnsBadRequest_WhenSortIsInvalid()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.PlatformAdminAuthorization.PlatformAdminUserIds.Add(35);
+
+        using var client = factory.CreateClient(userId: 35);
+
+        var response = await client.GetAsync("/api/admin/workspace-creation-requests?sort=unknown");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("invalid_sort", body.Error);
     }
 
     [Fact]
@@ -150,6 +181,49 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(2, body.Workspaces.Count);
         Assert.Equal("Alpha", body.Workspaces[0].Name);
         Assert.Null(body.Workspaces[0].CurrentUserRole);
+        Assert.Equal(1, body.Page);
+        Assert.Equal(PaginationDefaults.DefaultPageSize, body.PageSize);
+        Assert.Equal(2, body.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetWorkspaces_ReturnsBadRequest_WhenPageSizeExceedsMaximum()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.PlatformAdminAuthorization.PlatformAdminUserIds.Add(36);
+
+        using var client = factory.CreateClient(userId: 36);
+
+        var response = await client.GetAsync("/api/admin/workspaces?pageSize=101");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("invalid_pagination", body.Error);
+    }
+
+    [Fact]
+    public async Task GetWorkspaces_ReturnsRequestedPage_WhenPageSizeIsProvided()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.PlatformAdminAuthorization.PlatformAdminUserIds.Add(37);
+        factory.WorkspaceService.GetWorkspacesAsyncHandler = _ => Task.FromResult(new List<Workspace>
+        {
+            new() { Id = 1, Name = "Alpha" },
+            new() { Id = 2, Name = "Beta" },
+            new() { Id = 3, Name = "Gamma" },
+        });
+
+        using var client = factory.CreateClient(userId: 37);
+
+        var response = await client.GetAsync("/api/admin/workspaces?page=2&pageSize=1&sort=name");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<WorkspacesResponse>();
+        Assert.Single(body.Workspaces);
+        Assert.Equal("Beta", body.Workspaces[0].Name);
+        Assert.Equal(2, body.Page);
+        Assert.Equal(1, body.PageSize);
+        Assert.Equal(3, body.TotalCount);
     }
 
     [Fact]
@@ -213,7 +287,7 @@ public sealed class WorkspacesControllerEndpointTests
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("update_failed", body.Error);
     }
 
@@ -323,7 +397,7 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.PutAsync("/api/workspace/thumbnail", content);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("invalid_thumbnail", body.Error);
     }
 

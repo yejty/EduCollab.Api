@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EduCollab.Api.Controllers
 {
     [ApiController]
-    public class WorkspaceCreationReviewController : ControllerBase
+    public class WorkspaceCreationReviewController : ApiControllerBase
     {
         private readonly IWorkspaceCreationRequestService _creationRequestService;
 

@@ -8,6 +8,6 @@ namespace EduCollab.Contracts.Responses.Scenes
         public string? Description { get; set; }
         public string ETag { get; set; } = string.Empty;
         public int CreatedByUserId { get; set; }
-        public DateTime CreatedAtUtc { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

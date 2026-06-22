@@ -1,6 +1,7 @@
 using EduCollab.Api.Security;
 using EduCollab.Api.Tests.Fakes;
 using EduCollab.Application.Services.Auth;
+using EduCollab.Application.Services.Scenes;
 using EduCollab.Application.Services.Users;
 using EduCollab.Application.Services.Workspaces;
 using Microsoft.AspNetCore.Authentication;
@@ -20,6 +21,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
     public FakeWorkspaceCreationRequestService WorkspaceCreationRequestService { get; } = new();
     public FakeAccessTokenService AccessTokenService { get; } = new();
     public FakeRefreshTokenService RefreshTokenService { get; } = new();
+    public FakeSceneService SceneService { get; } = new();
 
     public FakePlatformAdminAuthorization PlatformAdminAuthorization =>
         Services.GetRequiredService<FakePlatformAdminAuthorization>();
@@ -37,6 +39,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IWorkspaceCreationRequestService>();
             services.RemoveAll<IAccessTokenService>();
             services.RemoveAll<IRefreshTokenService>();
+            services.RemoveAll<ISceneService>();
             services.RemoveAll<IPlatformAdminAuthorization>();
 
             services.AddSingleton<IUserService>(UserService);
@@ -46,6 +49,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IWorkspaceCreationRequestService>(WorkspaceCreationRequestService);
             services.AddSingleton<IAccessTokenService>(AccessTokenService);
             services.AddSingleton<IRefreshTokenService>(RefreshTokenService);
+            services.AddSingleton<ISceneService>(SceneService);
             services.AddSingleton<FakePlatformAdminAuthorization>();
             services.AddSingleton<IPlatformAdminAuthorization>(sp => sp.GetRequiredService<FakePlatformAdminAuthorization>());
 

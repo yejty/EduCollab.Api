@@ -14,7 +14,7 @@ using System.Text.Json.Nodes;
 namespace EduCollab.Api.Controllers
 {
     [ApiController]
-    public class UsersController : ControllerBase
+    public class UsersController : ApiControllerBase
     {
         private readonly IUserService _userService;
         private readonly IUserPreferencesService _userPreferencesService;
@@ -42,7 +42,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Registration request was invalid.</response>
         [HttpPost(ApiEndpoints.Users.Register)]
         [ProducesResponseType(typeof(RegistrationSubmittedResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Register([FromBody] RegisterUserRequest request, CancellationToken cancellationToken)
         {
             var user = request.MapToUser();
@@ -51,20 +51,12 @@ namespace EduCollab.Api.Controllers
                 var registered = await _userService.RegisterAsync(user, request.Password, cancellationToken);
                 if (!registered)
                 {
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "registration_failed",
-                        ErrorDescription = "Registration could not be completed.",
-                    });
+                    return ApiBadRequest("registration_failed", "Registration could not be completed.");
                 }
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "registration_failed",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiBadRequest("registration_failed", ex.Message);
             }
 
             return StatusCode(StatusCodes.Status201Created, new RegistrationSubmittedResponse());
@@ -79,7 +71,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Confirmation token was invalid or expired.</response>
         [HttpPost(ApiEndpoints.Users.ConfirmEmail)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<TokensResponse>> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken cancellationToken)
         {
             User? user;
@@ -89,20 +81,12 @@ namespace EduCollab.Api.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "confirmation_failed",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiBadRequest("confirmation_failed", ex.Message);
             }
 
             if (user is null)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "confirmation_failed",
-                    ErrorDescription = "Invalid or expired confirmation token.",
-                });
+                return ApiBadRequest("confirmation_failed", "Invalid or expired confirmation token.");
             }
 
             var accessToken = _accessTokenService.Create(user.Id, user.Email);
@@ -133,7 +117,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">No account exists for the provided email address.</response>
         [HttpPost(ApiEndpoints.Users.LoginRequestCode)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> RequestLoginCode([FromBody] RequestLoginCodeRequest request, CancellationToken cancellationToken)
         {
             try
@@ -142,11 +126,7 @@ namespace EduCollab.Api.Controllers
             }
             catch (ArgumentException ex)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "user_not_found",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiUnauthorized("user_not_found", ex.Message);
             }
 
             return Ok();
@@ -161,7 +141,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">The sign-in code was invalid, expired, or locked after too many attempts.</response>
         [HttpPost(ApiEndpoints.Users.LoginConfirmCode)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> LoginWithCode([FromBody] ConfirmLoginCodeRequest request, CancellationToken cancellationToken)
         {
             var result = await _userService.LoginWithCodeAsync(request.Email, request.Code, cancellationToken);
@@ -169,22 +149,14 @@ namespace EduCollab.Api.Controllers
             {
                 if (result.IsLocked)
                 {
-                    return Unauthorized(new ErrorResponse
-                    {
-                        Error = "login_code_locked",
-                        ErrorDescription = "Too many incorrect attempts. Request a new sign-in code.",
-                    });
+                    return ApiUnauthorized("login_code_locked", "Too many incorrect attempts. Request a new sign-in code.");
                 }
 
                 var description = result.RemainingAttempts is int attempts
                     ? $"Invalid sign-in code. {attempts} attempt(s) remaining."
                     : "Invalid or expired sign-in code.";
 
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "invalid_login_code",
-                    ErrorDescription = description,
-                });
+                return ApiUnauthorized("invalid_login_code", description);
             }
 
             var accessToken = _accessTokenService.Create(result.User.Id, result.User.Email);
@@ -201,26 +173,18 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Invalid login attempt. Returns an error message.</response>
         [HttpPost(ApiEndpoints.Users.Login)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> Login([FromBody] LoginRequest loginRequest, CancellationToken cancellationToken)
         {
             var loginResult = await _userService.LoginAsync(loginRequest.Email, loginRequest.Password, cancellationToken);
             if (loginResult.UserNotFound)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "user_not_found",
-                    ErrorDescription = "No account found for this email address.",
-                });
+                return ApiUnauthorized("user_not_found", "No account found for this email address.");
             }
 
             if (loginResult.User is null)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "invalid_login",
-                    ErrorDescription = "Invalid credentials or the email address has not been confirmed.",
-                });
+                return ApiUnauthorized("invalid_login", "Invalid credentials or the email address has not been confirmed.");
             }
 
             var accessToken = _accessTokenService.Create(loginResult.User.Id, loginResult.User.Email);
@@ -238,17 +202,13 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Invalid refresh token or user is unauthorized.</response>
         [HttpPost(ApiEndpoints.Users.Token)]
         [ProducesResponseType(typeof(TokensResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<TokensResponse>> RefreshToken([FromBody] RefreshTokenRequest refreshTokenRequest, CancellationToken cancellationToken)
         {
             var session = await _refreshTokenService.RefreshAsync(refreshTokenRequest.RefreshToken, cancellationToken);
             if (session is null)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "invalid_refresh_token",
-                    ErrorDescription = "Refresh token is invalid, expired, or revoked.",
-                });
+                return ApiUnauthorized("invalid_refresh_token", "Refresh token is invalid, expired, or revoked.");
             }
 
             var accessToken = _accessTokenService.Create(session.User.Id, session.User.Email);
@@ -266,18 +226,14 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Users.Me)]
         [ProducesResponseType(typeof(UserResponse),StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<UserResponse>> GetCurrentUser(CancellationToken cancellationToken)
         {
             var user = await _userService.GetCurrentUserAsync(cancellationToken);
             if (user is null)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "unauthorized",
-                    ErrorDescription = "Authentication is required for this operation.",
-                });
+                return ApiUnauthorized("unauthorized", "Authentication is required for this operation.");
             }
             var response = user.MapToResponse();
             return Ok(response);
@@ -293,7 +249,7 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Users.Preferences)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetPreferences(CancellationToken cancellationToken)
         {
             var json = await _userPreferencesService.GetCurrentUserPreferencesAsync(cancellationToken);
@@ -309,8 +265,8 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPut(ApiEndpoints.Users.Preferences)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> PutPreferences([FromBody] JsonNode preferences, CancellationToken cancellationToken)
         {
             var json = preferences.ToJsonString();
@@ -331,16 +287,16 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Users.Get)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<UserResponse>> GetUserById(int id, CancellationToken cancellationToken)
         {
             var user = await _userService.GetUserByIdAsync(id, cancellationToken);
             if (user is null)
             {
-                return NotFound();
+                return ApiNotFound();
             }
             var response = user.MapToResponse();    
             return Ok(response);
@@ -360,17 +316,17 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPut(ApiEndpoints.Users.Update)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<UserResponse>> Update([FromRoute]int id, [FromBody]UpdateUserProfileRequest request, CancellationToken cancellationToken)
         {
             var user = request.MapToUser(id);
             var updatedUser = await _userService.UpdateUserByIdAsync(user, cancellationToken);
             if (updatedUser is null)
             {
-                return NotFound();
+                return ApiNotFound();
             }
             var response = updatedUser.MapToResponse();
             return Ok(response);
@@ -389,16 +345,16 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpDelete(ApiEndpoints.Users.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete([FromRoute] int id, CancellationToken cancellationToken)
         {
             var deleted = await _userService.DeleteUserByIdAsync(id, cancellationToken);
             if (!deleted)
             {
-                return NotFound();
+                return ApiNotFound();
             }
             return NoContent();
         }
@@ -412,7 +368,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Bad request.</response>
         [HttpPost(ApiEndpoints.Users.ResetConfirm)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ResetPasswordConfirm([FromBody] ConfirmPasswordResetRequest confirmPasswordResetRequest, CancellationToken cancellationToken)
         {
             await _userService.ConfirmResetPasswordAsync(confirmPasswordResetRequest.Email, confirmPasswordResetRequest.Token, confirmPasswordResetRequest.NewPassword, cancellationToken);
@@ -428,7 +384,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="400">Bad request.</response>
         [HttpPost(ApiEndpoints.Users.Reset)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ResetPassword([FromBody] PasswordResetRequest passwordResetRequest, CancellationToken cancellationToken)
         {
             await _userService.ResetPasswordAsync(passwordResetRequest.Email, cancellationToken);
@@ -446,8 +402,8 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPost(ApiEndpoints.Users.ChangePassword)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest changePasswordRequest, CancellationToken cancellationToken)
         {
             await _userService.ChangePasswordAsync(changePasswordRequest.Password, changePasswordRequest.NewPassword, cancellationToken);

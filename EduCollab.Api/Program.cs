@@ -1,5 +1,7 @@
 using EduCollab.Api.Config;
 using EduCollab.Api.Extensions;
+using EduCollab.Api.Middleware;
+using EduCollab.Api.Swagger;
 using EduCollab.Application;
 using EduCollab.Infrastructure.Database;
 
@@ -12,11 +14,15 @@ builder.Services.AddJwtOptions(builder.Configuration);
 
 var app = builder.Build();
 
+app.UseMiddleware<RequestIdMiddleware>();
 app.UseExceptionHandler();
 
 //if (app.Environment.IsDevelopment())
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint($"/swagger/{OpenApiContractDescriptions.DocumentName}/swagger.json", "EduCollab API v1");
+});
 
 app.UseHttpsRedirection();
 

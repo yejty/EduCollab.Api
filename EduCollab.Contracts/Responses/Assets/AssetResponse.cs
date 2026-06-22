@@ -13,8 +13,8 @@ namespace EduCollab.Contracts.Responses.Assets
         public string? Version { get; set; }
         public int CurrentVersionNumber { get; set; }
         public List<int> GroupIds { get; set; } = new();
-        public DateTime CreatedAtUtc { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public bool CanManage { get; set; }
     }
 }

@@ -1,5 +1,7 @@
 using EduCollab.Api.Mapping;
+using EduCollab.Api.Query;
 using EduCollab.Application.Services.Assets;
+using EduCollab.Application.Services.Groups;
 using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Assets;
@@ -9,13 +11,15 @@ using Microsoft.AspNetCore.Mvc;
 namespace EduCollab.Api.Controllers
 {
     [ApiController]
-    public class AssetsController : ControllerBase
+    public class AssetsController : ApiControllerBase
     {
         private readonly IAssetService _assetService;
+        private readonly IGroupService _groupService;
 
-        public AssetsController(IAssetService assetService)
+        public AssetsController(IAssetService assetService, IGroupService groupService)
         {
             _assetService = assetService;
+            _groupService = groupService;
         }
 
         private async Task PopulateAccessMetadataAsync(AssetResponse asset, CancellationToken cancellationToken)
@@ -27,20 +31,16 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPost(ApiEndpoints.Assets.Create)]
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> CreateAsset([FromBody] CreateAssetRequest request, CancellationToken cancellationToken)
         {
             var asset = request.MapToAsset();
             var created = await _assetService.CreateAssetAsync(asset, request.GroupId, cancellationToken);
             if (!created)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "creation_failed",
-                    ErrorDescription = "Asset could not be created."
-                });
+                return ApiBadRequest("creation_failed", "Asset could not be created.");
             }
 
             var response = asset.MapToResponse();
@@ -48,15 +48,15 @@ namespace EduCollab.Api.Controllers
             return CreatedAtAction(nameof(GetAsset), new { assetId = asset.Id }, response);
         }
 
-        [Authorize]
-        [HttpGet(ApiEndpoints.Assets.GetAll)]
-        [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<AssetsResponse>> GetAssets(CancellationToken cancellationToken)
+        private async Task<ActionResult<AssetsResponse>> BuildAssetsResponseAsync(
+            List<Application.Models.Asset> assets,
+            SortSpecification sortSpecification,
+            PaginationSpecification paginationSpecification,
+            CancellationToken cancellationToken)
         {
-            var assets = await _assetService.GetAllAssetsAsync(cancellationToken);
-            var response = assets.MapToResponse();
+            var sorted = ResourceSortProfiles.NamedResource.ApplyAssets(assets, sortSpecification);
+            var paged = PaginationApplier.Apply(sorted, paginationSpecification);
+            var response = paged.MapToResponse();
 
             foreach (var asset in response.Assets)
             {
@@ -67,35 +67,71 @@ namespace EduCollab.Api.Controllers
         }
 
         [Authorize]
-        [HttpGet(ApiEndpoints.Assets.GetMine)]
+        [HttpGet(ApiEndpoints.Assets.GetAll)]
         [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<AssetsResponse>> GetMyAssets(CancellationToken cancellationToken)
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<AssetsResponse>> GetAssets(
+            [FromQuery] string? owner,
+            [FromQuery] int? folderId,
+            [FromQuery] int? groupId,
+            [FromQuery] string? sort,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
+            CancellationToken cancellationToken)
         {
-            var assets = await _assetService.GetMyAssetsAsync(cancellationToken);
-            var response = assets.MapToResponse();
+            if (!AssetListQueryParser.TryParse(owner, folderId, groupId, out var filter, out var filterError))
+                return ApiBadRequest("invalid_filter", filterError!);
 
-            foreach (var asset in response.Assets)
+            if (!TryParseListQuery(
+                    sort,
+                    page,
+                    pageSize,
+                    ResourceSortProfiles.NamedResource.AllowedFields,
+                    ResourceSortProfiles.NamedResource.Default,
+                    out var sortSpecification,
+                    out var paginationSpecification,
+                    out var problem))
             {
-                await PopulateAccessMetadataAsync(asset, cancellationToken);
+                return problem!;
             }
 
-            return Ok(response);
+            List<Application.Models.Asset> assets;
+            if (filter.OwnerIsCurrentUser)
+            {
+                assets = await _assetService.GetMyAssetsAsync(cancellationToken);
+            }
+            else if (filter.GroupId is int groupIdValue)
+            {
+                assets = filter.FolderId is int folderIdValue
+                    ? await _groupService.GetVisibleAssetsInFolderAsync(groupIdValue, folderIdValue, cancellationToken)
+                    : await _groupService.GetVisibleRootAssetsAsync(groupIdValue, cancellationToken);
+            }
+            else if (filter.FolderId is int folderIdOnly)
+            {
+                assets = await _assetService.GetAssetsInFolderAsync(folderIdOnly, cancellationToken);
+            }
+            else
+            {
+                assets = await _assetService.GetAllAssetsAsync(cancellationToken);
+            }
+
+            return await BuildAssetsResponseAsync(assets, sortSpecification, paginationSpecification, cancellationToken);
         }
 
         [Authorize]
         [HttpGet(ApiEndpoints.Assets.Get)]
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetResponse>> GetAsset(int assetId, CancellationToken cancellationToken)
         {
             var asset = await _assetService.GetAssetByIdAsync(assetId, cancellationToken);
             if (asset is null)
             {
-                return NotFound();
+                return ApiNotFound();
             }
 
             var response = asset.MapToResponse();
@@ -106,21 +142,17 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPut(ApiEndpoints.Assets.Update)]
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetResponse>> UpdateAsset(int assetId, [FromBody] UpdateAssetRequest request, CancellationToken cancellationToken)
         {
             var asset = request.MapToAsset(assetId);
             var updated = await _assetService.UpdateAssetAsync(asset, cancellationToken);
             if (updated is null)
             {
-                return NotFound(new ErrorResponse
-                {
-                    Error = "update_failed",
-                    ErrorDescription = "Asset was not found."
-                });
+                return ApiNotFound("update_failed", "Asset was not found.");
             }
 
             var response = updated.MapToResponse();
@@ -129,41 +161,17 @@ namespace EduCollab.Api.Controllers
         }
 
         [Authorize]
-        [HttpPost(ApiEndpoints.Assets.Move)]
-        [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<AssetResponse>> MoveAsset(int assetId, [FromBody] MoveAssetRequest request, CancellationToken cancellationToken)
-        {
-            var moved = await _assetService.MoveAssetAsync(assetId, request.FolderId, cancellationToken);
-            if (moved is null)
-            {
-                return NotFound(new ErrorResponse
-                {
-                    Error = "move_failed",
-                    ErrorDescription = "Asset was not found."
-                });
-            }
-
-            var response = moved.MapToResponse();
-            await PopulateAccessMetadataAsync(response, cancellationToken);
-            return Ok(response);
-        }
-
-        [Authorize]
         [HttpDelete(ApiEndpoints.Assets.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteAsset(int assetId, CancellationToken cancellationToken)
         {
             var deleted = await _assetService.DeleteAssetAsync(assetId, cancellationToken);
             if (!deleted)
             {
-                return NotFound();
+                return ApiNotFound();
             }
 
             return NoContent();
@@ -172,15 +180,15 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Assets.Content)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetAssetContent(int assetId, [FromQuery] int? versionNumber, CancellationToken cancellationToken)
         {
             var content = await _assetService.GetAssetContentAsync(assetId, versionNumber, cancellationToken);
             if (content is null)
             {
-                return NotFound();
+                return ApiNotFound();
             }
 
             return File(content.Data, content.ContentType);
@@ -189,19 +197,15 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPut(ApiEndpoints.Assets.Content)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> PutAssetContent(int assetId, IFormFile file, CancellationToken cancellationToken)
         {
             if (file is null || file.Length == 0)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "invalid_content",
-                    ErrorDescription = "A non-empty file is required.",
-                });
+                return ApiBadRequest("invalid_content", "A non-empty file is required.");
             }
 
             await using var stream = file.OpenReadStream();
@@ -212,14 +216,14 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Assets.GetVersions)]
         [ProducesResponseType(typeof(AssetVersionsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetVersionsResponse>> GetAssetVersions(int assetId, CancellationToken cancellationToken)
         {
             var asset = await _assetService.GetAssetByIdAsync(assetId, cancellationToken);
             if (asset is null)
-                return NotFound();
+                return ApiNotFound();
 
             var versions = await _assetService.GetAssetVersionsAsync(assetId, cancellationToken);
             return Ok(versions.MapToResponse());
@@ -228,14 +232,14 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Assets.GetVersion)]
         [ProducesResponseType(typeof(AssetVersionResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetVersionResponse>> GetAssetVersion(int assetId, int versionNumber, CancellationToken cancellationToken)
         {
             var version = await _assetService.GetAssetVersionAsync(assetId, versionNumber, cancellationToken);
             if (version is null)
-                return NotFound();
+                return ApiNotFound();
 
             return Ok(version.MapToResponse());
         }
@@ -243,57 +247,53 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.Assets.GetVersionContent)]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetAssetVersionContent(int assetId, int versionNumber, CancellationToken cancellationToken)
         {
             var content = await _assetService.GetAssetContentAsync(assetId, versionNumber, cancellationToken);
             if (content is null)
-                return NotFound();
+                return ApiNotFound();
 
             return File(content.Data, content.ContentType);
         }
 
         [Authorize]
         [HttpPost(ApiEndpoints.Assets.Share)]
-        [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AssetResponse>> ShareAsset(int assetId, [FromBody] ShareWithGroupRequest request, CancellationToken cancellationToken)
         {
             var shared = await _assetService.ShareAssetAsync(assetId, request.GroupId, cancellationToken);
             if (!shared)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "sharing_failed",
-                    ErrorDescription = "Asset could not be shared with the group."
-                });
+                return ApiBadRequest("sharing_failed", "Asset could not be shared with the group.");
             }
 
             var asset = await _assetService.GetAssetByIdAsync(assetId, cancellationToken);
             if (asset is null)
-                return NotFound();
+                return ApiNotFound();
 
             var response = asset.MapToResponse();
             await PopulateAccessMetadataAsync(response, cancellationToken);
-            return Ok(response);
+            return StatusCode(StatusCodes.Status201Created, response);
         }
 
         [Authorize]
         [HttpDelete(ApiEndpoints.Assets.Unshare)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RemoveAssetShare(int assetId, int groupId, CancellationToken cancellationToken)
         {
             var removed = await _assetService.RemoveAssetShareAsync(assetId, groupId, cancellationToken);
             if (!removed)
-                return NotFound();
+                return ApiNotFound();
 
             return NoContent();
         }

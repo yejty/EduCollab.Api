@@ -8,8 +8,8 @@ namespace EduCollab.Contracts.Responses.Assets
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public int CreatedByUserId { get; set; }
-        public DateTime CreatedAtUtc { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
         public List<int> GroupIds { get; set; } = new();
         public bool CanManage { get; set; }
     }

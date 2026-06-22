@@ -37,8 +37,8 @@ public sealed class WorkspaceApiIntegrationTests
 
         var listAsOwnerResponse = await ownerClient.GetAsync("/api/admin/workspaces");
         Assert.Equal(HttpStatusCode.Forbidden, listAsOwnerResponse.StatusCode);
-        var forbiddenBody = await listAsOwnerResponse.ReadAsJsonAsync<ErrorResponse>();
-        Assert.Equal("Insufficient rights.", forbiddenBody.ErrorDescription);
+        var forbiddenBody = await listAsOwnerResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("Insufficient rights.", forbiddenBody.Detail);
 
         var listAsAdminResponse = await adminClient.GetAsync("/api/admin/workspaces");
         listAsAdminResponse.EnsureSuccessStatusCode();

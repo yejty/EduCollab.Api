@@ -18,6 +18,7 @@ namespace EduCollab.Api.Config
                         var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
                             ?? throw new InvalidOperationException("JWT options are not configured.");
                         options.TokenValidationParameters = JwtTokenValidationParametersFactory.Create(jwtOptions);
+                        options.Events = JwtBearerProblemDetailsEvents.Create();
                     });
                 services.AddAuthorization();
                 return services;

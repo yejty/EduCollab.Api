@@ -112,7 +112,7 @@ public sealed class UserApiIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, invalidCodeResponse.StatusCode);
-        var invalidCode = await invalidCodeResponse.ReadAsJsonAsync<ErrorResponse>();
+        var invalidCode = await invalidCodeResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("invalid_login_code", invalidCode.Error);
 
         var validCodeResponse = await client.PostAsJsonAsync("/api/users/login/confirm-code", new ConfirmLoginCodeRequest
@@ -168,7 +168,7 @@ public sealed class UserApiIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("user_not_found", body.Error);
     }
 
@@ -184,7 +184,7 @@ public sealed class UserApiIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        var body = await response.ReadAsJsonAsync<ErrorResponse>();
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Equal("user_not_found", body.Error);
     }
 

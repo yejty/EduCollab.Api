@@ -1,4 +1,5 @@
 using EduCollab.Api.Mapping;
+using EduCollab.Api.Query;
 using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
 using EduCollab.Application.Services.Users;
@@ -12,7 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EduCollab.Api.Controllers
 {
     [ApiController]
-    public class AdminWorkspaceCreationRequestsController : ControllerBase
+    public class AdminWorkspaceCreationRequestsController : ApiControllerBase
     {
         private readonly IWorkspaceCreationRequestService _creationRequestService;
         private readonly IPlatformAdminAuthorization _platformAdminAuthorization;
@@ -31,10 +32,14 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpGet(ApiEndpoints.AdminWorkspaceCreationRequests.GetAll)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestsResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<WorkspaceCreationRequestsResponse>> GetWorkspaceCreationRequests(
             [FromQuery] string? status,
+            [FromQuery] string? sort,
+            [FromQuery] int? page,
+            [FromQuery] int? pageSize,
             CancellationToken cancellationToken)
         {
             var denied = await RequirePlatformAdminAsync(cancellationToken);
@@ -42,14 +47,36 @@ namespace EduCollab.Api.Controllers
                 return denied;
 
             WorkspaceCreationRequestStatus? parsedStatus = null;
-            if (!string.IsNullOrWhiteSpace(status)
-                && Enum.TryParse<WorkspaceCreationRequestStatus>(status, ignoreCase: true, out var value))
+            if (!string.IsNullOrWhiteSpace(status))
             {
+                if (!Enum.TryParse<WorkspaceCreationRequestStatus>(status, ignoreCase: true, out var value))
+                {
+                    return ApiBadRequest(
+                        "invalid_status",
+                        "Status must be one of: Pending, Approved, Denied.");
+                }
+
                 parsedStatus = value;
             }
 
-            var requests = await _creationRequestService.GetRequestsAsync(parsedStatus, cancellationToken);
-            return Ok(requests.MapToResponse());
+            if (!TryParseListQuery(
+                    sort,
+                    page,
+                    pageSize,
+                    ResourceSortProfiles.WorkspaceCreationRequest.AllowedFields,
+                    ResourceSortProfiles.WorkspaceCreationRequest.Default,
+                    out var sortSpecification,
+                    out var paginationSpecification,
+                    out var problem))
+            {
+                return problem!;
+            }
+
+            var sortedRequests = ResourceSortProfiles.WorkspaceCreationRequest.Apply(
+                await _creationRequestService.GetRequestsAsync(parsedStatus, cancellationToken),
+                sortSpecification);
+            var pagedRequests = PaginationApplier.Apply(sortedRequests, paginationSpecification);
+            return Ok(pagedRequests.MapToResponse());
         }
 
         /// <summary>
@@ -58,10 +85,10 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPost(ApiEndpoints.AdminWorkspaceCreationRequests.Approve)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<WorkspaceCreationRequestResponse>> ApproveWorkspaceCreationRequest(
             long requestId,
             CancellationToken cancellationToken)
@@ -74,17 +101,13 @@ namespace EduCollab.Api.Controllers
             {
                 var approved = await _creationRequestService.ApproveRequestAsync(requestId, cancellationToken);
                 if (approved is null)
-                    return NotFound();
+                    return ApiNotFound();
 
                 return Ok(approved.MapToResponse());
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "approval_failed",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiBadRequest("approval_failed", ex.Message);
             }
         }
 
@@ -94,10 +117,10 @@ namespace EduCollab.Api.Controllers
         [Authorize]
         [HttpPost(ApiEndpoints.AdminWorkspaceCreationRequests.Deny)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<WorkspaceCreationRequestResponse>> DenyWorkspaceCreationRequest(
             long requestId,
             [FromBody] DenyWorkspaceCreationRequest request,
@@ -111,17 +134,13 @@ namespace EduCollab.Api.Controllers
             {
                 var result = await _creationRequestService.DenyRequestAsync(requestId, request.Reason, cancellationToken);
                 if (result is null)
-                    return NotFound();
+                    return ApiNotFound();
 
                 return Ok(result.MapToResponse());
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(new ErrorResponse
-                {
-                    Error = "denial_failed",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiBadRequest("denial_failed", ex.Message);
             }
         }
 
@@ -134,19 +153,11 @@ namespace EduCollab.Api.Controllers
             }
             catch (AccessDeniedException ex)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse
-                {
-                    Error = "forbidden",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiForbidden("forbidden", ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new ErrorResponse
-                {
-                    Error = "unauthorized",
-                    ErrorDescription = ex.Message,
-                });
+                return ApiUnauthorized("unauthorized", ex.Message);
             }
         }
     }

@@ -49,3 +49,4 @@ mono_crash.*.blob
 .env.*
 !.env.example
 !.env.production.example
+TestResults/

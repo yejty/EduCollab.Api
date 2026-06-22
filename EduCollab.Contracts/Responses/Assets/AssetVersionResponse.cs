@@ -9,6 +9,6 @@ namespace EduCollab.Contracts.Responses.Assets
         public string AssetType { get; set; } = string.Empty;
         public string? VersionLabel { get; set; }
         public int CreatedByUserId { get; set; }
-        public DateTime CreatedAtUtc { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

@@ -197,8 +197,8 @@ namespace EduCollab.Api.Mapping
                 Id = workspace.Id,
                 Name = workspace.Name,
                 Description = workspace.Description,
-                CreatedAtUtc = workspace.CreatedAtUtc,
-                UpdatedAtUtc = workspace.UpdatedAtUtc,
+                CreatedAt = workspace.CreatedAtUtc,
+                UpdatedAt = workspace.UpdatedAtUtc,
                 CreatedByUserId = workspace.CreatedByUserId,
                 IsArchived = workspace.IsArchived,
             };
@@ -238,8 +238,8 @@ namespace EduCollab.Api.Mapping
                 Name = request.Name,
                 Description = request.Description,
                 Status = request.Status.ToString(),
-                CreatedAtUtc = request.CreatedAtUtc,
-                ReviewedAtUtc = request.ReviewedAtUtc,
+                CreatedAt = request.CreatedAtUtc,
+                ReviewedAt = request.ReviewedAtUtc,
                 DenialReason = request.DenialReason,
             };
         }
@@ -274,7 +274,7 @@ namespace EduCollab.Api.Mapping
                 Id = group.Id,
                 Name = group.Name,
                 Description = group.Description,
-                CreatedAtUtc = group.CreatedAtUtc,
+                CreatedAt = group.CreatedAtUtc,
                 CreatedByUserId = group.CreatedByUserId,
                 UserCount = group.UserCount
             };
@@ -296,7 +296,7 @@ namespace EduCollab.Api.Mapping
             {
                 UserId = member.UserId,
                 Role = workspaceRole,
-                JoinedAtUtc = member.JoinedAtUtc
+                JoinedAt = member.JoinedAtUtc
             };
         }
 
@@ -321,8 +321,8 @@ namespace EduCollab.Api.Mapping
                 Name = folder.Name,
                 Path = folder.Path,
                 CreatedByUserId = folder.CreatedByUserId,
-                CreatedAtUtc = folder.CreatedAtUtc,
-                UpdatedAtUtc = folder.UpdatedAtUtc
+                CreatedAt = folder.CreatedAtUtc,
+                UpdatedAt = folder.UpdatedAtUtc
             };
         }
 
@@ -348,8 +348,8 @@ namespace EduCollab.Api.Mapping
                 StorageUrl = asset.StorageUrl,
                 Version = asset.Version,
                 CurrentVersionNumber = asset.CurrentVersionNumber,
-                CreatedAtUtc = asset.CreatedAtUtc,
-                UpdatedAtUtc = asset.UpdatedAtUtc
+                CreatedAt = asset.CreatedAtUtc,
+                UpdatedAt = asset.UpdatedAtUtc
             };
         }
 
@@ -372,7 +372,7 @@ namespace EduCollab.Api.Mapping
                 AssetType = version.AssetType,
                 VersionLabel = version.VersionLabel,
                 CreatedByUserId = version.CreatedByUserId,
-                CreatedAtUtc = version.CreatedAtUtc
+                CreatedAt = version.CreatedAtUtc
             };
         }
 
@@ -394,7 +394,7 @@ namespace EduCollab.Api.Mapping
                 Description = version.Description,
                 ETag = version.ETag,
                 CreatedByUserId = version.CreatedByUserId,
-                CreatedAtUtc = version.CreatedAtUtc
+                CreatedAt = version.CreatedAtUtc
             };
         }
 
@@ -418,8 +418,8 @@ namespace EduCollab.Api.Mapping
                 JsonContent = ParseJsonContent(scene.JsonContent),
                 ETag = scene.ETag,
                 CurrentVersionNumber = scene.CurrentVersionNumber,
-                CreatedAtUtc = scene.CreatedAtUtc,
-                UpdatedAtUtc = scene.UpdatedAtUtc
+                CreatedAt = scene.CreatedAtUtc,
+                UpdatedAt = scene.UpdatedAtUtc
             };
         }
 
@@ -430,6 +430,25 @@ namespace EduCollab.Api.Mapping
                 Scenes = scenes.Select(s => s.MapToResponse()).ToList()
             };
         }
+
+        public static SceneAssetResponse MapToResponse(this SceneAssetContextItem item) =>
+            new()
+            {
+                AssetId = item.AssetId,
+                SceneId = item.SceneId,
+                WorkspaceId = item.WorkspaceId,
+                Name = item.Name,
+                AssetType = item.AssetType,
+                UsableInScene = item.UsableInScene,
+                CanViewDirectly = item.CanViewDirectly,
+                ResolvedFrom = item.ResolvedFrom.ToString(),
+            };
+
+        public static SceneAssetsResponse MapToResponse(this IEnumerable<SceneAssetContextItem> items) =>
+            new()
+            {
+                Assets = items.Select(static item => item.MapToResponse()).ToList(),
+            };
 
         public static GroupsResponse MapToResponse(this List<Group> groups)
         {

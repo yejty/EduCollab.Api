@@ -1,1963 +1,2610 @@
 {
   "info": {
-    "_postman_id": "3a9bbfc6-b612-4c0f-9e21-2b91df7b2207",
-    "name": "EduCollab.Api",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "42896612"
+    "name": "EduCollab API",
+    "description": "EduCollab workspace collaboration API (v1).\r\n\r\n## Base URL and tenancy\r\n- All routes are under \u0060/api\u0060.\r\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\r\n- Platform administration uses \u0060/api/admin/...\u0060.\r\n\r\n## Authentication\r\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\r\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\r\n\r\n## List query parameters\r\nCollection list endpoints accept optional query parameters:\r\n\r\n| Parameter | Default | Rules |\r\n|-----------|---------|-------|\r\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\r\n\r\n### Allowed \u0060sort\u0060 fields by resource\r\n- **Assets, scenes, groups, asset-folders, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\r\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\r\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\r\n\r\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\r\n\r\n### Collection filters (normalized URLs)\r\n- **Assets** \u0060GET /api/workspace/assets\u0060: optional \u0060owner=me\u0060, \u0060folderId\u0060, \u0060groupId\u0060 (combine \u0060groupId\u0060 \u002B \u0060folderId\u0060 for group-scoped folder assets). \u0060owner\u0060 cannot combine with \u0060folderId\u0060 or \u0060groupId\u0060.\r\n- **Asset folders** \u0060GET /api/workspace/asset-folders\u0060: optional \u0060groupId\u0060, \u0060parentFolderId\u0060 (subfolders under a parent, optionally scoped to a group).\r\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060.\r\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (scene-context asset list). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060.\r\n- **Asset moves** \u0060POST /api/workspace/asset-moves\u0060: body \u0060{ assetId, folderId }\u0060 (interaction resource; replaces nested \u0060/assets/{id}/move\u0060).\r\n\r\n## Errors\r\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\r\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\r\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\r\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\r\n\r\n## Contract source\r\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\r\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7001"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
   },
   "item": [
     {
-      "name": "api",
+      "name": "AdminWorkspaceCreationRequests",
       "item": [
         {
-          "name": "users",
-          "item": [
-            {
-              "name": "register",
-              "item": [
-                {
-                  "name": "/api/users/register",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/register",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "register"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "Created",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/register",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "register"
-                          ]
-                        }
-                      },
-                      "status": "Created",
-                      "code": 201,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/register",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "register"
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
+          "name": "Approve a pending workspace creation request and email the requester an approval token.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspace-creation-requests/{{requestId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspace-creation-requests",
+                "{{requestId}}",
+                "approve"
               ]
             },
-            {
-              "name": "invite",
-              "item": [
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "name": "/api/users/invite",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"A3=.p9pif~4{k.b7ij?hz7.f9zwtmrlmiq.?b.x|r&9ppejvo.`d.v_oty|.djsj87.qw^=o-z.~hch{j@i.8-ymrj4c5.kypsz.x.gdey.vvigjaghk.u.moZ\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/invite",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "invite"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"A3=.p9pif~4{k.b7ij?hz7.f9zwtmrlmiq.?b.x|r&9ppejvo.`d.v_oty|.djsj87.qw^=o-z.~hch{j@i.8-ymrj4c5.kypsz.x.gdey.vvigjaghk.u.moZ\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/invite",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "invite"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"A3=.p9pif~4{k.b7ij?hz7.f9zwtmrlmiq.?b.x|r&9ppejvo.`d.v_oty|.djsj87.qw^=o-z.~hch{j@i.8-ymrj4c5.kypsz.x.gdey.vvigjaghk.u.moZ\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/invite",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "invite"
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Unauthorized",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"A3=.p9pif~4{k.b7ij?hz7.f9zwtmrlmiq.?b.x|r&9ppejvo.`d.v_oty|.djsj87.qw^=o-z.~hch{j@i.8-ymrj4c5.kypsz.x.gdey.vvigjaghk.u.moZ\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/invite",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "invite"
-                          ]
-                        }
-                      },
-                      "status": "Unauthorized",
-                      "code": 401,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Forbidden",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"A3=.p9pif~4{k.b7ij?hz7.f9zwtmrlmiq.?b.x|r&9ppejvo.`d.v_oty|.djsj87.qw^=o-z.~hch{j@i.8-ymrj4c5.kypsz.x.gdey.vvigjaghk.u.moZ\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/invite",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "invite"
-                          ]
-                        }
-                      },
-                      "status": "Forbidden",
-                      "code": 403,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "{invitationToken}",
-              "item": [
-                {
-                  "name": "/api/users/:invitationToken",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/:invitationToken",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        ":invitationToken"
-                      ],
-                      "variable": [
-                        {
-                          "key": "invitationToken",
-                          "value": "string"
-                        }
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "Created",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:invitationToken",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":invitationToken"
-                          ],
-                          "variable": [
-                            {
-                              "key": "invitationToken",
-                              "value": "string"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Created",
-                      "code": 201,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:invitationToken",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":invitationToken"
-                          ],
-                          "variable": [
-                            {
-                              "key": "invitationToken",
-                              "value": "string"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Unauthorized",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:invitationToken",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":invitationToken"
-                          ],
-                          "variable": [
-                            {
-                              "key": "invitationToken",
-                              "value": "string"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Unauthorized",
-                      "code": 401,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Forbidden",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:invitationToken",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":invitationToken"
-                          ],
-                          "variable": [
-                            {
-                              "key": "invitationToken",
-                              "value": "string"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Forbidden",
-                      "code": 403,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "login",
-              "item": [
-                {
-                  "name": "/api/users/login",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"VtUjoCkoIiq@joRlwCyDV.ipar\",\n  \"password\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/login",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "login"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"VtUjoCkoIiq@joRlwCyDV.ipar\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/login",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "login"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"accessToken\": \"string\",\n  \"refreshToken\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Unauthorized",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"VtUjoCkoIiq@joRlwCyDV.ipar\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/login",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "login"
-                          ]
-                        }
-                      },
-                      "status": "Unauthorized",
-                      "code": 401,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "token",
-              "item": [
-                {
-                  "name": "/api/users/token",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"refreshToken\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/token",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "token"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"refreshToken\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/token",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "token"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"accessToken\": \"string\",\n  \"refreshToken\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Unauthorized",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"refreshToken\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/token",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "token"
-                          ]
-                        }
-                      },
-                      "status": "Unauthorized",
-                      "code": 401,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "me",
-              "item": [
-                {
-                  "name": "/api/users/me",
-                  "request": {
-                    "method": "GET",
-                    "header": [
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/me",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "me"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/me",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "me"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"id\": 6762,\n  \"email\": \"string\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Unauthorized",
-                      "originalRequest": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/me",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "me"
-                          ]
-                        }
-                      },
-                      "status": "Unauthorized",
-                      "code": 401,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Forbidden",
-                      "originalRequest": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/me",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "me"
-                          ]
-                        }
-                      },
-                      "status": "Forbidden",
-                      "code": 403,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "{id}",
-              "item": [
-                {
-                  "name": "/api/users/:id",
-                  "request": {
-                    "method": "GET",
-                    "header": [
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/:id?token=string",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        ":id"
-                      ],
-                      "query": [
-                        {
-                          "key": "token",
-                          "value": "string"
-                        }
-                      ],
-                      "variable": [
-                        {
-                          "key": "id",
-                          "value": "4859"
-                        }
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:id?token=string",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":id"
-                          ],
-                          "query": [
-                            {
-                              "key": "token",
-                              "value": "string"
-                            }
-                          ],
-                          "variable": [
-                            {
-                              "key": "id",
-                              "value": "4859"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"id\": 6762,\n  \"email\": \"string\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:id?token=string",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":id"
-                          ],
-                          "query": [
-                            {
-                              "key": "token",
-                              "value": "string"
-                            }
-                          ],
-                          "variable": [
-                            {
-                              "key": "id",
-                              "value": "4859"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                },
-                {
-                  "name": "/api/users/:id",
-                  "request": {
-                    "method": "PUT",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/:id?token=string",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        ":id"
-                      ],
-                      "query": [
-                        {
-                          "key": "token",
-                          "value": "string"
-                        }
-                      ],
-                      "variable": [
-                        {
-                          "key": "id",
-                          "value": "4859"
-                        }
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "PUT",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:id?token=string",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":id"
-                          ],
-                          "query": [
-                            {
-                              "key": "token",
-                              "value": "string"
-                            }
-                          ],
-                          "variable": [
-                            {
-                              "key": "id",
-                              "value": "4859"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"id\": 6762,\n  \"email\": \"string\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\"\n}"
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "PUT",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Ad9ff6h&.0f.?a.$*g0qfc$9.0=j#z.^-/|`z.pf'm.1e?.`ozhj.8.{}y@k.k.8.qlr9aa23k.p.cp5tZ\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/:id?token=string",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            ":id"
-                          ],
-                          "query": [
-                            {
-                              "key": "token",
-                              "value": "string"
-                            }
-                          ],
-                          "variable": [
-                            {
-                              "key": "id",
-                              "value": "4859"
-                            }
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "reset-confirm",
-              "item": [
-                {
-                  "name": "/api/users/reset-confirm",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"Lzxet-NCkrQCpS6@TkLy.qmt\",\n  \"newPassword\": \"string\",\n  \"token\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/reset-confirm",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "reset-confirm"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Lzxet-NCkrQCpS6@TkLy.qmt\",\n  \"newPassword\": \"string\",\n  \"token\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/reset-confirm",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "reset-confirm"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"Lzxet-NCkrQCpS6@TkLy.qmt\",\n  \"newPassword\": \"string\",\n  \"token\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/reset-confirm",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "reset-confirm"
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "reset",
-              "item": [
-                {
-                  "name": "/api/users/reset",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"email\": \"aIAM8h@rmXJVjdinYeOqbYufPRljUJApCU.atzk\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/reset",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "reset"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"aIAM8h@rmXJVjdinYeOqbYufPRljUJApCU.atzk\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/reset",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "reset"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"email\": \"aIAM8h@rmXJVjdinYeOqbYufPRljUJApCU.atzk\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/reset",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "reset"
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "change-password",
-              "item": [
-                {
-                  "name": "/api/users/change-password",
-                  "request": {
-                    "method": "POST",
-                    "header": [
-                      {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                      },
-                      {
-                        "key": "Accept",
-                        "value": "text/plain"
-                      }
-                    ],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n  \"newPassword\": \"string\",\n  \"password\": \"string\"\n}",
-                      "options": {
-                        "raw": {
-                          "headerFamily": "json",
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{baseUrl}}/api/users/change-password",
-                      "host": [
-                        "{{baseUrl}}"
-                      ],
-                      "path": [
-                        "api",
-                        "users",
-                        "change-password"
-                      ]
-                    }
-                  },
-                  "response": [
-                    {
-                      "name": "OK",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"newPassword\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/change-password",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "change-password"
-                          ]
-                        }
-                      },
-                      "status": "OK",
-                      "code": 200,
-                      "_postman_previewlanguage": "text",
-                      "header": [],
-                      "cookie": [],
-                      "body": ""
-                    },
-                    {
-                      "name": "Bad Request",
-                      "originalRequest": {
-                        "method": "POST",
-                        "header": [
-                          {
-                            "key": "Content-Type",
-                            "value": "application/json"
-                          },
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "body": {
-                          "mode": "raw",
-                          "raw": "{\n  \"newPassword\": \"string\",\n  \"password\": \"string\"\n}",
-                          "options": {
-                            "raw": {
-                              "headerFamily": "json",
-                              "language": "json"
-                            }
-                          }
-                        },
-                        "url": {
-                          "raw": "{{baseUrl}}/api/users/change-password",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "users",
-                            "change-password"
-                          ]
-                        }
-                      },
-                      "status": "Bad Request",
-                      "code": 400,
-                      "_postman_previewlanguage": "json",
-                      "header": [
-                        {
-                          "key": "Content-Type",
-                          "value": "application/json"
-                        }
-                      ],
-                      "cookie": [],
-                      "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                    }
-                  ]
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
                 }
               ]
             }
-          ]
+          }
         },
         {
-          "name": "workspaces",
-          "item": [
-            {
-              "name": "{workspaceId}",
-              "item": [
+          "name": "Deny a pending workspace creation request and email the requester.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspace-creation-requests/{{requestId}}/deny",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspace-creation-requests",
+                "{{requestId}}",
+                "deny"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "name": "users",
-                  "item": [
-                    {
-                      "name": "/api/workspaces/:workspaceId/users",
-                      "request": {
-                        "method": "GET",
-                        "header": [
-                          {
-                            "key": "Accept",
-                            "value": "text/plain"
-                          }
-                        ],
-                        "url": {
-                          "raw": "{{baseUrl}}/api/workspaces/:workspaceId/users",
-                          "host": [
-                            "{{baseUrl}}"
-                          ],
-                          "path": [
-                            "api",
-                            "workspaces",
-                            ":workspaceId",
-                            "users"
-                          ],
-                          "variable": [
-                            {
-                              "key": "workspaceId",
-                              "value": "6881"
-                            }
-                          ]
-                        }
-                      },
-                      "response": [
-                        {
-                          "name": "OK",
-                          "originalRequest": {
-                            "method": "GET",
-                            "header": [
-                              {
-                                "key": "Accept",
-                                "value": "text/plain"
-                              }
-                            ],
-                            "url": {
-                              "raw": "{{baseUrl}}/api/workspaces/:workspaceId/users",
-                              "host": [
-                                "{{baseUrl}}"
-                              ],
-                              "path": [
-                                "api",
-                                "workspaces",
-                                ":workspaceId",
-                                "users"
-                              ],
-                              "variable": [
-                                {
-                                  "key": "workspaceId",
-                                  "value": "6881"
-                                }
-                              ]
-                            }
-                          },
-                          "status": "OK",
-                          "code": 200,
-                          "_postman_previewlanguage": "json",
-                          "header": [
-                            {
-                              "key": "Content-Type",
-                              "value": "application/json"
-                            }
-                          ],
-                          "cookie": [],
-                          "body": "{\n  \"users\": [\n    {\n      \"id\": 4066,\n      \"email\": \"string\",\n      \"firstName\": \"string\",\n      \"lastName\": \"string\",\n      \"role\": \"string\"\n    },\n    {\n      \"id\": 913,\n      \"email\": \"string\",\n      \"firstName\": \"string\",\n      \"lastName\": \"string\",\n      \"role\": \"string\"\n    }\n  ]\n}"
-                        },
-                        {
-                          "name": "Unauthorized",
-                          "originalRequest": {
-                            "method": "GET",
-                            "header": [
-                              {
-                                "key": "Accept",
-                                "value": "text/plain"
-                              }
-                            ],
-                            "url": {
-                              "raw": "{{baseUrl}}/api/workspaces/:workspaceId/users",
-                              "host": [
-                                "{{baseUrl}}"
-                              ],
-                              "path": [
-                                "api",
-                                "workspaces",
-                                ":workspaceId",
-                                "users"
-                              ],
-                              "variable": [
-                                {
-                                  "key": "workspaceId",
-                                  "value": "6881"
-                                }
-                              ]
-                            }
-                          },
-                          "status": "Unauthorized",
-                          "code": 401,
-                          "_postman_previewlanguage": "json",
-                          "header": [
-                            {
-                              "key": "Content-Type",
-                              "value": "application/json"
-                            }
-                          ],
-                          "cookie": [],
-                          "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                        },
-                        {
-                          "name": "Forbidden",
-                          "originalRequest": {
-                            "method": "GET",
-                            "header": [
-                              {
-                                "key": "Accept",
-                                "value": "text/plain"
-                              }
-                            ],
-                            "url": {
-                              "raw": "{{baseUrl}}/api/workspaces/:workspaceId/users",
-                              "host": [
-                                "{{baseUrl}}"
-                              ],
-                              "path": [
-                                "api",
-                                "workspaces",
-                                ":workspaceId",
-                                "users"
-                              ],
-                              "variable": [
-                                {
-                                  "key": "workspaceId",
-                                  "value": "6881"
-                                }
-                              ]
-                            }
-                          },
-                          "status": "Forbidden",
-                          "code": 403,
-                          "_postman_previewlanguage": "json",
-                          "header": [
-                            {
-                              "key": "Content-Type",
-                              "value": "application/json"
-                            }
-                          ],
-                          "cookie": [],
-                          "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                        },
-                        {
-                          "name": "Not Found",
-                          "originalRequest": {
-                            "method": "GET",
-                            "header": [
-                              {
-                                "key": "Accept",
-                                "value": "text/plain"
-                              }
-                            ],
-                            "url": {
-                              "raw": "{{baseUrl}}/api/workspaces/:workspaceId/users",
-                              "host": [
-                                "{{baseUrl}}"
-                              ],
-                              "path": [
-                                "api",
-                                "workspaces",
-                                ":workspaceId",
-                                "users"
-                              ],
-                              "variable": [
-                                {
-                                  "key": "workspaceId",
-                                  "value": "6881"
-                                }
-                              ]
-                            }
-                          },
-                          "status": "Not Found",
-                          "code": 404,
-                          "_postman_previewlanguage": "json",
-                          "header": [
-                            {
-                              "key": "Content-Type",
-                              "value": "application/json"
-                            }
-                          ],
-                          "cookie": [],
-                          "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-                        }
-                      ]
-                    }
-                  ]
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
                 }
               ]
             }
-          ]
+          }
         },
         {
-          "name": "/api/users/me Copy",
+          "name": "List workspace creation requests for platform admin review.",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "Accept",
-                "value": "text/plain"
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspace-creation-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspace-creation-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "Filter by status where supported. Invalid values return \u0060invalid_status\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AdminWorkspaces",
+      "item": [
+        {
+          "name": "List all workspaces in the platform.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspaces"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List members of a selected workspace.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspaces/{{id}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspaces",
+                "{{id}}",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retrieve a workspace by id.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/workspaces/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "workspaces",
+                "{{id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AssetFolders",
+      "item": [
+        {
+          "name": "DELETE /api/workspace/asset-folders/{folderId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders/{{folderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders",
+                "{{folderId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/workspace/asset-folders/{folderId}/groups/{groupId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders/{{folderId}}/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders",
+                "{{folderId}}",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/asset-folders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders"
+              ],
+              "query": [
+                {
+                  "key": "groupId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "parentFolderId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/asset-folders/{folderId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders/{{folderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders",
+                "{{folderId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/asset-folders",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/asset-folders/{folderId}/groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders/{{folderId}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders",
+                "{{folderId}}",
+                "groups"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/workspace/asset-folders/{folderId}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-folders/{{folderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-folders",
+                "{{folderId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AssetMoves",
+      "item": [
+        {
+          "name": "POST /api/workspace/asset-moves",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/asset-moves",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "asset-moves"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assets",
+      "item": [
+        {
+          "name": "DELETE /api/workspace/assets/{assetId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/workspace/assets/{assetId}/groups/{groupId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "folderId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "groupId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets/{assetId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets/{assetId}/content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "versionNumber",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets/{assetId}/versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "versions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets/{assetId}/versions/{versionNumber}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/versions/{{versionNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "versions",
+                "{{versionNumber}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/assets/{assetId}/versions/{versionNumber}/content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/versions/{{versionNumber}}/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "versions",
+                "{{versionNumber}}",
+                "content"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/assets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/assets/{assetId}/groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "groups"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/workspace/assets/{assetId}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/workspace/assets/{assetId}/content",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "content"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "DELETE /api/workspace/groups/{groupId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/workspace/groups/{groupId}/users/{userId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/groups/{groupId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/groups/{groupId}/users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/groups/{groupId}/users/{userId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/groups/{groupId}/users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "PUT /api/workspace/groups/{groupId}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "SceneAssets",
+      "item": [
+        {
+          "name": "DELETE /api/workspace/scene-assets",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets"
+              ],
+              "query": [
+                {
+                  "key": "sceneId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "assetId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/scene-assets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets"
+              ],
+              "query": [
+                {
+                  "key": "sceneId",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/scene-assets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scenes",
+      "item": [
+        {
+          "name": "DELETE /api/workspace/scenes/{sceneId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE /api/workspace/scenes/{sceneId}/groups/{groupId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/scenes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes"
+              ],
+              "query": [
+                {
+                  "key": "owner",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/scenes/{sceneId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}"
+              ],
+              "query": [
+                {
+                  "key": "versionNumber",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/scenes/{sceneId}/versions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}",
+                "versions"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/workspace/scenes/{sceneId}/versions/{versionNumber}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}/versions/{{versionNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}",
+                "versions",
+                "{{versionNumber}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/scenes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/workspace/scenes/{sceneId}/groups",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}",
+                "groups"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Replace a scene document. Requires the current scene ETag in the If-Match request header.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes/{{sceneId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes",
+                "{{sceneId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Change password.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "change-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirm email after registration; returns access and refresh tokens for immediate sign-in.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/registration-confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "registration-confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete user by user Id. The id must match the authenticated user (JWT subject).",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Log in a user with a previously sent 6-digit sign-in code.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/login/confirm-code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "login",
+                "confirm-code"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Log in a user with provided credentials.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login with a refresh token to obtain a new access token.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "token"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Register a new user. A confirmation email is sent; sign-in is blocked until email is confirmed.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Replace opaque web-client preferences for the current user.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resend the confirmation email for an unconfirmed account. For privacy, the same response is returned even when the email does not exist.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/registration-confirm/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "registration-confirm",
+                "resend"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset password confirm.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/reset-password-confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "reset-password-confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset password.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "reset-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Retrieve opaque web-client preferences for the current user.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "preferences"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retrieve the current authenticated user\u0027s information.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
               }
             ],
             "url": {
@@ -1970,120 +2617,825 @@
                 "users",
                 "me"
               ]
-            }
-          },
-          "response": [
-            {
-              "name": "OK",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "text/plain"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/users/me",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "users",
-                    "me"
-                  ]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"id\": 6762,\n  \"email\": \"string\",\n  \"firstName\": \"string\",\n  \"lastName\": \"string\"\n}"
             },
-            {
-              "name": "Unauthorized",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "text/plain"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/users/me",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "users",
-                    "me"
-                  ]
-                }
-              },
-              "status": "Unauthorized",
-              "code": 401,
-              "_postman_previewlanguage": "json",
-              "header": [
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "key": "Content-Type",
-                  "value": "application/json"
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
                 }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
-            },
-            {
-              "name": "Forbidden",
-              "originalRequest": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Accept",
-                    "value": "text/plain"
-                  }
-                ],
-                "url": {
-                  "raw": "{{baseUrl}}/api/users/me",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "users",
-                    "me"
-                  ]
-                }
-              },
-              "status": "Forbidden",
-              "code": 403,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"string\",\n  \"errorDescription\": \"string\"\n}"
+              ]
             }
-          ]
+          }
+        },
+        {
+          "name": "Retrieve the user\u0027s profile by id.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send a one-time 6-digit sign-in code to the confirmed email address.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/login/request-code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "login",
+                "request-code"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update user information by user Id. The id must match the authenticated user (JWT subject).",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
         }
       ]
-    }
-  ],
-  "variable": [
+    },
     {
-      "key": "baseUrl",
-      "value": "/"
+      "name": "WorkspaceCreationReview",
+      "item": [
+        {
+          "name": "One-click approve action from the platform admin notification email.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace-creation-review/{{reviewToken}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace-creation-review",
+                "{{reviewToken}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "One-click deny action from the platform admin notification email.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace-creation-review/{{reviewToken}}/deny",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace-creation-review",
+                "{{reviewToken}}",
+                "deny"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "item": [
+        {
+          "name": "Create a new workspace and assign the current user as the owner.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Creates a new user in the workspace based on the provided token.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace-invitations/{{invitationToken}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace-invitations",
+                "{{invitationToken}}",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete the current workspace thumbnail image.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/thumbnail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "thumbnail"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get one workspace member (membership projection: role, groups, etc.).",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get the current user\u0027s latest workspace creation request.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/creation-requests/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "creation-requests",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invite a new user.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "invitations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Joins the current user to a workspace using an invitation token (existing accounts).",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace-invitations/{{invitationToken}}/join",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace-invitations",
+                "{{invitationToken}}",
+                "join"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List members of the current workspace.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Removes a member from the workspace, or the caller leaves (when userId is self).",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retrieve the current user\u0027s workspace.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retrieve the current workspace thumbnail image.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/thumbnail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "thumbnail"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Soft-delete a workspace by archiving it and disconnecting all members from it.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit a workspace creation request for platform admin approval.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/creation-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "creation-requests"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update a workspace member role.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "users",
+                "{{userId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update workspace metadata.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload or replace the current workspace thumbnail image.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/thumbnail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "thumbnail"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

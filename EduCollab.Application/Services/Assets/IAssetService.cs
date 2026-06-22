@@ -21,5 +21,6 @@ namespace EduCollab.Application.Services.Assets
         Task SaveAssetContentAsync(int assetId, string contentType, string? fileName, Stream content, CancellationToken cancellationToken);
         Task<List<AssetVersion>> GetAssetVersionsAsync(int assetId, CancellationToken cancellationToken);
         Task<AssetVersion?> GetAssetVersionAsync(int assetId, int versionNumber, CancellationToken cancellationToken);
+        Task<bool> CanCurrentUserViewAssetDirectlyAsync(int assetId, CancellationToken cancellationToken);
     }
 }
