@@ -2,6 +2,7 @@
 using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
+using EduCollab.Application.Services.Workspaces;
 
 namespace EduCollab.Application.Services.Groups
 {
@@ -36,18 +37,14 @@ namespace EduCollab.Application.Services.Groups
                 ?? throw new UnauthorizedAccessException("Authentication is required for this operation.");
         }
 
-        private async Task<(int WorkspaceId, WorkspaceMember Membership)> ResolveCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
+        private Task<(int WorkspaceId, WorkspaceMember Membership)> ResolveCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
         {
             var currentUserId = RequireCurrentUserId();
-            var user = await _userRepository.GetUserByIdAsync(currentUserId, cancellationToken);
-            if (user?.WorkspaceId is not int workspaceId || workspaceId <= 0)
-                throw new AccessDeniedException("You must belong to a workspace to access groups.");
-
-            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, currentUserId, cancellationToken);
-            if (membership is null)
-                throw new AccessDeniedException("You must be a member of this workspace to access its groups.");
-
-            return (workspaceId, membership);
+            return CurrentWorkspaceAccess.RequireMembershipAsync(
+                _userRepository,
+                _workspaceRepository,
+                currentUserId,
+                cancellationToken);
         }
 
         public async Task<WorkspaceRole> GetCurrentUserWorkspaceRoleAsync(CancellationToken cancellationToken)

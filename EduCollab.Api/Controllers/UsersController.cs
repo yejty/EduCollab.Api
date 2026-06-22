@@ -1,8 +1,10 @@
 ﻿using EduCollab.Api.Mapping;
 using EduCollab.Api.Security;
+using EduCollab.Application.Exceptions;
 using EduCollab.Application.Models;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Users;
+using EduCollab.Application.Services.Workspaces;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Responses;
 using EduCollab.Contracts.Responses.Users;
@@ -18,17 +20,20 @@ namespace EduCollab.Api.Controllers
     {
         private readonly IUserService _userService;
         private readonly IUserPreferencesService _userPreferencesService;
+        private readonly IWorkspaceService _workspaceService;
         private readonly IAccessTokenService _accessTokenService;
         private readonly IRefreshTokenService _refreshTokenService;
 
         public UsersController(
             IUserService userService,
             IUserPreferencesService userPreferencesService,
+            IWorkspaceService workspaceService,
             IAccessTokenService accessTokenService,
             IRefreshTokenService refreshTokenService)
         {
             _userService = userService;
             _userPreferencesService = userPreferencesService;
+            _workspaceService = workspaceService;
             _accessTokenService = accessTokenService;
             _refreshTokenService = refreshTokenService;
         }
@@ -237,6 +242,52 @@ namespace EduCollab.Api.Controllers
             }
             var response = user.MapToResponse();
             return Ok(response);
+        }
+
+        [Authorize]
+        [HttpGet(ApiEndpoints.Users.Workspaces)]
+        [ProducesResponseType(typeof(UserWorkspacesResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<UserWorkspacesResponse>> GetCurrentUserWorkspaces(CancellationToken cancellationToken)
+        {
+            var user = await _userService.GetCurrentUserAsync(cancellationToken);
+            if (user is null)
+                return ApiUnauthorized("unauthorized", "Authentication is required for this operation.");
+
+            var workspaces = await _workspaceService.GetCurrentUserWorkspacesAsync(cancellationToken);
+            var memberships = await _workspaceService.GetCurrentUserWorkspaceMembershipsAsync(cancellationToken);
+            return Ok(workspaces.MapToWorkspacesResponse(memberships, user.WorkspaceId));
+        }
+
+        [Authorize]
+        [HttpPut(ApiEndpoints.Users.ActiveWorkspace)]
+        [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<UserResponse>> SetActiveWorkspace(
+            [FromBody] SetActiveWorkspaceRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (request.WorkspaceId <= 0)
+                return ApiBadRequest("invalid_workspace_id", "workspaceId must be a positive integer.");
+
+            try
+            {
+                var updated = await _workspaceService.SetActiveWorkspaceAsync(request.WorkspaceId, cancellationToken);
+                if (!updated)
+                    return ApiBadRequest("update_failed", "Active workspace could not be updated.");
+            }
+            catch (AccessDeniedException ex)
+            {
+                return ApiForbidden("access_denied", ex.Message);
+            }
+
+            var user = await _userService.GetCurrentUserAsync(cancellationToken);
+            if (user is null)
+                return ApiUnauthorized("unauthorized", "Authentication is required for this operation.");
+
+            return Ok(user.MapToResponse());
         }
 
         /// <summary>

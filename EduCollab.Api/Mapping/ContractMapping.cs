@@ -182,6 +182,31 @@ namespace EduCollab.Api.Mapping
             };
         }
 
+        public static UserWorkspacesResponse MapToWorkspacesResponse(
+            this IEnumerable<Workspace> workspaces,
+            IEnumerable<WorkspaceMember> memberships,
+            int? activeWorkspaceId)
+        {
+            var membershipByWorkspaceId = memberships.ToDictionary(m => m.WorkspaceId);
+            return new UserWorkspacesResponse
+            {
+                Workspaces = workspaces
+                    .Select(workspace =>
+                    {
+                        var membership = membershipByWorkspaceId[workspace.Id];
+                        return new UserWorkspaceMembershipResponse
+                        {
+                            WorkspaceId = workspace.Id,
+                            WorkspaceName = workspace.Name,
+                            Role = membership.Role.ToString(),
+                            JoinedAt = membership.JoinedAtUtc,
+                            IsActive = activeWorkspaceId == workspace.Id,
+                        };
+                    })
+                    .ToList(),
+            };
+        }
+
         public static TokensResponse MapToResponse(this (string AccessToken, string RefreshToken) tokens)
         {
             return new TokensResponse

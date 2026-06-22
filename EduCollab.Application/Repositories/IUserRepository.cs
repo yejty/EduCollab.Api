@@ -31,6 +31,8 @@ namespace EduCollab.Application.Repositories
         Task<bool> IsPlatformAdminAsync(int userId, CancellationToken cancellationToken);
         Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
+
+        Task<bool> SetActiveWorkspaceIdAsync(int userId, int? workspaceId, CancellationToken cancellationToken);
         Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken);
 
         Task RevokeActiveEmailConfirmationTokensForUserAsync(int userId, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken);

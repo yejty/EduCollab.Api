@@ -28,6 +28,9 @@ public sealed class FakeWorkspaceService : IWorkspaceService
     public Func<int, CancellationToken, Task>? RemoveCurrentWorkspaceMemberAsyncHandler { get; set; }
     public Func<int, int, WorkspaceMember, CancellationToken, Task<WorkspaceMember?>>? UpdateWorkspaceMemberAsyncHandler { get; set; }
     public Func<int, WorkspaceMember, CancellationToken, Task<WorkspaceMember?>>? UpdateCurrentWorkspaceMemberAsyncHandler { get; set; }
+    public Func<CancellationToken, Task<List<WorkspaceMember>>>? GetCurrentUserWorkspaceMembershipsAsyncHandler { get; set; }
+    public Func<CancellationToken, Task<List<Workspace>>>? GetCurrentUserWorkspacesAsyncHandler { get; set; }
+    public Func<int, CancellationToken, Task<bool>>? SetActiveWorkspaceAsyncHandler { get; set; }
 
     public Task<bool> CreateUserInWorkspaceAsync(int workspaceId, User user, string password, string invitationToken, CancellationToken cancellationToken) =>
         CreateUserInWorkspaceAsyncHandler?.Invoke(workspaceId, user, password, invitationToken, cancellationToken)
@@ -99,4 +102,13 @@ public sealed class FakeWorkspaceService : IWorkspaceService
 
     public Task<WorkspaceMember?> UpdateCurrentWorkspaceMemberAsync(int userId, WorkspaceMember member, CancellationToken cancellationToken) =>
         UpdateCurrentWorkspaceMemberAsyncHandler?.Invoke(userId, member, cancellationToken) ?? Task.FromResult<WorkspaceMember?>(member);
+
+    public Task<List<WorkspaceMember>> GetCurrentUserWorkspaceMembershipsAsync(CancellationToken cancellationToken) =>
+        GetCurrentUserWorkspaceMembershipsAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult(new List<WorkspaceMember>());
+
+    public Task<List<Workspace>> GetCurrentUserWorkspacesAsync(CancellationToken cancellationToken) =>
+        GetCurrentUserWorkspacesAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult(new List<Workspace>());
+
+    public Task<bool> SetActiveWorkspaceAsync(int workspaceId, CancellationToken cancellationToken) =>
+        SetActiveWorkspaceAsyncHandler?.Invoke(workspaceId, cancellationToken) ?? Task.FromResult(true);
 }

@@ -166,6 +166,50 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
         }
 
+        public async Task<List<WorkspaceMember>> GetWorkspaceMembershipsForUserAsync(int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var members = await connection.QueryAsync<WorkspaceMember>(
+                new CommandDefinition(
+                    """
+                    SELECT WorkspaceId, UserId, Role, JoinedAtUtc
+                    FROM WorkspaceMembers
+                    WHERE UserId = @UserId
+                    ORDER BY JoinedAtUtc, WorkspaceId;
+                    """,
+                    new { UserId = userId },
+                    cancellationToken: cancellationToken));
+
+            return members.AsList();
+        }
+
+        public async Task<List<Workspace>> GetWorkspacesForUserAsync(int userId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var workspaces = await connection.QueryAsync<Workspace>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        w.Id,
+                        w.Name,
+                        w.Description,
+                        w.CreatedAtUtc,
+                        w.UpdatedAtUtc,
+                        w.CreatedByUserId,
+                        w.IsArchived
+                    FROM Workspaces w
+                    INNER JOIN WorkspaceMembers wm ON wm.WorkspaceId = w.Id
+                    WHERE wm.UserId = @UserId
+                    ORDER BY wm.JoinedAtUtc, w.Id;
+                    """,
+                    new { UserId = userId },
+                    cancellationToken: cancellationToken));
+
+            return workspaces.AsList();
+        }
+
         public async Task<bool> IsUserWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
         {
             const string sql = """
@@ -478,21 +522,6 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            var inAnyWorkspace = await connection.ExecuteScalarAsync<bool>(
-                new CommandDefinition(
-                    """
-                    SELECT EXISTS(SELECT 1 FROM WorkspaceMembers WHERE UserId = @UserId);
-                    """,
-                    new { UserId = userId },
-                    transaction: tx,
-                    cancellationToken: cancellationToken));
-
-            if (inAnyWorkspace)
-            {
-                await tx.RollbackAsync(cancellationToken);
-                return null;
-            }
-
             var invitedRole = WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
 
             var member = await connection.QuerySingleAsync<WorkspaceMember>(
@@ -576,10 +605,36 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     """
                     UPDATE Users
-                    SET WorkspaceId = NULL
-                    WHERE Id = @UserId AND WorkspaceId = @WorkspaceId;
+                    SET WorkspaceId = CASE
+                        WHEN WorkspaceId = @WorkspaceId THEN (
+                            SELECT wm.WorkspaceId
+                            FROM WorkspaceMembers wm
+                            WHERE wm.UserId = @UserId
+                            ORDER BY wm.JoinedAtUtc, wm.WorkspaceId
+                            LIMIT 1
+                        )
+                        ELSE WorkspaceId
+                    END
+                    WHERE Id = @UserId;
                     """,
                     new { UserId = userId, WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Users
+                    SET WorkspaceId = NULL
+                    WHERE Id = @UserId
+                      AND WorkspaceId IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM WorkspaceMembers wm
+                          WHERE wm.UserId = @UserId
+                      );
+                    """,
+                    new { UserId = userId },
                     transaction: tx,
                     cancellationToken: cancellationToken));
 

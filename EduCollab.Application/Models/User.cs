@@ -20,7 +20,7 @@ namespace EduCollab.Application.Models
         public DateTime? EmailConfirmedAtUtc { get; set; }
 
         /// <summary>
-        /// At most one workspace per user: when set, this user belongs only to this workspace.
+        /// Active workspace for current-workspace API routes. Membership is stored in <see cref="WorkspaceMember"/>.
         /// </summary>
         public int? WorkspaceId { get; set; }
 

@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\r\n\r\n## Base URL and tenancy\r\n- All routes are under `/api`.\r\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\r\n- Platform administration uses `/api/admin/...`.\r\n\r\n## Authentication\r\n- Send `Authorization: Bearer {accessToken}` on protected routes.\r\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\r\n\r\n## List query parameters\r\nCollection list endpoints accept optional query parameters:\r\n\r\n| Parameter | Default | Rules |\r\n|-----------|---------|-------|\r\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\r\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\r\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\r\n\r\n### Allowed `sort` fields by resource\r\n- **Assets, scenes, groups, asset-folders, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\r\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\r\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\r\n\r\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\r\n\r\n### Collection filters (normalized URLs)\r\n- **Assets** `GET /api/workspace/assets`: optional `owner=me`, `folderId`, `groupId` (combine `groupId` + `folderId` for group-scoped folder assets). `owner` cannot combine with `folderId` or `groupId`.\r\n- **Asset folders** `GET /api/workspace/asset-folders`: optional `groupId`, `parentFolderId` (subfolders under a parent, optionally scoped to a group).\r\n- **Scenes** `GET /api/workspace/scenes`: optional `owner=me`.\r\n- **Scene assets** `GET /api/workspace/scene-assets`: required `sceneId` (scene-context asset list). Attach via `POST /api/workspace/scene-assets`; detach via `DELETE /api/workspace/scene-assets?sceneId=&assetId=`.\r\n- **Asset moves** `POST /api/workspace/asset-moves`: body `{ assetId, folderId }` (interaction resource; replaces nested `/assets/{id}/move`).\r\n\r\n## Errors\r\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\r\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\r\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\r\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\r\n\r\n## Contract source\r\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\r\nRegenerate with `scripts/export-openapi.ps1`.",
+    "description": "EduCollab workspace collaboration API (v1).\r\n\r\n## Base URL and tenancy\r\n- All routes are under `/api`.\r\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\r\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\r\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\r\n- Platform administration uses `/api/admin/...`.\r\n\r\n## Authentication\r\n- Send `Authorization: Bearer {accessToken}` on protected routes.\r\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\r\n\r\n## List query parameters\r\nCollection list endpoints accept optional query parameters:\r\n\r\n| Parameter | Default | Rules |\r\n|-----------|---------|-------|\r\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\r\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\r\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\r\n\r\n### Allowed `sort` fields by resource\r\n- **Assets, scenes, groups, asset-folders, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\r\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\r\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\r\n\r\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\r\n\r\n### Collection filters (normalized URLs)\r\n- **Assets** `GET /api/workspace/assets`: optional `owner=me`, `folderId`, `groupId` (combine `groupId` + `folderId` for group-scoped folder assets). `owner` cannot combine with `folderId` or `groupId`.\r\n- **Asset folders** `GET /api/workspace/asset-folders`: optional `groupId`, `parentFolderId` (subfolders under a parent, optionally scoped to a group).\r\n- **Scenes** `GET /api/workspace/scenes`: optional `owner=me`.\r\n- **Scene assets** `GET /api/workspace/scene-assets`: required `sceneId` (scene-context asset list). Attach via `POST /api/workspace/scene-assets`; detach via `DELETE /api/workspace/scene-assets?sceneId=&assetId=`.\r\n- **Asset moves** `POST /api/workspace/asset-moves`: body `{ assetId, folderId }` (interaction resource; replaces nested `/assets/{id}/move`).\r\n\r\n## Errors\r\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\r\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\r\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\r\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\r\n\r\n## Contract source\r\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\r\nRegenerate with `scripts/export-openapi.ps1`.",
     "version": "1.0"
   },
   "paths": {
@@ -6217,6 +6217,173 @@
         ]
       }
     },
+    "/api/users/me/workspaces": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkspacesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkspacesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserWorkspacesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/users/me/active-workspace": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveWorkspaceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveWorkspaceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveWorkspaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
     "/api/users/me/preferences": {
       "get": {
         "tags": [
@@ -9667,6 +9834,16 @@
         },
         "additionalProperties": false
       },
+      "SetActiveWorkspaceRequest": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "ShareWithGroupRequest": {
         "type": "object",
         "properties": {
@@ -9853,6 +10030,44 @@
           "workspaceId": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserWorkspaceMembershipResponse": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "workspaceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "nullable": true
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserWorkspacesResponse": {
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserWorkspaceMembershipResponse"
+            },
             "nullable": true
           }
         },

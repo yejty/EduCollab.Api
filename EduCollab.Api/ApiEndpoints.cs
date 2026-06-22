@@ -23,6 +23,8 @@
             public const string Token = $"{Base}/token";
             public const string Me = $"{Base}/me";
             public const string Preferences = $"{Me}/preferences";
+            public const string Workspaces = $"{Me}/workspaces";
+            public const string ActiveWorkspace = $"{Me}/active-workspace";
 
             public const string ResetConfirm = $"{Base}/reset-password-confirm";
             public const string Reset = $"{Base}/reset-password";

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\r\n\r\n## Base URL and tenancy\r\n- All routes are under \u0060/api\u0060.\r\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\r\n- Platform administration uses \u0060/api/admin/...\u0060.\r\n\r\n## Authentication\r\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\r\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\r\n\r\n## List query parameters\r\nCollection list endpoints accept optional query parameters:\r\n\r\n| Parameter | Default | Rules |\r\n|-----------|---------|-------|\r\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\r\n\r\n### Allowed \u0060sort\u0060 fields by resource\r\n- **Assets, scenes, groups, asset-folders, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\r\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\r\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\r\n\r\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\r\n\r\n### Collection filters (normalized URLs)\r\n- **Assets** \u0060GET /api/workspace/assets\u0060: optional \u0060owner=me\u0060, \u0060folderId\u0060, \u0060groupId\u0060 (combine \u0060groupId\u0060 \u002B \u0060folderId\u0060 for group-scoped folder assets). \u0060owner\u0060 cannot combine with \u0060folderId\u0060 or \u0060groupId\u0060.\r\n- **Asset folders** \u0060GET /api/workspace/asset-folders\u0060: optional \u0060groupId\u0060, \u0060parentFolderId\u0060 (subfolders under a parent, optionally scoped to a group).\r\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060.\r\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (scene-context asset list). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060.\r\n- **Asset moves** \u0060POST /api/workspace/asset-moves\u0060: body \u0060{ assetId, folderId }\u0060 (interaction resource; replaces nested \u0060/assets/{id}/move\u0060).\r\n\r\n## Errors\r\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\r\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\r\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\r\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\r\n\r\n## Contract source\r\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\r\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
+    "description": "EduCollab workspace collaboration API (v1).\r\n\r\n## Base URL and tenancy\r\n- All routes are under \u0060/api\u0060.\r\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\r\n- Users may belong to multiple workspaces; \u0060Users.WorkspaceId\u0060 stores the active workspace used by current-workspace routes.\r\n- List memberships with \u0060GET /api/users/me/workspaces\u0060; switch active workspace with \u0060PUT /api/users/me/active-workspace\u0060.\r\n- Platform administration uses \u0060/api/admin/...\u0060.\r\n\r\n## Authentication\r\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\r\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\r\n\r\n## List query parameters\r\nCollection list endpoints accept optional query parameters:\r\n\r\n| Parameter | Default | Rules |\r\n|-----------|---------|-------|\r\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\r\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\r\n\r\n### Allowed \u0060sort\u0060 fields by resource\r\n- **Assets, scenes, groups, asset-folders, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\r\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\r\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\r\n\r\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\r\n\r\n### Collection filters (normalized URLs)\r\n- **Assets** \u0060GET /api/workspace/assets\u0060: optional \u0060owner=me\u0060, \u0060folderId\u0060, \u0060groupId\u0060 (combine \u0060groupId\u0060 \u002B \u0060folderId\u0060 for group-scoped folder assets). \u0060owner\u0060 cannot combine with \u0060folderId\u0060 or \u0060groupId\u0060.\r\n- **Asset folders** \u0060GET /api/workspace/asset-folders\u0060: optional \u0060groupId\u0060, \u0060parentFolderId\u0060 (subfolders under a parent, optionally scoped to a group).\r\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060.\r\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (scene-context asset list). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060.\r\n- **Asset moves** \u0060POST /api/workspace/asset-moves\u0060: body \u0060{ assetId, folderId }\u0060 (interaction resource; replaces nested \u0060/assets/{id}/move\u0060).\r\n\r\n## Errors\r\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\r\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\r\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\r\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\r\n\r\n## Contract source\r\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\r\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -2263,6 +2263,40 @@
           }
         },
         {
+          "name": "GET /api/users/me/workspaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/workspaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "workspaces"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Log in a user with a previously sent 6-digit sign-in code.",
           "request": {
             "method": "POST",
@@ -2368,6 +2402,53 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/users/me/active-workspace",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/active-workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "active-workspace"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },

@@ -152,4 +152,95 @@ public sealed class WorkspaceApiIntegrationTests
         var workspace = await workspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
         Assert.Equal("Manager", workspace.CurrentUserRole);
     }
+
+    [Fact]
+    public async Task ExistingUser_CanJoinSecondWorkspace_AndSwitchActiveWorkspace()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var firstOwnerClient = factory.CreateClient();
+        using var secondOwnerClient = factory.CreateClient();
+        using var memberClient = factory.CreateClient();
+
+        var memberEmail = $"member-{Guid.NewGuid():N}@example.com";
+        const string memberPassword = "Member123!";
+        const string ownerPassword = "Owner123!";
+
+        var firstOwnerEmail = $"owner1-{Guid.NewGuid():N}@example.com";
+        var firstOwnerTokens = await firstOwnerClient.RegisterAndConfirmAsync(factory, "First", "Owner", firstOwnerEmail, ownerPassword);
+        firstOwnerClient.SetBearerToken(firstOwnerTokens.AccessToken);
+        var firstWorkspace = await firstOwnerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            firstOwnerEmail,
+            "First Workspace",
+            "Primary membership");
+
+        factory.EmailSender.Clear();
+
+        var firstInviteResponse = await firstOwnerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = memberEmail,
+            Role = "Viewer",
+        });
+        firstInviteResponse.EnsureSuccessStatusCode();
+
+        var firstInvitationToken = factory.GetInvitationToken(memberEmail);
+        var acceptResponse = await memberClient.PostAsJsonAsync(
+            $"/api/workspace-invitations/{firstInvitationToken}/accept",
+            new RegisterUserRequest
+            {
+                FirstName = "Multi",
+                LastName = "Member",
+                Email = memberEmail,
+                Password = memberPassword,
+            });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var memberTokens = await memberClient.LoginAsync(memberEmail, memberPassword);
+        memberClient.SetBearerToken(memberTokens.AccessToken);
+
+        var secondOwnerEmail = $"owner2-{Guid.NewGuid():N}@example.com";
+        var secondOwnerTokens = await secondOwnerClient.RegisterAndConfirmAsync(factory, "Second", "Owner", secondOwnerEmail, ownerPassword);
+        secondOwnerClient.SetBearerToken(secondOwnerTokens.AccessToken);
+        await secondOwnerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            secondOwnerEmail,
+            "Second Workspace",
+            "Secondary membership target");
+
+        factory.EmailSender.Clear();
+
+        var secondInviteResponse = await secondOwnerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = memberEmail,
+            Role = "Creator",
+        });
+        secondInviteResponse.EnsureSuccessStatusCode();
+
+        var secondInvitationToken = factory.GetInvitationToken(memberEmail);
+        var joinSecondResponse = await memberClient.PostAsync($"/api/workspace-invitations/{secondInvitationToken}/join", null);
+        joinSecondResponse.EnsureSuccessStatusCode();
+        var secondMembership = await joinSecondResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
+        Assert.Equal("Creator", secondMembership.Role);
+
+        var workspacesResponse = await memberClient.GetAsync("/api/users/me/workspaces");
+        workspacesResponse.EnsureSuccessStatusCode();
+        var workspaces = await workspacesResponse.ReadAsJsonAsync<UserWorkspacesResponse>();
+        Assert.Equal(2, workspaces.Workspaces.Count);
+        Assert.Contains(workspaces.Workspaces, workspace => workspace.WorkspaceName == "Second Workspace" && workspace.IsActive);
+        Assert.Contains(workspaces.Workspaces, workspace => workspace.WorkspaceName == "First Workspace" && !workspace.IsActive);
+
+        var switchResponse = await memberClient.PutAsJsonAsync("/api/users/me/active-workspace", new SetActiveWorkspaceRequest
+        {
+            WorkspaceId = firstWorkspace.Id,
+        });
+        switchResponse.EnsureSuccessStatusCode();
+        var me = await switchResponse.ReadAsJsonAsync<UserResponse>();
+        Assert.Equal(firstWorkspace.Id, me.WorkspaceId);
+
+        var currentWorkspaceResponse = await memberClient.GetAsync("/api/workspace");
+        currentWorkspaceResponse.EnsureSuccessStatusCode();
+        var currentWorkspace = await currentWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal(firstWorkspace.Id, currentWorkspace.Id);
+        Assert.Equal("Viewer", currentWorkspace.CurrentUserRole);
+    }
 }

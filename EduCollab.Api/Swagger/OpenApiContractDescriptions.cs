@@ -18,6 +18,8 @@ namespace EduCollab.Api.Swagger
                 "## Base URL and tenancy",
                 "- All routes are under `/api`.",
                 "- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.",
+                "- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.",
+                "- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.",
                 "- Platform administration uses `/api/admin/...`.",
                 "",
                 "## Authentication",

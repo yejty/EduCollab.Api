@@ -88,35 +88,14 @@ namespace EduCollab.Application.Services.Workspaces
                 ?? throw new UnauthorizedAccessException("Authentication is required for this operation.");
         }
 
-        private async Task<int?> GetCurrentWorkspaceIdOrNullAsync(CancellationToken cancellationToken)
-        {
-            if (_currentUser.UserId is not int userId)
-            {
-                return null;
-            }
-
-            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
-            return user?.WorkspaceId is int workspaceId && workspaceId > 0
-                ? workspaceId
-                : null;
-        }
-
-        private async Task<(int WorkspaceId, WorkspaceMember Membership)> RequireCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
+        private Task<(int WorkspaceId, WorkspaceMember Membership)> RequireCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
         {
             var userId = RequireCurrentUserId();
-            var workspaceId = await GetCurrentWorkspaceIdOrNullAsync(cancellationToken);
-            if (workspaceId is null)
-            {
-                throw new AccessDeniedException("You are not a member of any workspace.");
-            }
-
-            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, userId, cancellationToken);
-            if (membership is null)
-            {
-                throw new AccessDeniedException("You are not a member of this workspace.");
-            }
-
-            return (workspaceId.Value, membership);
+            return CurrentWorkspaceAccess.RequireMembershipAsync(
+                _userRepository,
+                _workspaceRepository,
+                userId,
+                cancellationToken);
         }
     }
 }

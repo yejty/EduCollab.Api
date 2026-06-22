@@ -20,6 +20,10 @@ namespace EduCollab.Application.Repositories
 
         Task<bool> IsUserInAnyWorkspaceAsync(int userId, CancellationToken cancellationToken);
 
+        Task<List<WorkspaceMember>> GetWorkspaceMembershipsForUserAsync(int userId, CancellationToken cancellationToken);
+
+        Task<List<Workspace>> GetWorkspacesForUserAsync(int userId, CancellationToken cancellationToken);
+
         Task<bool> IsUserWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
 
         Task<bool> IsEmailMemberOfWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken);

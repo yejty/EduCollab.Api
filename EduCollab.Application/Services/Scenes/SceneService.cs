@@ -4,6 +4,7 @@ using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Assets;
 using EduCollab.Application.Services.Content;
+using EduCollab.Application.Services.Workspaces;
 using Microsoft.Extensions.Options;
 
 namespace EduCollab.Application.Services.Scenes
@@ -69,22 +70,14 @@ namespace EduCollab.Application.Services.Scenes
                 throw new ArgumentException($"Scene content must be {maxBytes / (1024 * 1024)} MB or smaller.");
         }
 
-        private async Task<(int WorkspaceId, WorkspaceMember Membership)> RequireWorkspaceMembershipAsync(CancellationToken cancellationToken)
+        private Task<(int WorkspaceId, WorkspaceMember Membership)> RequireWorkspaceMembershipAsync(CancellationToken cancellationToken)
         {
             var userId = RequireCurrentUserId();
-            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
-            if (user?.WorkspaceId is not int workspaceId || workspaceId <= 0)
-                throw new AccessDeniedException("You must belong to a workspace to access scenes.");
-
-            var workspace = await _workspaceRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
-            if (workspace is null)
-                throw new KeyNotFoundException("Workspace not found.");
-
-            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId, userId, cancellationToken);
-            if (membership is null)
-                throw new AccessDeniedException("You are not a member of this workspace.");
-
-            return (workspaceId, membership);
+            return CurrentWorkspaceAccess.RequireMembershipAsync(
+                _userRepository,
+                _workspaceRepository,
+                userId,
+                cancellationToken);
         }
 
         private async Task EnsureGroupBelongsToWorkspaceAsync(int workspaceId, int groupId, CancellationToken cancellationToken)

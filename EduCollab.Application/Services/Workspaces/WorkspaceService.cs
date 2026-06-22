@@ -50,32 +50,23 @@ namespace EduCollab.Application.Services.Workspaces
         private async Task<int?> GetCurrentWorkspaceIdOrNullAsync(CancellationToken cancellationToken)
         {
             if (_currentUser.UserId is not int userId)
-            {
                 return null;
-            }
 
-            var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken);
-            return user?.WorkspaceId is int workspaceId && workspaceId > 0
-                ? workspaceId
-                : null;
+            return await CurrentWorkspaceAccess.ResolveActiveWorkspaceIdAsync(
+                _userRepository,
+                _workspaceRepository,
+                userId,
+                cancellationToken);
         }
 
-        private async Task<(int WorkspaceId, WorkspaceMember Membership)> RequireCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
+        private Task<(int WorkspaceId, WorkspaceMember Membership)> RequireCurrentWorkspaceMembershipAsync(CancellationToken cancellationToken)
         {
             var userId = RequireCurrentUserId();
-            var workspaceId = await GetCurrentWorkspaceIdOrNullAsync(cancellationToken);
-            if (workspaceId is null)
-            {
-                throw new AccessDeniedException("You are not a member of any workspace.");
-            }
-
-            var membership = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, userId, cancellationToken);
-            if (membership is null)
-            {
-                throw new AccessDeniedException("You are not a member of this workspace.");
-            }
-
-            return (workspaceId.Value, membership);
+            return CurrentWorkspaceAccess.RequireMembershipAsync(
+                _userRepository,
+                _workspaceRepository,
+                userId,
+                cancellationToken);
         }
 
         public async Task<Workspace?> GetWorkspaceAsync(int id, CancellationToken cancellationToken)
@@ -206,9 +197,6 @@ namespace EduCollab.Application.Services.Workspaces
             var user = await _userRepository.GetUserByIdAsync(userId, cancellationToken)
                 ?? throw new UnauthorizedAccessException("Authenticated user was not found.");
 
-            if (await _workspaceRepository.IsUserInAnyWorkspaceAsync(userId, cancellationToken))
-                throw new ArgumentException("You already belong to a workspace.");
-
             var tokenHash = RefreshTokenGenerator.HashPlaintext(invitationToken.Trim());
             var invitation = await _workspaceRepository.GetActiveWorkspaceInvitationAsync(
                 tokenHash,
@@ -257,9 +245,9 @@ namespace EduCollab.Application.Services.Workspaces
 
             var existingCred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
             if (existingCred is not null
-                && await _workspaceRepository.IsUserInAnyWorkspaceAsync(existingCred.Id, cancellationToken))
+                && await _workspaceRepository.IsUserWorkspaceMemberAsync(workspaceId, existingCred.Id, cancellationToken))
             {
-                throw new ArgumentException("This user already belongs to a workspace.");
+                throw new ArgumentException("This user is already a member of the workspace.");
             }
 
             var alreadyMember = await _workspaceRepository.IsEmailMemberOfWorkspaceAsync(workspaceId, normalizedEmail, cancellationToken);
@@ -354,10 +342,6 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new ArgumentException("Workspace Id must not be set when creating.", nameof(workspace));
 
             var creatorUserId = RequireCurrentUserId();
-
-            var alreadyInWorkspace = await _workspaceRepository.IsUserInAnyWorkspaceAsync(creatorUserId, cancellationToken);
-            if (alreadyInWorkspace)
-                throw new ArgumentException("You already belong to a workspace.");
 
             var normalizedName = string.IsNullOrWhiteSpace(workspace.Name)
                 ? throw new ArgumentException("Name is required.", nameof(workspace))
@@ -603,6 +587,30 @@ namespace EduCollab.Application.Services.Workspaces
             var (workspaceId, _) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
             member.WorkspaceId = workspaceId;
             return await UpdateWorkspaceMemberAsync(workspaceId, userId, member, cancellationToken);
+        }
+
+        public async Task<List<WorkspaceMember>> GetCurrentUserWorkspaceMembershipsAsync(CancellationToken cancellationToken)
+        {
+            var userId = RequireCurrentUserId();
+            return await _workspaceRepository.GetWorkspaceMembershipsForUserAsync(userId, cancellationToken);
+        }
+
+        public async Task<List<Workspace>> GetCurrentUserWorkspacesAsync(CancellationToken cancellationToken)
+        {
+            var userId = RequireCurrentUserId();
+            return await _workspaceRepository.GetWorkspacesForUserAsync(userId, cancellationToken);
+        }
+
+        public async Task<bool> SetActiveWorkspaceAsync(int workspaceId, CancellationToken cancellationToken)
+        {
+            if (workspaceId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(workspaceId));
+
+            var userId = RequireCurrentUserId();
+            if (!await _workspaceRepository.IsUserWorkspaceMemberAsync(workspaceId, userId, cancellationToken))
+                throw new AccessDeniedException("You are not a member of this workspace.");
+
+            return await _userRepository.SetActiveWorkspaceIdAsync(userId, workspaceId, cancellationToken);
         }
     }
 }

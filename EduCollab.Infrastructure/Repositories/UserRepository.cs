@@ -363,6 +363,21 @@ namespace EduCollab.Infrastructure.Repositories
             return result > 0;
         }
 
+        public async Task<bool> SetActiveWorkspaceIdAsync(int userId, int? workspaceId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var result = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Users
+                    SET WorkspaceId = @WorkspaceId
+                    WHERE Id = @UserId;
+                    """,
+                    new { UserId = userId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+            return result > 0;
+        }
+
         public async Task<bool> DeleteUserByIdAsync(int id, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
