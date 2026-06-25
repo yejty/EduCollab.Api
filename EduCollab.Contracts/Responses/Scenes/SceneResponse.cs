@@ -7,15 +7,13 @@ namespace EduCollab.Contracts.Responses.Scenes
         public int Id { get; set; }
         public int WorkspaceId { get; set; }
         public int OwnerUserId { get; set; }
+        public int GroupId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public JsonNode? JsonContent { get; set; }
-        public string ETag { get; set; } = string.Empty;
-        public int CurrentVersionNumber { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public bool CanEdit { get; set; }
         public bool CanManage { get; set; }
-        public List<int> GroupIds { get; set; } = new();
     }
 }

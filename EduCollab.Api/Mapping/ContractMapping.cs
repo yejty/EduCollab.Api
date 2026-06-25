@@ -4,11 +4,13 @@ using System.Text.Json.Nodes;
 using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
-using EduCollab.Contracts.Requests.Scenes;
+using EduCollab.Contracts.Requests.Flows;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Assets;
 using EduCollab.Contracts.Responses.Groups;
+using EduCollab.Contracts.Requests.Scenes;
+using EduCollab.Contracts.Responses.Flows;
 using EduCollab.Contracts.Responses.Scenes;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
@@ -92,6 +94,7 @@ namespace EduCollab.Api.Mapping
             {
                 Name = request.Name,
                 Description = request.Description,
+                ParentGroupId = request.ParentGroupId,
             };
         }
 
@@ -102,25 +105,7 @@ namespace EduCollab.Api.Mapping
                 Id = groupId,
                 Name = request.Name ?? string.Empty,
                 Description = request.Description,
-            };
-        }
-
-        public static AssetFolder MapToAssetFolder(this CreateAssetFolderRequest request)
-        {
-            return new AssetFolder
-            {
-                Name = request.Name,
-                ParentFolderId = request.ParentFolderId
-            };
-        }
-
-        public static AssetFolder MapToAssetFolder(this UpdateAssetFolderRequest request, int folderId)
-        {
-            return new AssetFolder
-            {
-                Id = folderId,
-                Name = request.Name,
-                ParentFolderId = request.ParentFolderId
+                ParentGroupId = request.ParentGroupId,
             };
         }
 
@@ -130,9 +115,8 @@ namespace EduCollab.Api.Mapping
             {
                 Name = request.Name,
                 Description = request.Description,
-                FolderId = request.FolderId,
+                GroupId = request.GroupId,
                 AssetType = request.AssetType,
-                Version = request.Version,
             };
         }
 
@@ -143,9 +127,8 @@ namespace EduCollab.Api.Mapping
                 Id = assetId,
                 Name = request.Name,
                 Description = request.Description,
-                FolderId = request.FolderId,
+                GroupId = request.GroupId,
                 AssetType = request.AssetType,
-                Version = request.Version,
             };
         }
 
@@ -166,7 +149,29 @@ namespace EduCollab.Api.Mapping
                 Id = sceneId,
                 Name = request.Name,
                 Description = request.Description,
+                GroupId = request.GroupId,
                 JsonContent = RequireJsonContent(request.JsonContent, nameof(request.JsonContent))
+            };
+        }
+
+        public static Flow MapToFlow(this CreateFlowRequest request)
+        {
+            return new Flow
+            {
+                Name = request.Name,
+                Description = request.Description,
+                GroupId = request.GroupId,
+            };
+        }
+
+        public static Flow MapToFlow(this UpdateFlowRequest request, int flowId)
+        {
+            return new Flow
+            {
+                Id = flowId,
+                Name = request.Name,
+                Description = request.Description,
+                GroupId = request.GroupId,
             };
         }
 
@@ -297,8 +302,10 @@ namespace EduCollab.Api.Mapping
             return new GroupResponse
             {
                 Id = group.Id,
+                ParentGroupId = group.ParentGroupId,
                 Name = group.Name,
                 Description = group.Description,
+                Path = group.Path,
                 CreatedAt = group.CreatedAtUtc,
                 CreatedByUserId = group.CreatedByUserId,
                 UserCount = group.UserCount
@@ -336,43 +343,18 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static AssetFolderResponse MapToResponse(this AssetFolder folder)
-        {
-            return new AssetFolderResponse
-            {
-                Id = folder.Id,
-                WorkspaceId = folder.WorkspaceId,
-                ParentFolderId = folder.ParentFolderId,
-                Name = folder.Name,
-                Path = folder.Path,
-                CreatedByUserId = folder.CreatedByUserId,
-                CreatedAt = folder.CreatedAtUtc,
-                UpdatedAt = folder.UpdatedAtUtc
-            };
-        }
-
-        public static AssetFoldersResponse MapToResponse(this IEnumerable<AssetFolder> folders)
-        {
-            return new AssetFoldersResponse
-            {
-                Folders = folders.Select(f => f.MapToResponse()).ToList()
-            };
-        }
-
         public static AssetResponse MapToResponse(this Asset asset)
         {
             return new AssetResponse
             {
                 Id = asset.Id,
                 WorkspaceId = asset.WorkspaceId,
-                FolderId = asset.FolderId,
+                GroupId = asset.GroupId,
                 OwnerUserId = asset.OwnerUserId,
                 Name = asset.Name,
                 Description = asset.Description,
                 AssetType = asset.AssetType,
                 StorageUrl = asset.StorageUrl,
-                Version = asset.Version,
-                CurrentVersionNumber = asset.CurrentVersionNumber,
                 CreatedAt = asset.CreatedAtUtc,
                 UpdatedAt = asset.UpdatedAtUtc
             };
@@ -386,51 +368,6 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static AssetVersionResponse MapToResponse(this AssetVersion version)
-        {
-            return new AssetVersionResponse
-            {
-                AssetId = version.AssetId,
-                VersionNumber = version.VersionNumber,
-                Name = version.Name,
-                Description = version.Description,
-                AssetType = version.AssetType,
-                VersionLabel = version.VersionLabel,
-                CreatedByUserId = version.CreatedByUserId,
-                CreatedAt = version.CreatedAtUtc
-            };
-        }
-
-        public static AssetVersionsResponse MapToResponse(this IEnumerable<AssetVersion> versions)
-        {
-            return new AssetVersionsResponse
-            {
-                Versions = versions.Select(v => v.MapToResponse()).ToList()
-            };
-        }
-
-        public static SceneVersionResponse MapToResponse(this SceneVersion version)
-        {
-            return new SceneVersionResponse
-            {
-                SceneId = version.SceneId,
-                VersionNumber = version.VersionNumber,
-                Name = version.Name,
-                Description = version.Description,
-                ETag = version.ETag,
-                CreatedByUserId = version.CreatedByUserId,
-                CreatedAt = version.CreatedAtUtc
-            };
-        }
-
-        public static SceneVersionsResponse MapToResponse(this IEnumerable<SceneVersion> versions)
-        {
-            return new SceneVersionsResponse
-            {
-                Versions = versions.Select(v => v.MapToResponse()).ToList()
-            };
-        }
-
         public static SceneResponse MapToResponse(this Scene scene)
         {
             return new SceneResponse
@@ -438,15 +375,51 @@ namespace EduCollab.Api.Mapping
                 Id = scene.Id,
                 WorkspaceId = scene.WorkspaceId,
                 OwnerUserId = scene.OwnerUserId,
+                GroupId = scene.GroupId,
                 Name = scene.Name,
                 Description = scene.Description,
                 JsonContent = ParseJsonContent(scene.JsonContent),
-                ETag = scene.ETag,
-                CurrentVersionNumber = scene.CurrentVersionNumber,
                 CreatedAt = scene.CreatedAtUtc,
                 UpdatedAt = scene.UpdatedAtUtc
             };
         }
+
+        public static FlowResponse MapToResponse(this Flow flow)
+        {
+            return new FlowResponse
+            {
+                Id = flow.Id,
+                WorkspaceId = flow.WorkspaceId,
+                OwnerUserId = flow.OwnerUserId,
+                GroupId = flow.GroupId,
+                Name = flow.Name,
+                Description = flow.Description,
+                CreatedAt = flow.CreatedAtUtc,
+                UpdatedAt = flow.UpdatedAtUtc
+            };
+        }
+
+        public static FlowsResponse MapToResponse(this IEnumerable<Flow> flows)
+        {
+            return new FlowsResponse
+            {
+                Flows = flows.Select(f => f.MapToResponse()).ToList()
+            };
+        }
+
+        public static FlowSceneResponse MapToResponse(this FlowScene flowScene) =>
+            new()
+            {
+                FlowId = flowScene.FlowId,
+                SceneId = flowScene.SceneId,
+                SortOrder = flowScene.SortOrder
+            };
+
+        public static FlowScenesResponse MapToResponse(this IEnumerable<FlowScene> flowScenes) =>
+            new()
+            {
+                Scenes = flowScenes.Select(static fs => fs.MapToResponse()).ToList()
+            };
 
         public static ScenesResponse MapToResponse(this IEnumerable<Scene> scenes)
         {

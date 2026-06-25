@@ -9,23 +9,20 @@ namespace EduCollab.Application.Services.Groups
     public class GroupService : IGroupService
     {
         private readonly IGroupRepository _groupRepository;
-        private readonly IAssetFolderRepository _assetFolderRepository;
-        private readonly IAssetRepository _assetRepository;
+        private readonly IGroupAccessResolver _groupAccessResolver;
         private readonly IWorkspaceRepository _workspaceRepository;
         private readonly IUserRepository _userRepository;
         private readonly ICurrentUser _currentUser;
 
         public GroupService(
             IGroupRepository groupRepository,
-            IAssetFolderRepository assetFolderRepository,
-            IAssetRepository assetRepository,
+            IGroupAccessResolver groupAccessResolver,
             IWorkspaceRepository workspaceRepository,
             IUserRepository userRepository,
             ICurrentUser currentUser)
         {
             _groupRepository = groupRepository;
-            _assetFolderRepository = assetFolderRepository;
-            _assetRepository = assetRepository;
+            _groupAccessResolver = groupAccessResolver;
             _workspaceRepository = workspaceRepository;
             _userRepository = userRepository;
             _currentUser = currentUser;
@@ -63,9 +60,10 @@ namespace EduCollab.Application.Services.Groups
                 return;
 
             var currentUserId = RequireCurrentUserId();
-            var groupMembership = await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, currentUserId, cancellationToken);
-            if (groupMembership is null)
-                throw new AccessDeniedException("You must be a member of this group to access it.");
+            if (await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, currentUserId, groupId, cancellationToken))
+                return;
+
+            throw new AccessDeniedException("You must be a member of this group to access it.");
         }
 
         private async Task EnsureCurrentUserCanManageGroupsAsync(CancellationToken cancellationToken)
@@ -94,75 +92,30 @@ namespace EduCollab.Application.Services.Groups
             return group;
         }
 
-        private async Task<List<AssetFolder>> GetAllFoldersAsync(int workspaceId, CancellationToken cancellationToken)
+        private static void AssignGroupPaths(IReadOnlyList<Group> groups)
         {
-            var rootFolders = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, null, cancellationToken);
-            var result = new List<AssetFolder>(rootFolders);
-            var queue = new Queue<AssetFolder>(rootFolders);
-
-            while (queue.Count > 0)
+            var groupsById = groups.ToDictionary(g => g.Id);
+            foreach (var group in groups)
             {
-                var current = queue.Dequeue();
-                var children = await _assetFolderRepository.GetAssetFoldersAsync(workspaceId, current.Id, cancellationToken);
-                foreach (var child in children)
-                {
-                    result.Add(child);
-                    queue.Enqueue(child);
-                }
-            }
+                var segments = new List<string>();
+                var current = group;
+                var visited = new HashSet<int>();
 
-            return result;
-        }
-
-        private static HashSet<int> BuildVisibleFolderIds(IEnumerable<AssetFolder> folders, IEnumerable<AssetFolderGroupShare> shares)
-        {
-            var sharedFolderIds = shares.Select(s => s.FolderId).ToHashSet();
-            if (sharedFolderIds.Count == 0)
-                return new HashSet<int>();
-
-            var foldersById = folders.ToDictionary(folder => folder.Id);
-            var visibleFolderIds = new HashSet<int>();
-
-            foreach (var folder in foldersById.Values)
-            {
-                var current = folder;
                 while (true)
                 {
-                    if (sharedFolderIds.Contains(current.Id))
-                    {
-                        visibleFolderIds.Add(folder.Id);
+                    if (!visited.Add(current.Id))
                         break;
-                    }
 
-                    if (current.ParentFolderId is not int parentId || !foldersById.TryGetValue(parentId, out var parent))
+                    segments.Add(current.Name);
+                    if (current.ParentGroupId is not int parentId || !groupsById.TryGetValue(parentId, out var parent))
                         break;
 
                     current = parent;
                 }
+
+                segments.Reverse();
+                group.Path = "/" + string.Join("/", segments);
             }
-
-            return visibleFolderIds;
-        }
-
-        private async Task<(int WorkspaceId, HashSet<int> VisibleFolderIds, List<AssetFolder> Folders)> ResolveVisibleFoldersAsync(int groupId, CancellationToken cancellationToken)
-        {
-            if (groupId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(groupId));
-
-            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await RequireGroupAsync(workspaceId, groupId, cancellationToken);
-
-            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
-                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
-
-            var folders = await GetAllFoldersAsync(workspaceId, cancellationToken);
-
-            var shares = await _assetFolderRepository.GetAssetFolderSharesByGroupAsync(workspaceId, groupId, cancellationToken);
-            var visibleFolderIds = WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
-                ? folders.Select(f => f.Id).ToHashSet()
-                : BuildVisibleFolderIds(folders, shares);
-
-            return (workspaceId, visibleFolderIds, folders);
         }
 
         public async Task<bool> CreateGroupAsync(Group group, CancellationToken cancellationToken)
@@ -172,12 +125,15 @@ namespace EduCollab.Application.Services.Groups
             if (!WorkspaceRolePermissions.CanManageGroups(membership.Role))
                 throw new AccessDeniedException("Only workspace owners and managers can create groups.");
 
+            if (group.ParentGroupId is int parentGroupId)
+                await RequireGroupAsync(workspaceId, parentGroupId, cancellationToken);
+
             var now = DateTimeOffset.UtcNow;
             group.CreatedAtUtc = now.UtcDateTime;
             group.UpdatedAtUtc = now.UtcDateTime;
             group.CreatedByUserId = RequireCurrentUserId();
             group.UserCount = 1;
-            
+
             var groupId = await _groupRepository.CreateGroupAsync(workspaceId, group, cancellationToken);
             if (groupId <= 0)
                 return false;
@@ -192,16 +148,57 @@ namespace EduCollab.Application.Services.Groups
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
             await EnsureCurrentUserCanManageGroupAsync(workspaceId, groupId, cancellationToken);
-            return await _groupRepository.DeleteGroupAsync(workspaceId, groupId, cancellationToken); 
+            return await _groupRepository.DeleteGroupAsync(workspaceId, groupId, cancellationToken);
         }
 
         public async Task<List<Group>> GetAllGroupsAsync(CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
-                return await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            var groups = WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
+                ? await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken)
+                : await _groupRepository.GetGroupsForMemberAsync(workspaceId, membership.UserId, cancellationToken);
 
-            return await _groupRepository.GetGroupsForMemberAsync(workspaceId, membership.UserId, cancellationToken);
+            AssignGroupPaths(groups);
+            return groups;
+        }
+
+        public async Task<List<Group>> GetAccessibleGroupsAsync(int? parentGroupId, CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+
+            if (parentGroupId is int parentId)
+            {
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, parentId, cancellationToken);
+                var children = await _groupRepository.GetChildGroupsAsync(workspaceId, parentId, cancellationToken);
+                if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                {
+                    AssignGroupPaths(children);
+                    return children;
+                }
+
+                var accessibleGroupIds = await _groupAccessResolver.GetEffectiveAccessibleGroupIdsAsync(workspaceId, userId, cancellationToken);
+                var filteredChildren = children.Where(g => accessibleGroupIds.Contains(g.Id)).ToList();
+                AssignGroupPaths(filteredChildren);
+                return filteredChildren;
+            }
+
+            var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            {
+                var roots = allGroups.Where(g => g.ParentGroupId is null).ToList();
+                AssignGroupPaths(roots);
+                return roots;
+            }
+
+            var accessibleIds = await _groupAccessResolver.GetEffectiveAccessibleGroupIdsAsync(workspaceId, userId, cancellationToken);
+            var browseRoots = allGroups
+                .Where(g => accessibleIds.Contains(g.Id))
+                .Where(g => g.ParentGroupId is not int parentGroupIdValue
+                    || !accessibleIds.Contains(parentGroupIdValue))
+                .ToList();
+            AssignGroupPaths(browseRoots);
+            return browseRoots;
         }
 
         public async Task<Group?> GetGroupByIdAsync(int groupId, CancellationToken cancellationToken)
@@ -211,7 +208,13 @@ namespace EduCollab.Application.Services.Groups
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
             await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
-            return await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
+            var group = await _groupRepository.GetGroupByIdAsync(workspaceId, groupId, cancellationToken);
+            if (group is null)
+                return null;
+
+            var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            AssignGroupPaths(allGroups);
+            return group;
         }
 
         public async Task<Group?> UpdateGroupAsync(Group group, CancellationToken cancellationToken)
@@ -227,6 +230,14 @@ namespace EduCollab.Application.Services.Groups
             var existing = await _groupRepository.GetGroupByIdAsync(workspaceId, group.Id, cancellationToken);
             if (existing is null)
                 return null;
+
+            if (group.ParentGroupId is int parentGroupId)
+            {
+                if (parentGroupId == group.Id)
+                    throw new ArgumentException("A group cannot be its own parent.");
+
+                await RequireGroupAsync(workspaceId, parentGroupId, cancellationToken);
+            }
 
             group.CreatedAtUtc = existing.CreatedAtUtc;
             group.CreatedByUserId = existing.CreatedByUserId;
@@ -316,82 +327,6 @@ namespace EduCollab.Application.Services.Groups
             }
 
             return await _groupRepository.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
-        }
-
-        public async Task<List<AssetFolder>> GetVisibleRootAssetFoldersAsync(int groupId, CancellationToken cancellationToken)
-        {
-            var (_, visibleFolderIds, folders) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
-            return folders
-                .Where(folder => visibleFolderIds.Contains(folder.Id)
-                    && (folder.ParentFolderId is null || !visibleFolderIds.Contains(folder.ParentFolderId.Value)))
-                .OrderBy(folder => folder.Path, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(folder => folder.Id)
-                .ToList();
-        }
-
-        public async Task<List<AssetFolder>> GetVisibleSubFoldersAsync(int groupId, int folderId, CancellationToken cancellationToken)
-        {
-            if (folderId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(folderId));
-
-            var (_, visibleFolderIds, folders) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
-            if (!visibleFolderIds.Contains(folderId))
-                throw new KeyNotFoundException("Asset folder not found.");
-
-            return folders
-                .Where(folder => folder.ParentFolderId == folderId && visibleFolderIds.Contains(folder.Id))
-                .OrderBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(folder => folder.Id)
-                .ToList();
-        }
-
-        public async Task<List<Asset>> GetVisibleAssetsInFolderAsync(int groupId, int folderId, CancellationToken cancellationToken)
-        {
-            if (folderId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(folderId));
-
-            var (workspaceId, visibleFolderIds, _) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
-            if (!visibleFolderIds.Contains(folderId))
-                throw new KeyNotFoundException("Asset folder not found.");
-
-            var assets = await _assetRepository.GetAssetsByFolderAsync(workspaceId, folderId, cancellationToken);
-            return assets
-                .OrderBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(asset => asset.Id)
-                .ToList();
-        }
-
-        public async Task<List<Asset>> GetVisibleRootAssetsAsync(int groupId, CancellationToken cancellationToken)
-        {
-            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await RequireGroupAsync(workspaceId, groupId, cancellationToken);
-
-            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
-                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
-
-            var (_, visibleFolderIds, _) = await ResolveVisibleFoldersAsync(groupId, cancellationToken);
-            var sharedAssetIds = (await _assetRepository.GetAssetSharesByGroupAsync(workspaceId, groupId, cancellationToken))
-                .Select(share => share.AssetId)
-                .ToHashSet();
-
-            var assets = await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
-
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
-            {
-                return assets
-                    .OrderBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(asset => asset.Id)
-                    .ToList();
-            }
-
-            return assets
-                .Where(asset =>
-                    sharedAssetIds.Contains(asset.Id)
-                    || (asset.FolderId is int folderId && visibleFolderIds.Contains(folderId)))
-                .Where(asset => asset.FolderId is null || !visibleFolderIds.Contains(asset.FolderId.Value))
-                .OrderBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(asset => asset.Id)
-                .ToList();
         }
     }
 }

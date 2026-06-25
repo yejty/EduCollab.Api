@@ -38,9 +38,9 @@ namespace EduCollab.Infrastructure.Database
             services.AddSingleton<IAssetContentStore, FileAssetContentStore>();
             services.AddSingleton<ISceneContentStore, FileSceneContentStore>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
-            services.AddScoped<IAssetFolderRepository, AssetFolderRepository>();
             services.AddScoped<IAssetRepository, AssetRepository>();
             services.AddScoped<ISceneRepository, SceneRepository>();
+            services.AddScoped<IFlowRepository, FlowRepository>();
             services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();

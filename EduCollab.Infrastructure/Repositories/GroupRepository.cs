@@ -10,6 +10,18 @@ namespace EduCollab.Infrastructure.Repositories
     {
         private readonly IDbConnectionFactory _dbConnectionFactory;
 
+        private const string GroupSelectColumns =
+            """
+            Id,
+            ParentGroupId,
+            Name,
+            Description,
+            CreatedAtUtc,
+            UpdatedAtUtc,
+            CreatedByUserId,
+            UserCount
+            """;
+
         public GroupRepository(IDbConnectionFactory dbConnectionFactory)
         {
             _dbConnectionFactory = dbConnectionFactory;
@@ -19,22 +31,21 @@ namespace EduCollab.Infrastructure.Repositories
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             if (connection is not DbConnection dbConnection)
-            {
                 throw new InvalidOperationException("Database connection must support transactions.");
-            }
 
             await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
 
             var groupId = await connection.QuerySingleAsync<int>(
                 new CommandDefinition(
                     """
-                    INSERT INTO Groups (WorkspaceId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount)
-                    VALUES (@WorkspaceId, @Name, @Description, @CreatedAtUtc, @UpdatedAtUtc, @CreatedByUserId, @UserCount)
+                    INSERT INTO Groups (WorkspaceId, ParentGroupId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount)
+                    VALUES (@WorkspaceId, @ParentGroupId, @Name, @Description, @CreatedAtUtc, @UpdatedAtUtc, @CreatedByUserId, @UserCount)
                     RETURNING Id;
                     """,
                     new
                     {
                         WorkspaceId = workspaceId,
+                        group.ParentGroupId,
                         group.Name,
                         group.Description,
                         group.CreatedAtUtc,
@@ -85,15 +96,8 @@ namespace EduCollab.Infrastructure.Repositories
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             var groups = await connection.QueryAsync<Group>(
                 new CommandDefinition(
-                    """
-                    SELECT
-                        Id,
-                        Name,
-                        Description,
-                        CreatedAtUtc,
-                        UpdatedAtUtc,
-                        CreatedByUserId,
-                        UserCount
+                    $"""
+                    SELECT {GroupSelectColumns}
                     FROM Groups
                     WHERE WorkspaceId = @WorkspaceId
                     ORDER BY Name ASC, Id ASC;
@@ -109,9 +113,10 @@ namespace EduCollab.Infrastructure.Repositories
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             var groups = await connection.QueryAsync<Group>(
                 new CommandDefinition(
-                    """
+                    $"""
                     SELECT
                         g.Id,
+                        g.ParentGroupId,
                         g.Name,
                         g.Description,
                         g.CreatedAtUtc,
@@ -130,20 +135,34 @@ namespace EduCollab.Infrastructure.Repositories
             return groups.AsList();
         }
 
+        public async Task<List<Group>> GetChildGroupsAsync(int workspaceId, int? parentGroupId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            var groups = await connection.QueryAsync<Group>(
+                new CommandDefinition(
+                    $"""
+                    SELECT {GroupSelectColumns}
+                    FROM Groups
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND (
+                          (@ParentGroupId IS NULL AND ParentGroupId IS NULL)
+                          OR ParentGroupId = @ParentGroupId
+                      )
+                    ORDER BY Name ASC, Id ASC;
+                    """,
+                    new { WorkspaceId = workspaceId, ParentGroupId = parentGroupId },
+                    cancellationToken: cancellationToken));
+
+            return groups.AsList();
+        }
+
         public async Task<Group?> GetGroupByIdAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             return await connection.QuerySingleOrDefaultAsync<Group>(
                 new CommandDefinition(
-                    """
-                    SELECT
-                        Id,
-                        Name,
-                        Description,
-                        CreatedAtUtc,
-                        UpdatedAtUtc,
-                        CreatedByUserId,
-                        UserCount
+                    $"""
+                    SELECT {GroupSelectColumns}
                     FROM Groups
                     WHERE Id = @GroupId
                       AND WorkspaceId = @WorkspaceId
@@ -161,26 +180,21 @@ namespace EduCollab.Infrastructure.Repositories
 
             var updatedName = string.IsNullOrWhiteSpace(group.Name) ? existing.Name : group.Name.Trim();
             var updatedDescription = group.Description ?? existing.Description;
+            var parentGroupId = group.ParentGroupId ?? existing.ParentGroupId;
             var updatedAtUtc = DateTime.UtcNow;
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             return await connection.QuerySingleOrDefaultAsync<Group>(
                 new CommandDefinition(
-                    """
+                    $"""
                     UPDATE Groups
                     SET Name = @Name,
                         Description = @Description,
+                        ParentGroupId = @ParentGroupId,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE Id = @Id
                       AND WorkspaceId = @WorkspaceId
-                    RETURNING
-                        Id,
-                        Name,
-                        Description,
-                        CreatedAtUtc,
-                        UpdatedAtUtc,
-                        CreatedByUserId,
-                        UserCount;
+                    RETURNING {GroupSelectColumns};
                     """,
                     new
                     {
@@ -188,6 +202,7 @@ namespace EduCollab.Infrastructure.Repositories
                         WorkspaceId = workspaceId,
                         Name = updatedName,
                         Description = updatedDescription,
+                        ParentGroupId = parentGroupId,
                         UpdatedAtUtc = updatedAtUtc,
                     },
                     cancellationToken: cancellationToken));
@@ -288,9 +303,7 @@ namespace EduCollab.Infrastructure.Repositories
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             if (connection is not DbConnection dbConnection)
-            {
                 throw new InvalidOperationException("Database connection must support transactions.");
-            }
 
             await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
 

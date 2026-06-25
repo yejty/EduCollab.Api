@@ -21,8 +21,8 @@ namespace EduCollab.Api.Query
             public static List<Group> ApplyGroups(IEnumerable<Group> items, SortSpecification sort) =>
                 SortApplier.Apply(items, sort, GroupSelectors, static x => x.Id);
 
-            public static List<AssetFolder> ApplyAssetFolders(IEnumerable<AssetFolder> items, SortSpecification sort) =>
-                SortApplier.Apply(items, sort, AssetFolderSelectors, static x => x.Id);
+            public static List<Flow> ApplyFlows(IEnumerable<Flow> items, SortSpecification sort) =>
+                SortApplier.Apply(items, sort, FlowSelectors, static x => x.Id);
 
             public static List<Workspace> ApplyWorkspaces(IEnumerable<Workspace> items, SortSpecification sort) =>
                 SortApplier.Apply(items, sort, WorkspaceSelectors, static x => x.Id);
@@ -51,7 +51,7 @@ namespace EduCollab.Api.Query
                 ["id"] = static x => x.Id,
             };
 
-            private static readonly Dictionary<string, Func<AssetFolder, object>> AssetFolderSelectors = new(StringComparer.Ordinal)
+            private static readonly Dictionary<string, Func<Flow, object>> FlowSelectors = new(StringComparer.Ordinal)
             {
                 ["name"] = static x => x.Name,
                 ["createdAt"] = static x => x.CreatedAtUtc,

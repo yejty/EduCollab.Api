@@ -234,85 +234,6 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_AssetGroupShares_GroupId ON AssetGroupShares (GroupId);");
             await connection.ExecuteAsync(
-                "ALTER TABLE Assets ADD COLUMN IF NOT EXISTS CurrentVersionNumber INT NOT NULL DEFAULT 1;");
-            await connection.ExecuteAsync(
-                "ALTER TABLE Scenes ADD COLUMN IF NOT EXISTS CurrentVersionNumber INT NOT NULL DEFAULT 1;");
-            await connection.ExecuteAsync(
-                """
-                CREATE TABLE IF NOT EXISTS AssetVersions (
-                    AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
-                    VersionNumber INT NOT NULL,
-                    Name VARCHAR(200) NOT NULL,
-                    Description TEXT NULL,
-                    AssetType VARCHAR(50) NOT NULL,
-                    VersionLabel VARCHAR(50) NULL,
-                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
-                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    PRIMARY KEY (AssetId, VersionNumber)
-                );
-                """);
-            await connection.ExecuteAsync(
-                "CREATE INDEX IF NOT EXISTS IX_AssetVersions_AssetId ON AssetVersions (AssetId);");
-            await connection.ExecuteAsync(
-                """
-                CREATE TABLE IF NOT EXISTS SceneVersions (
-                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
-                    VersionNumber INT NOT NULL,
-                    Name VARCHAR(200) NOT NULL,
-                    Description TEXT NULL,
-                    ETag VARCHAR(100) NOT NULL,
-                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
-                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    PRIMARY KEY (SceneId, VersionNumber)
-                );
-                """);
-            await connection.ExecuteAsync(
-                "CREATE INDEX IF NOT EXISTS IX_SceneVersions_SceneId ON SceneVersions (SceneId);");
-            await connection.ExecuteAsync(
-                """
-                INSERT INTO AssetVersions (
-                    AssetId,
-                    VersionNumber,
-                    Name,
-                    Description,
-                    AssetType,
-                    VersionLabel,
-                    CreatedByUserId,
-                    CreatedAtUtc)
-                SELECT
-                    Id,
-                    1,
-                    Name,
-                    Description,
-                    COALESCE(AssetType, ''),
-                    Version,
-                    OwnerUserId,
-                    CreatedAtUtc
-                FROM Assets
-                ON CONFLICT (AssetId, VersionNumber) DO NOTHING;
-                """);
-            await connection.ExecuteAsync(
-                """
-                INSERT INTO SceneVersions (
-                    SceneId,
-                    VersionNumber,
-                    Name,
-                    Description,
-                    ETag,
-                    CreatedByUserId,
-                    CreatedAtUtc)
-                SELECT
-                    Id,
-                    1,
-                    Name,
-                    Description,
-                    ETag,
-                    OwnerUserId,
-                    CreatedAtUtc
-                FROM Scenes
-                ON CONFLICT (SceneId, VersionNumber) DO NOTHING;
-                """);
-            await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS WorkspaceMembers (
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
@@ -500,7 +421,260 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
+            await MigrateToHierarchicalGroupsAsync(connection);
+
             await SeedPlatformAdminUserAsync(connection);
+        }
+
+        private static async Task MigrateToHierarchicalGroupsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE Groups
+                ADD COLUMN IF NOT EXISTS ParentGroupId INT NULL
+                REFERENCES Groups(Id) ON DELETE RESTRICT;
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Groups_ParentGroupId ON Groups (ParentGroupId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Groups_RootName
+                ON Groups (WorkspaceId, Name)
+                WHERE ParentGroupId IS NULL;
+                """);
+            await connection.ExecuteAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS UX_Groups_ParentName
+                ON Groups (WorkspaceId, ParentGroupId, Name)
+                WHERE ParentGroupId IS NOT NULL;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE Assets
+                ADD COLUMN IF NOT EXISTS GroupId INT NULL
+                REFERENCES Groups(Id) ON DELETE RESTRICT;
+                """);
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE Scenes
+                ADD COLUMN IF NOT EXISTS GroupId INT NULL
+                REFERENCES Groups(Id) ON DELETE RESTRICT;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'assetgroupshares'
+                    ) THEN
+                        UPDATE Assets a
+                        SET GroupId = s.GroupId
+                        FROM (
+                            SELECT DISTINCT ON (AssetId) AssetId, GroupId
+                            FROM AssetGroupShares
+                            ORDER BY AssetId, CreatedAtUtc, GroupId
+                        ) s
+                        WHERE a.Id = s.AssetId
+                          AND a.GroupId IS NULL;
+                    END IF;
+                END $$;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'assetfolders'
+                    ) THEN
+                        INSERT INTO Groups (WorkspaceId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount, ParentGroupId)
+                        SELECT
+                            f.WorkspaceId,
+                            f.Name,
+                            NULL,
+                            f.CreatedAtUtc,
+                            f.UpdatedAtUtc,
+                            f.CreatedByUserId,
+                            1,
+                            CASE
+                                WHEN f.ParentFolderId IS NULL THEN NULL
+                                ELSE (
+                                    SELECT g2.Id
+                                    FROM AssetFolders pf
+                                    INNER JOIN Groups g2 ON g2.WorkspaceId = pf.WorkspaceId AND g2.Name = pf.Name AND g2.ParentGroupId IS NULL
+                                    WHERE pf.Id = f.ParentFolderId
+                                    LIMIT 1
+                                )
+                            END
+                        FROM AssetFolders f
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM Groups g
+                            WHERE g.WorkspaceId = f.WorkspaceId
+                              AND g.Name = f.Name
+                              AND (
+                                  (f.ParentFolderId IS NULL AND g.ParentGroupId IS NULL)
+                                  OR g.ParentGroupId IS NOT NULL
+                              )
+                        );
+
+                        UPDATE Assets a
+                        SET GroupId = g.Id
+                        FROM AssetFolders f
+                        INNER JOIN Groups g ON g.WorkspaceId = f.WorkspaceId AND g.Name = f.Name
+                        WHERE a.FolderId = f.Id
+                          AND a.GroupId IS NULL;
+                    END IF;
+                END $$;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'scenegroupshares'
+                    ) THEN
+                        UPDATE Scenes s
+                        SET GroupId = sh.GroupId
+                        FROM (
+                            SELECT DISTINCT ON (SceneId) SceneId, GroupId
+                            FROM SceneGroupShares
+                            ORDER BY SceneId, CreatedAtUtc, GroupId
+                        ) sh
+                        WHERE s.Id = sh.SceneId
+                          AND s.GroupId IS NULL;
+                    END IF;
+                END $$;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                UPDATE Assets a
+                SET GroupId = g.Id
+                FROM Groups g
+                WHERE a.GroupId IS NULL
+                  AND g.WorkspaceId = a.WorkspaceId
+                  AND g.ParentGroupId IS NULL
+                  AND g.Name = 'Default';
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO Groups (WorkspaceId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount)
+                SELECT DISTINCT
+                    a.WorkspaceId,
+                    'Default',
+                    'Auto-created during group library migration',
+                    NOW(),
+                    NOW(),
+                    COALESCE(
+                        (SELECT w.CreatedByUserId FROM Workspaces w WHERE w.Id = a.WorkspaceId),
+                        a.OwnerUserId
+                    ),
+                    1
+                FROM Assets a
+                WHERE a.GroupId IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM Groups g
+                      WHERE g.WorkspaceId = a.WorkspaceId
+                        AND g.Name = 'Default'
+                        AND g.ParentGroupId IS NULL
+                  );
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                UPDATE Assets a
+                SET GroupId = g.Id
+                FROM Groups g
+                WHERE a.GroupId IS NULL
+                  AND g.WorkspaceId = a.WorkspaceId
+                  AND g.ParentGroupId IS NULL
+                  AND g.Name = 'Default';
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO Groups (WorkspaceId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount)
+                SELECT DISTINCT
+                    s.WorkspaceId,
+                    'Default',
+                    'Auto-created during group library migration',
+                    NOW(),
+                    NOW(),
+                    COALESCE(
+                        (SELECT w.CreatedByUserId FROM Workspaces w WHERE w.Id = s.WorkspaceId),
+                        s.OwnerUserId
+                    ),
+                    1
+                FROM Scenes s
+                WHERE s.GroupId IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM Groups g
+                      WHERE g.WorkspaceId = s.WorkspaceId
+                        AND g.Name = 'Default'
+                        AND g.ParentGroupId IS NULL
+                  );
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                UPDATE Scenes s
+                SET GroupId = g.Id
+                FROM Groups g
+                WHERE s.GroupId IS NULL
+                  AND g.WorkspaceId = s.WorkspaceId
+                  AND g.ParentGroupId IS NULL
+                  AND g.Name = 'Default';
+                """);
+
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Assets_GroupId ON Assets (GroupId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Scenes_GroupId ON Scenes (GroupId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Flows (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    OwnerUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE RESTRICT,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_WorkspaceId ON Flows (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_GroupId ON Flows (GroupId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_OwnerUserId ON Flows (OwnerUserId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS FlowScenes (
+                    FlowId INT NOT NULL REFERENCES Flows(Id) ON DELETE CASCADE,
+                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
+                    SortOrder INT NOT NULL DEFAULT 0,
+                    PRIMARY KEY (FlowId, SceneId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_FlowScenes_SceneId ON FlowScenes (SceneId);");
+
+            await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS FolderId;");
+            await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetGroupShares;");
+            await connection.ExecuteAsync("DROP TABLE IF EXISTS SceneGroupShares;");
+            await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolderGroupShares;");
+            await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolders;");
         }
 
         private async Task SeedPlatformAdminUserAsync(System.Data.IDbConnection connection)

@@ -1,6 +1,7 @@
 ﻿using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Assets;
 using EduCollab.Application.Services.Content;
+using EduCollab.Application.Services.Flows;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Application.Services.Scenes;
@@ -33,10 +34,11 @@ namespace EduCollab.Application
             services.AddScoped<IWorkspaceService, WorkspaceService>();
             services.AddScoped<IWorkspaceThumbnailService, WorkspaceThumbnailService>();
             services.AddScoped<IWorkspaceCreationRequestService, WorkspaceCreationRequestService>();
+            services.AddScoped<IGroupAccessResolver, GroupAccessResolver>();
             services.AddScoped<IGroupService, GroupService>();
-            services.AddScoped<IAssetFolderService, AssetFolderService>();
             services.AddScoped<IAssetService, AssetService>();
             services.AddScoped<ISceneService, SceneService>();
+            services.AddScoped<IFlowService, FlowService>();
             return services;
         }
     }

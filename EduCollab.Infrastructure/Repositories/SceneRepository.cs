@@ -9,6 +9,19 @@ namespace EduCollab.Infrastructure.Repositories
     {
         private readonly IDbConnectionFactory _dbConnectionFactory;
 
+        private const string SceneListColumns =
+            """
+            Id,
+            WorkspaceId,
+            OwnerUserId,
+            GroupId,
+            Name,
+            Description,
+            '' AS JsonContent,
+            CreatedAtUtc,
+            UpdatedAtUtc
+            """;
+
         public SceneRepository(IDbConnectionFactory dbConnectionFactory)
         {
             _dbConnectionFactory = dbConnectionFactory;
@@ -24,34 +37,39 @@ namespace EduCollab.Infrastructure.Repositories
                     INSERT INTO Scenes (
                         WorkspaceId,
                         OwnerUserId,
+                        GroupId,
                         Name,
                         Description,
                         JsonContent,
                         ETag,
-                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc)
-                    VALUES (
+                    SELECT
                         @WorkspaceId,
                         @OwnerUserId,
+                        @GroupId,
                         @Name,
                         @Description,
                         CAST(@JsonContent AS jsonb),
-                        @ETag,
-                        @CurrentVersionNumber,
+                        '',
                         @CreatedAtUtc,
-                        @UpdatedAtUtc)
+                        @UpdatedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Groups g
+                        WHERE g.Id = @GroupId
+                          AND g.WorkspaceId = @WorkspaceId
+                    )
                     RETURNING Id;
                     """,
                     new
                     {
                         WorkspaceId = workspaceId,
                         scene.OwnerUserId,
+                        scene.GroupId,
                         scene.Name,
                         scene.Description,
                         JsonContent = "{}",
-                        scene.ETag,
-                        scene.CurrentVersionNumber,
                         scene.CreatedAtUtc,
                         scene.UpdatedAtUtc
                     },
@@ -66,23 +84,32 @@ namespace EduCollab.Infrastructure.Repositories
 
             var scenes = await connection.QueryAsync<Scene>(
                 new CommandDefinition(
-                    """
-                    SELECT
-                        Id,
-                        WorkspaceId,
-                        OwnerUserId,
-                        Name,
-                        Description,
-                        '' AS JsonContent,
-                        ETag,
-                        CurrentVersionNumber,
-                        CreatedAtUtc,
-                        UpdatedAtUtc
+                    $"""
+                    SELECT {SceneListColumns}
                     FROM Scenes
                     WHERE WorkspaceId = @WorkspaceId
                     ORDER BY Name ASC, Id ASC;
                     """,
                     new { WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return scenes.AsList();
+        }
+
+        public async Task<List<Scene>> GetScenesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var scenes = await connection.QueryAsync<Scene>(
+                new CommandDefinition(
+                    $"""
+                    SELECT {SceneListColumns}
+                    FROM Scenes
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND GroupId = @GroupId
+                    ORDER BY Name ASC, Id ASC;
+                    """,
+                    new { WorkspaceId = workspaceId, GroupId = groupId },
                     cancellationToken: cancellationToken));
 
             return scenes.AsList();
@@ -94,18 +121,8 @@ namespace EduCollab.Infrastructure.Repositories
 
             var scenes = await connection.QueryAsync<Scene>(
                 new CommandDefinition(
-                    """
-                    SELECT
-                        Id,
-                        WorkspaceId,
-                        OwnerUserId,
-                        Name,
-                        Description,
-                        '' AS JsonContent,
-                        ETag,
-                        CurrentVersionNumber,
-                        CreatedAtUtc,
-                        UpdatedAtUtc
+                    $"""
+                    SELECT {SceneListColumns}
                     FROM Scenes
                     WHERE WorkspaceId = @WorkspaceId
                       AND OwnerUserId = @OwnerUserId
@@ -128,11 +145,10 @@ namespace EduCollab.Infrastructure.Repositories
                         Id,
                         WorkspaceId,
                         OwnerUserId,
+                        GroupId,
                         Name,
                         Description,
                         JsonContent::text AS JsonContent,
-                        ETag,
-                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc
                     FROM Scenes
@@ -154,20 +170,24 @@ namespace EduCollab.Infrastructure.Repositories
                     UPDATE Scenes
                     SET Name = @Name,
                         Description = @Description,
-                        ETag = @ETag,
-                        CurrentVersionNumber = @CurrentVersionNumber,
+                        GroupId = @GroupId,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE Id = @Id
                       AND WorkspaceId = @WorkspaceId
+                      AND EXISTS (
+                          SELECT 1
+                          FROM Groups g
+                          WHERE g.Id = @GroupId
+                            AND g.WorkspaceId = @WorkspaceId
+                      )
                     RETURNING
                         Id,
                         WorkspaceId,
                         OwnerUserId,
+                        GroupId,
                         Name,
                         Description,
                         '' AS JsonContent,
-                        ETag,
-                        CurrentVersionNumber,
                         CreatedAtUtc,
                         UpdatedAtUtc;
                     """,
@@ -175,10 +195,9 @@ namespace EduCollab.Infrastructure.Repositories
                     {
                         scene.Id,
                         WorkspaceId = workspaceId,
+                        scene.GroupId,
                         scene.Name,
                         scene.Description,
-                        scene.ETag,
-                        scene.CurrentVersionNumber,
                         UpdatedAtUtc = scene.UpdatedAtUtc
                     },
                     cancellationToken: cancellationToken));
@@ -196,278 +215,6 @@ namespace EduCollab.Infrastructure.Repositories
                       AND WorkspaceId = @WorkspaceId;
                     """,
                     new { SceneId = sceneId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return deleted > 0;
-        }
-
-        public async Task<SceneVersion?> CreateSceneVersionAsync(int workspaceId, SceneVersion version, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            return await connection.QuerySingleOrDefaultAsync<SceneVersion>(
-                new CommandDefinition(
-                    """
-                    INSERT INTO SceneVersions (
-                        SceneId,
-                        VersionNumber,
-                        Name,
-                        Description,
-                        ETag,
-                        CreatedByUserId,
-                        CreatedAtUtc)
-                    SELECT
-                        @SceneId,
-                        @VersionNumber,
-                        @Name,
-                        @Description,
-                        @ETag,
-                        @CreatedByUserId,
-                        @CreatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Scenes s
-                        WHERE s.Id = @SceneId
-                          AND s.WorkspaceId = @WorkspaceId
-                    )
-                    RETURNING
-                        SceneId,
-                        VersionNumber,
-                        Name,
-                        Description,
-                        ETag,
-                        CreatedByUserId,
-                        CreatedAtUtc;
-                    """,
-                    new
-                    {
-                        version.SceneId,
-                        version.VersionNumber,
-                        version.Name,
-                        version.Description,
-                        version.ETag,
-                        version.CreatedByUserId,
-                        version.CreatedAtUtc,
-                        WorkspaceId = workspaceId
-                    },
-                    cancellationToken: cancellationToken));
-        }
-
-        public async Task<List<SceneVersion>> GetSceneVersionsAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var versions = await connection.QueryAsync<SceneVersion>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        v.SceneId,
-                        v.VersionNumber,
-                        v.Name,
-                        v.Description,
-                        v.ETag,
-                        v.CreatedByUserId,
-                        v.CreatedAtUtc
-                    FROM SceneVersions v
-                    INNER JOIN Scenes s ON s.Id = v.SceneId
-                    WHERE v.SceneId = @SceneId
-                      AND s.WorkspaceId = @WorkspaceId
-                    ORDER BY v.VersionNumber DESC;
-                    """,
-                    new { SceneId = sceneId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return versions.AsList();
-        }
-
-        public async Task<SceneVersion?> GetSceneVersionAsync(int workspaceId, int sceneId, int versionNumber, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            return await connection.QuerySingleOrDefaultAsync<SceneVersion>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        v.SceneId,
-                        v.VersionNumber,
-                        v.Name,
-                        v.Description,
-                        v.ETag,
-                        v.CreatedByUserId,
-                        v.CreatedAtUtc
-                    FROM SceneVersions v
-                    INNER JOIN Scenes s ON s.Id = v.SceneId
-                    WHERE v.SceneId = @SceneId
-                      AND v.VersionNumber = @VersionNumber
-                      AND s.WorkspaceId = @WorkspaceId
-                    LIMIT 1;
-                    """,
-                    new { SceneId = sceneId, VersionNumber = versionNumber, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-        }
-
-        public async Task<bool> UpdateSceneCurrentVersionAsync(int workspaceId, int sceneId, int currentVersionNumber, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var updated = await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    UPDATE Scenes
-                    SET CurrentVersionNumber = @CurrentVersionNumber,
-                        UpdatedAtUtc = @UpdatedAtUtc
-                    WHERE Id = @SceneId
-                      AND WorkspaceId = @WorkspaceId;
-                    """,
-                    new
-                    {
-                        SceneId = sceneId,
-                        WorkspaceId = workspaceId,
-                        CurrentVersionNumber = currentVersionNumber,
-                        UpdatedAtUtc = DateTime.UtcNow
-                    },
-                    cancellationToken: cancellationToken));
-
-            return updated > 0;
-        }
-
-        public async Task<List<SceneGroupShare>> GetSceneSharesAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var shares = await connection.QueryAsync<SceneGroupShare>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        s.SceneId,
-                        s.GroupId,
-                        s.CreatedByUserId,
-                        s.CreatedAtUtc
-                    FROM SceneGroupShares s
-                    INNER JOIN Scenes sc ON sc.Id = s.SceneId
-                    INNER JOIN Groups g ON g.Id = s.GroupId
-                    WHERE s.SceneId = @SceneId
-                      AND sc.WorkspaceId = @WorkspaceId
-                      AND g.WorkspaceId = @WorkspaceId
-                    ORDER BY s.CreatedAtUtc, s.GroupId;
-                    """,
-                    new { SceneId = sceneId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return shares.AsList();
-        }
-
-        public async Task<List<SceneGroupShare>> GetWorkspaceSceneSharesAsync(int workspaceId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var shares = await connection.QueryAsync<SceneGroupShare>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        s.SceneId,
-                        s.GroupId,
-                        s.CreatedByUserId,
-                        s.CreatedAtUtc
-                    FROM SceneGroupShares s
-                    INNER JOIN Scenes sc ON sc.Id = s.SceneId
-                    INNER JOIN Groups g ON g.Id = s.GroupId
-                    WHERE sc.WorkspaceId = @WorkspaceId
-                      AND g.WorkspaceId = @WorkspaceId
-                    ORDER BY s.CreatedAtUtc, s.SceneId, s.GroupId;
-                    """,
-                    new { WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return shares.AsList();
-        }
-
-        public async Task<List<SceneGroupShare>> GetSceneSharesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var shares = await connection.QueryAsync<SceneGroupShare>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        s.SceneId,
-                        s.GroupId,
-                        s.CreatedByUserId,
-                        s.CreatedAtUtc
-                    FROM SceneGroupShares s
-                    INNER JOIN Scenes sc ON sc.Id = s.SceneId
-                    INNER JOIN Groups g ON g.Id = s.GroupId
-                    WHERE s.GroupId = @GroupId
-                      AND sc.WorkspaceId = @WorkspaceId
-                      AND g.WorkspaceId = @WorkspaceId
-                    ORDER BY s.CreatedAtUtc, s.SceneId;
-                    """,
-                    new { GroupId = groupId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return shares.AsList();
-        }
-
-        public async Task<SceneGroupShare?> CreateSceneShareAsync(int workspaceId, SceneGroupShare share, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            return await connection.QuerySingleOrDefaultAsync<SceneGroupShare>(
-                new CommandDefinition(
-                    """
-                    INSERT INTO SceneGroupShares (
-                        SceneId,
-                        GroupId,
-                        CreatedByUserId,
-                        CreatedAtUtc)
-                    SELECT
-                        @SceneId,
-                        @GroupId,
-                        @CreatedByUserId,
-                        @CreatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Scenes sc
-                        WHERE sc.Id = @SceneId
-                          AND sc.WorkspaceId = @WorkspaceId
-                    )
-                      AND EXISTS (
-                        SELECT 1
-                        FROM Groups g
-                        WHERE g.Id = @GroupId
-                          AND g.WorkspaceId = @WorkspaceId
-                    )
-                    ON CONFLICT (SceneId, GroupId) DO NOTHING
-                    RETURNING SceneId, GroupId, CreatedByUserId, CreatedAtUtc;
-                    """,
-                    new
-                    {
-                        share.SceneId,
-                        share.GroupId,
-                        share.CreatedByUserId,
-                        share.CreatedAtUtc,
-                        WorkspaceId = workspaceId
-                    },
-                    cancellationToken: cancellationToken));
-        }
-
-        public async Task<bool> DeleteSceneShareAsync(int workspaceId, int sceneId, int groupId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var deleted = await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    DELETE FROM SceneGroupShares s
-                    USING Scenes sc, Groups g
-                    WHERE s.SceneId = @SceneId
-                      AND s.GroupId = @GroupId
-                      AND sc.Id = s.SceneId
-                      AND g.Id = s.GroupId
-                      AND sc.WorkspaceId = @WorkspaceId
-                      AND g.WorkspaceId = @WorkspaceId;
-                    """,
-                    new { SceneId = sceneId, GroupId = groupId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
             return deleted > 0;

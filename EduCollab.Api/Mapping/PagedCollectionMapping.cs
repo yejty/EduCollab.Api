@@ -2,6 +2,7 @@ using EduCollab.Api.Query;
 using EduCollab.Application.Models;
 using EduCollab.Contracts.Responses.Assets;
 using EduCollab.Contracts.Responses.Groups;
+using EduCollab.Contracts.Responses.Flows;
 using EduCollab.Contracts.Responses.Scenes;
 using EduCollab.Contracts.Responses.Workspaces;
 
@@ -36,10 +37,10 @@ namespace EduCollab.Api.Mapping
                 TotalCount = paged.TotalCount,
             };
 
-        public static AssetFoldersResponse MapToResponse(this PagedResult<AssetFolder> paged) =>
+        public static FlowsResponse MapToResponse(this PagedResult<Flow> paged) =>
             new()
             {
-                Folders = paged.Items.Select(static folder => folder.MapToResponse()).ToList(),
+                Flows = paged.Items.Select(static flow => flow.MapToResponse()).ToList(),
                 Page = paged.Page,
                 PageSize = paged.PageSize,
                 TotalCount = paged.TotalCount,
