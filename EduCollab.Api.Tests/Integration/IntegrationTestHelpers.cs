@@ -174,9 +174,9 @@ internal static partial class IntegrationTestHelpers
     [GeneratedRegex(@"Use this approval token.*?:\s+(\S+)", RegexOptions.Singleline)]
     private static partial Regex WorkspaceCreationApprovalTokenRegex();
 
-    [GeneratedRegex(@"(/api/workspace-creation-review/[^/\s]+/approve)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(/api/workspace-creation-review/\d+/[^/\s]+/approve)", RegexOptions.IgnoreCase)]
     private static partial Regex AdminApprovePathRegex();
 
-    [GeneratedRegex(@"(/api/workspace-creation-review/[^/\s]+/deny)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(/api/workspace-creation-review/\d+/[^/\s]+/deny)", RegexOptions.IgnoreCase)]
     private static partial Regex AdminDenyPathRegex();
 }

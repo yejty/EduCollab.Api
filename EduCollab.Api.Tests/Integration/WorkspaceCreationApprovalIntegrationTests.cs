@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using EduCollab.Contracts.Requests.Workspaces;
+using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 
 namespace EduCollab.Api.Tests.Integration;
@@ -59,6 +60,54 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         var workspace = await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
         Assert.Equal("Approved Workspace", workspace.Name);
         Assert.Equal("Owner", workspace.CurrentUserRole);
+    }
+
+    [Fact]
+    public async Task WorkspaceCreation_AllowsOwnerToCreateSecondWorkspace_WhenAlreadyMemberOfAnother()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var userClient = factory.CreateClient();
+        using var reviewClient = factory.CreateClient();
+
+        var userEmail = $"multi-owner-{Guid.NewGuid():N}@example.com";
+        const string userPassword = "Requester123!";
+
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Multi", "Owner", userEmail, userPassword);
+        userClient.SetBearerToken(userTokens.AccessToken);
+
+        var firstWorkspace = await userClient.CreateApprovedWorkspaceAsync(factory, userEmail, "First Workspace");
+
+        var submitResponse = await userClient.PostAsJsonAsync("/api/workspace/creation-requests", new RequestWorkspaceCreationRequest
+        {
+            Name = "Second Workspace",
+            Description = "Another approved workspace",
+        });
+        submitResponse.EnsureSuccessStatusCode();
+
+        var approvePath = factory.GetWorkspaceCreationAdminApprovePath();
+        var approveResponse = await reviewClient.GetAsync(approvePath);
+        approveResponse.EnsureSuccessStatusCode();
+
+        var approvalToken = factory.GetWorkspaceCreationApprovalToken(userEmail);
+
+        var createResponse = await userClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
+        {
+            Name = "Second Workspace",
+            Description = "Another approved workspace",
+            ApprovalToken = approvalToken,
+        });
+        createResponse.EnsureSuccessStatusCode();
+        var secondWorkspace = await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("Second Workspace", secondWorkspace.Name);
+        Assert.Equal("Owner", secondWorkspace.CurrentUserRole);
+
+        var workspacesResponse = await userClient.GetAsync("/api/users/me/workspaces");
+        workspacesResponse.EnsureSuccessStatusCode();
+        var workspaces = await workspacesResponse.ReadAsJsonAsync<UserWorkspacesResponse>();
+        Assert.Equal(2, workspaces.Workspaces.Count);
+        Assert.Contains(workspaces.Workspaces, w => w.WorkspaceName == "First Workspace" && w.Role == "Owner");
+        Assert.Contains(workspaces.Workspaces, w => w.WorkspaceName == "Second Workspace" && w.Role == "Owner" && w.IsActive);
+        Assert.NotEqual(firstWorkspace.Id, secondWorkspace.Id);
     }
 
     [Fact]

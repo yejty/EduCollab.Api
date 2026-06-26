@@ -17,8 +17,8 @@ namespace EduCollab.Application.Services.Workspaces
 
         /// <summary>
         /// API base URL for one-click admin review links in email (no trailing slash).
-        /// Approve link: <c>{AdminReviewUrlBase}/{token}/approve</c>.
-        /// Deny link: <c>{AdminReviewUrlBase}/{token}/deny</c>.
+        /// Approve link: <c>{AdminReviewUrlBase}/{requestId}/{token}/approve</c>.
+        /// Deny link: <c>{AdminReviewUrlBase}/{requestId}/{token}/deny</c>.
         /// </summary>
         public string AdminReviewUrlBase { get; set; } = string.Empty;
 

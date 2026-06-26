@@ -78,16 +78,73 @@ namespace EduCollab.Infrastructure.Repositories
         public async Task<bool> DeleteGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            var deleted = await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    DELETE FROM Groups
+            if (connection is not DbConnection dbConnection)
+                throw new InvalidOperationException("Database connection must support transactions.");
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            const string subtreeSql =
+                """
+                WITH RECURSIVE subtree AS (
+                    SELECT Id
+                    FROM Groups
                     WHERE Id = @GroupId
-                      AND WorkspaceId = @WorkspaceId;
+                      AND WorkspaceId = @WorkspaceId
+                    UNION ALL
+                    SELECT g.Id
+                    FROM Groups g
+                    INNER JOIN subtree s ON g.ParentGroupId = s.Id
+                    WHERE g.WorkspaceId = @WorkspaceId
+                )
+                """;
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    $"""
+                    {subtreeSql}
+                    DELETE FROM Flows
+                    WHERE GroupId IN (SELECT Id FROM subtree);
                     """,
                     new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: tx,
                     cancellationToken: cancellationToken));
 
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    $"""
+                    {subtreeSql}
+                    UPDATE Assets
+                    SET GroupId = NULL
+                    WHERE GroupId IN (SELECT Id FROM subtree);
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    $"""
+                    {subtreeSql}
+                    UPDATE Scenes
+                    SET GroupId = NULL
+                    WHERE GroupId IN (SELECT Id FROM subtree);
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            var deleted = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    $"""
+                    {subtreeSql}
+                    DELETE FROM Groups
+                    WHERE Id IN (SELECT Id FROM subtree);
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
+
+            await tx.CommitAsync(cancellationToken);
             return deleted > 0;
         }
 

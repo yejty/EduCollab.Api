@@ -45,6 +45,7 @@ namespace EduCollab.Application.Repositories
         Task<long?> ConsumeAdminReviewTokenAsync(
             string tokenHashSha256Hex,
             WorkspaceCreationAdminReviewAction action,
+            long expectedRequestId,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken);
 

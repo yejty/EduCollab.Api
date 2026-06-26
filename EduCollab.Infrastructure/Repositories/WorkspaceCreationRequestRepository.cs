@@ -391,6 +391,7 @@ namespace EduCollab.Infrastructure.Repositories
         public async Task<long?> ConsumeAdminReviewTokenAsync(
             string tokenHashSha256Hex,
             WorkspaceCreationAdminReviewAction action,
+            long expectedRequestId,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken)
         {
@@ -407,6 +408,7 @@ namespace EduCollab.Infrastructure.Repositories
                     FROM WorkspaceCreationAdminReviewTokens t
                     INNER JOIN WorkspaceCreationRequests r ON r.Id = t.RequestId
                     WHERE t.TokenHash = @TokenHash
+                      AND t.RequestId = @ExpectedRequestId
                       AND t.UsedAt IS NULL
                       AND t.ExpiresAt > @Now
                       AND r.Status = @PendingStatus
@@ -416,6 +418,7 @@ namespace EduCollab.Infrastructure.Repositories
                     new
                     {
                         TokenHash = tokenHashSha256Hex,
+                        ExpectedRequestId = expectedRequestId,
                         Now = utcNow,
                         PendingStatus = WorkspaceCreationRequestStatus.Pending.ToPersistedString(),
                     },

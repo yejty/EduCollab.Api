@@ -4312,13 +4312,22 @@
         ]
       }
     },
-    "/api/workspace-creation-review/{reviewToken}/approve": {
+    "/api/workspace-creation-review/{requestId}/{reviewToken}/approve": {
       "get": {
         "tags": [
           "WorkspaceCreationReview"
         ],
         "summary": "One-click approve action from the platform admin notification email.",
         "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
           {
             "name": "reviewToken",
             "in": "path",
@@ -4335,13 +4344,22 @@
         }
       }
     },
-    "/api/workspace-creation-review/{reviewToken}/deny": {
+    "/api/workspace-creation-review/{requestId}/{reviewToken}/deny": {
       "get": {
         "tags": [
           "WorkspaceCreationReview"
         ],
         "summary": "One-click deny action from the platform admin notification email.",
         "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
           {
             "name": "reviewToken",
             "in": "path",

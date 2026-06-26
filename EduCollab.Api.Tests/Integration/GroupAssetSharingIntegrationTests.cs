@@ -178,4 +178,59 @@ public sealed class GroupAssetSharingIntegrationTests
         Assert.Single(childAccessibleAssets.Assets);
         Assert.Equal(physicsAsset.Id, childAccessibleAssets.Assets[0].Id);
     }
+
+    [Fact]
+    public async Task DeleteGroup_DeletesAllSubgroups()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Cascade Delete Workspace",
+            "Group cascade delete integration test");
+
+        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Science",
+            Description = "Root science group"
+        });
+        scienceResponse.EnsureSuccessStatusCode();
+        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var physicsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Physics",
+            Description = "Science subgroup",
+            ParentGroupId = science.Id
+        });
+        physicsResponse.EnsureSuccessStatusCode();
+        var physics = await physicsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var chemistryResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Chemistry",
+            Description = "Nested science subgroup",
+            ParentGroupId = physics.Id
+        });
+        chemistryResponse.EnsureSuccessStatusCode();
+        var chemistry = await chemistryResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var deleteResponse = await ownerClient.DeleteAsync($"/api/workspace/groups/{science.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var allGroupsResponse = await ownerClient.GetAsync("/api/workspace/groups");
+        allGroupsResponse.EnsureSuccessStatusCode();
+        var allGroups = await allGroupsResponse.ReadAsJsonAsync<GroupsResponse>();
+        Assert.DoesNotContain(allGroups.Groups, g => g.Id == science.Id);
+        Assert.DoesNotContain(allGroups.Groups, g => g.Id == physics.Id);
+        Assert.DoesNotContain(allGroups.Groups, g => g.Id == chemistry.Id);
+    }
 }

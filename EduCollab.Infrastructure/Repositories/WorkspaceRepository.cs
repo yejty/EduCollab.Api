@@ -155,17 +155,6 @@ namespace EduCollab.Infrastructure.Repositories
             return workspaceId;
         }
 
-        public async Task<bool> IsUserInAnyWorkspaceAsync(int userId, CancellationToken cancellationToken)
-        {
-            const string sql = """
-                SELECT EXISTS(SELECT 1 FROM WorkspaceMembers WHERE UserId = @UserId);
-                """;
-
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.ExecuteScalarAsync<bool>(
-                new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
-        }
-
         public async Task<List<WorkspaceMember>> GetWorkspaceMembershipsForUserAsync(int userId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();

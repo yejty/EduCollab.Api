@@ -108,8 +108,8 @@ namespace EduCollab.Application.Services.Workspaces
                         DateTimeOffset.UtcNow,
                         cancellationToken);
 
-                    approveUrl = $"{reviewBaseUrl}/{Uri.EscapeDataString(approveToken)}/approve";
-                    denyUrl = $"{reviewBaseUrl}/{Uri.EscapeDataString(denyToken)}/deny";
+                    approveUrl = $"{reviewBaseUrl}/{request.Id}/{Uri.EscapeDataString(approveToken)}/approve";
+                    denyUrl = $"{reviewBaseUrl}/{request.Id}/{Uri.EscapeDataString(denyToken)}/deny";
                 }
 
                 var mail = EduCollabEmailTemplates.WorkspaceCreationRequestAdminNotification(
@@ -173,41 +173,55 @@ namespace EduCollab.Application.Services.Workspaces
             return await DenyRequestInternalAsync(requestId, reviewerUserId, reason, cancellationToken);
         }
 
-        public async Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken)
+        public async Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(
+            long requestId,
+            string reviewToken,
+            CancellationToken cancellationToken)
         {
+            if (requestId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(requestId));
+
             if (string.IsNullOrWhiteSpace(reviewToken))
                 throw new ArgumentException("Review token is required.", nameof(reviewToken));
 
             var reviewerUserId = await ResolvePlatformAdminUserIdAsync(cancellationToken);
-            var requestId = await _creationRequestRepository.ConsumeAdminReviewTokenAsync(
+            var consumedRequestId = await _creationRequestRepository.ConsumeAdminReviewTokenAsync(
                 RefreshTokenGenerator.HashPlaintext(reviewToken.Trim()),
                 WorkspaceCreationAdminReviewAction.Approve,
+                requestId,
                 DateTimeOffset.UtcNow,
                 cancellationToken);
 
-            if (requestId is null)
+            if (consumedRequestId is null)
                 return null;
 
-            return await ApproveRequestInternalAsync(requestId.Value, reviewerUserId, cancellationToken);
+            return await ApproveRequestInternalAsync(consumedRequestId.Value, reviewerUserId, cancellationToken);
         }
 
-        public async Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken)
+        public async Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(
+            long requestId,
+            string reviewToken,
+            CancellationToken cancellationToken)
         {
+            if (requestId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(requestId));
+
             if (string.IsNullOrWhiteSpace(reviewToken))
                 throw new ArgumentException("Review token is required.", nameof(reviewToken));
 
             var reviewerUserId = await ResolvePlatformAdminUserIdAsync(cancellationToken);
-            var requestId = await _creationRequestRepository.ConsumeAdminReviewTokenAsync(
+            var consumedRequestId = await _creationRequestRepository.ConsumeAdminReviewTokenAsync(
                 RefreshTokenGenerator.HashPlaintext(reviewToken.Trim()),
                 WorkspaceCreationAdminReviewAction.Deny,
+                requestId,
                 DateTimeOffset.UtcNow,
                 cancellationToken);
 
-            if (requestId is null)
+            if (consumedRequestId is null)
                 return null;
 
             return await DenyRequestInternalAsync(
-                requestId.Value,
+                consumedRequestId.Value,
                 reviewerUserId,
                 "Your workspace creation request was denied by the platform administrator.",
                 cancellationToken);

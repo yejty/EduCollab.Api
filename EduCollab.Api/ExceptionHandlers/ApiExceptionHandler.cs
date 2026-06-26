@@ -42,6 +42,10 @@ namespace EduCollab.Api.ExceptionHandlers
             return true;
         }
 
+        private static bool IsContentStorageAccessDenied(UnauthorizedAccessException exception) =>
+            exception.Message.Contains("Access to the path", StringComparison.OrdinalIgnoreCase)
+            && exception.Message.Contains("App_Data", StringComparison.OrdinalIgnoreCase);
+
         private static (int StatusCode, string Error, string Description) MapException(Exception exception) =>
             exception switch
             {
@@ -53,6 +57,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status400BadRequest,
                     "bad_request",
                     "The request could not be completed."),
+                UnauthorizedAccessException unauthorizedAccess when IsContentStorageAccessDenied(unauthorizedAccess) => (
+                    StatusCodes.Status503ServiceUnavailable,
+                    "storage_unavailable",
+                    "Content storage is not writable. Check App_Data permissions."),
                 UnauthorizedAccessException => (
                     StatusCodes.Status401Unauthorized,
                     "unauthorized",

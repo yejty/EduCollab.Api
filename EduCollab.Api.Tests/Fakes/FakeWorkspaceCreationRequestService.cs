@@ -10,8 +10,8 @@ public sealed class FakeWorkspaceCreationRequestService : IWorkspaceCreationRequ
     public Func<WorkspaceCreationRequestStatus?, CancellationToken, Task<List<WorkspaceCreationRequest>>>? GetRequestsAsyncHandler { get; set; }
     public Func<long, CancellationToken, Task<WorkspaceCreationRequest?>>? ApproveRequestAsyncHandler { get; set; }
     public Func<long, string?, CancellationToken, Task<WorkspaceCreationRequest?>>? DenyRequestAsyncHandler { get; set; }
-    public Func<string, CancellationToken, Task<WorkspaceCreationRequest?>>? ApproveRequestByReviewTokenAsyncHandler { get; set; }
-    public Func<string, CancellationToken, Task<WorkspaceCreationRequest?>>? DenyRequestByReviewTokenAsyncHandler { get; set; }
+    public Func<long, string, CancellationToken, Task<WorkspaceCreationRequest?>>? ApproveRequestByReviewTokenAsyncHandler { get; set; }
+    public Func<long, string, CancellationToken, Task<WorkspaceCreationRequest?>>? DenyRequestByReviewTokenAsyncHandler { get; set; }
 
     public Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, CancellationToken cancellationToken) =>
         SubmitRequestAsyncHandler?.Invoke(name, description, cancellationToken)
@@ -36,9 +36,9 @@ public sealed class FakeWorkspaceCreationRequestService : IWorkspaceCreationRequ
     public Task<WorkspaceCreationRequest?> DenyRequestAsync(long requestId, string? reason, CancellationToken cancellationToken) =>
         DenyRequestAsyncHandler?.Invoke(requestId, reason, cancellationToken) ?? Task.FromResult<WorkspaceCreationRequest?>(null);
 
-    public Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken) =>
-        ApproveRequestByReviewTokenAsyncHandler?.Invoke(reviewToken, cancellationToken) ?? Task.FromResult<WorkspaceCreationRequest?>(null);
+    public Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(long requestId, string reviewToken, CancellationToken cancellationToken) =>
+        ApproveRequestByReviewTokenAsyncHandler?.Invoke(requestId, reviewToken, cancellationToken) ?? Task.FromResult<WorkspaceCreationRequest?>(null);
 
-    public Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken) =>
-        DenyRequestByReviewTokenAsyncHandler?.Invoke(reviewToken, cancellationToken) ?? Task.FromResult<WorkspaceCreationRequest?>(null);
+    public Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(long requestId, string reviewToken, CancellationToken cancellationToken) =>
+        DenyRequestByReviewTokenAsyncHandler?.Invoke(requestId, reviewToken, cancellationToken) ?? Task.FromResult<WorkspaceCreationRequest?>(null);
 }

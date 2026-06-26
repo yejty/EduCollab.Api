@@ -19,11 +19,14 @@ namespace EduCollab.Api.Controllers
         /// </summary>
         [HttpGet(ApiEndpoints.WorkspaceCreationReview.Approve)]
         [Produces("text/html")]
-        public async Task<IActionResult> ApproveFromEmail([FromRoute] string reviewToken, CancellationToken cancellationToken)
+        public async Task<IActionResult> ApproveFromEmail(
+            [FromRoute] long requestId,
+            [FromRoute] string reviewToken,
+            CancellationToken cancellationToken)
         {
             try
             {
-                var approved = await _creationRequestService.ApproveRequestByReviewTokenAsync(reviewToken, cancellationToken);
+                var approved = await _creationRequestService.ApproveRequestByReviewTokenAsync(requestId, reviewToken, cancellationToken);
                 if (approved is null)
                 {
                     return Content(
@@ -54,11 +57,14 @@ namespace EduCollab.Api.Controllers
         /// </summary>
         [HttpGet(ApiEndpoints.WorkspaceCreationReview.Deny)]
         [Produces("text/html")]
-        public async Task<IActionResult> DenyFromEmail([FromRoute] string reviewToken, CancellationToken cancellationToken)
+        public async Task<IActionResult> DenyFromEmail(
+            [FromRoute] long requestId,
+            [FromRoute] string reviewToken,
+            CancellationToken cancellationToken)
         {
             try
             {
-                var denied = await _creationRequestService.DenyRequestByReviewTokenAsync(reviewToken, cancellationToken);
+                var denied = await _creationRequestService.DenyRequestByReviewTokenAsync(requestId, reviewToken, cancellationToken);
                 if (denied is null)
                 {
                     return Content(

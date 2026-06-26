@@ -14,8 +14,8 @@ namespace EduCollab.Application.Services.Workspaces
 
         Task<WorkspaceCreationRequest?> DenyRequestAsync(long requestId, string? reason, CancellationToken cancellationToken);
 
-        Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken);
+        Task<WorkspaceCreationRequest?> ApproveRequestByReviewTokenAsync(long requestId, string reviewToken, CancellationToken cancellationToken);
 
-        Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(string reviewToken, CancellationToken cancellationToken);
+        Task<WorkspaceCreationRequest?> DenyRequestByReviewTokenAsync(long requestId, string reviewToken, CancellationToken cancellationToken);
     }
 }

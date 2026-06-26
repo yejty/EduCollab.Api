@@ -18,8 +18,6 @@ namespace EduCollab.Application.Repositories
 
         Task<int> CreateWorkspaceWithOwnerAsync(Workspace workspace, int ownerUserId, DateTimeOffset now, CancellationToken cancellationToken);
 
-        Task<bool> IsUserInAnyWorkspaceAsync(int userId, CancellationToken cancellationToken);
-
         Task<List<WorkspaceMember>> GetWorkspaceMembershipsForUserAsync(int userId, CancellationToken cancellationToken);
 
         Task<List<Workspace>> GetWorkspacesForUserAsync(int userId, CancellationToken cancellationToken);

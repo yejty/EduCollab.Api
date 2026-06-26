@@ -205,9 +205,13 @@ namespace EduCollab.Api.Controllers
                     return ApiBadRequest("creation_failed", "Workspace could not be created.");
                 }
             }
-            catch (ArgumentException ex)
+            catch (ArgumentException ex) when (ex.Message.Contains("approval token", StringComparison.OrdinalIgnoreCase))
             {
                 return ApiBadRequest("invalid_approval_token", ex.Message);
+            }
+            catch (ArgumentException ex)
+            {
+                return ApiBadRequest("creation_failed", ex.Message);
             }
 
             var response = workspace.MapToResponse();

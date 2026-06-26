@@ -153,14 +153,16 @@ namespace EduCollab.Infrastructure.Database
                     END IF;
                 END $$;
                 """);
+            await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS StorageKey;");
+            await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS StorageProvider;");
+            await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS MimeType;");
+            await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS SizeInBytes;");
             await connection.ExecuteAsync(
                 "ALTER TABLE Assets ALTER COLUMN AssetType DROP NOT NULL;");
             await connection.ExecuteAsync(
                 "ALTER TABLE Assets ALTER COLUMN StorageUrl DROP NOT NULL;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Assets_WorkspaceId ON Assets (WorkspaceId);");
-            await connection.ExecuteAsync(
-                "CREATE INDEX IF NOT EXISTS IX_Assets_FolderId ON Assets (FolderId);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Assets_OwnerUserId ON Assets (OwnerUserId);");
             await connection.ExecuteAsync(
@@ -243,8 +245,9 @@ namespace EduCollab.Infrastructure.Database
                     PRIMARY KEY (WorkspaceId, UserId)
                 );
                 """);
-            await connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkspaceMembers_UserId ON WorkspaceMembers (UserId);");
+            await connection.ExecuteAsync("DROP INDEX IF EXISTS IX_WorkspaceMembers_UserId;");
             await connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_WorkspaceMembers_WorkspaceId ON WorkspaceMembers (WorkspaceId);");
+            await connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_WorkspaceMembers_UserId ON WorkspaceMembers (UserId);");
             await connection.ExecuteAsync(
                 """
                 INSERT INTO WorkspaceMembers (WorkspaceId, UserId, Role, JoinedAtUtc)
@@ -421,8 +424,6 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
-            await MigrateToHierarchicalGroupsAsync(connection);
-
             await SeedPlatformAdminUserAsync(connection);
         }
 
@@ -436,12 +437,14 @@ namespace EduCollab.Infrastructure.Database
                 """);
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_Groups_ParentGroupId ON Groups (ParentGroupId);");
+            await DeduplicateRootGroupsAsync(connection);
             await connection.ExecuteAsync(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS UX_Groups_RootName
                 ON Groups (WorkspaceId, Name)
                 WHERE ParentGroupId IS NULL;
                 """);
+            await DeduplicateChildGroupsAsync(connection);
             await connection.ExecuteAsync(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS UX_Groups_ParentName
@@ -478,54 +481,6 @@ namespace EduCollab.Infrastructure.Database
                             ORDER BY AssetId, CreatedAtUtc, GroupId
                         ) s
                         WHERE a.Id = s.AssetId
-                          AND a.GroupId IS NULL;
-                    END IF;
-                END $$;
-                """);
-
-            await connection.ExecuteAsync(
-                """
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_schema = 'public' AND table_name = 'assetfolders'
-                    ) THEN
-                        INSERT INTO Groups (WorkspaceId, Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, UserCount, ParentGroupId)
-                        SELECT
-                            f.WorkspaceId,
-                            f.Name,
-                            NULL,
-                            f.CreatedAtUtc,
-                            f.UpdatedAtUtc,
-                            f.CreatedByUserId,
-                            1,
-                            CASE
-                                WHEN f.ParentFolderId IS NULL THEN NULL
-                                ELSE (
-                                    SELECT g2.Id
-                                    FROM AssetFolders pf
-                                    INNER JOIN Groups g2 ON g2.WorkspaceId = pf.WorkspaceId AND g2.Name = pf.Name AND g2.ParentGroupId IS NULL
-                                    WHERE pf.Id = f.ParentFolderId
-                                    LIMIT 1
-                                )
-                            END
-                        FROM AssetFolders f
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM Groups g
-                            WHERE g.WorkspaceId = f.WorkspaceId
-                              AND g.Name = f.Name
-                              AND (
-                                  (f.ParentFolderId IS NULL AND g.ParentGroupId IS NULL)
-                                  OR g.ParentGroupId IS NOT NULL
-                              )
-                        );
-
-                        UPDATE Assets a
-                        SET GroupId = g.Id
-                        FROM AssetFolders f
-                        INNER JOIN Groups g ON g.WorkspaceId = f.WorkspaceId AND g.Name = f.Name
-                        WHERE a.FolderId = f.Id
                           AND a.GroupId IS NULL;
                     END IF;
                 END $$;
@@ -675,6 +630,230 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync("DROP TABLE IF EXISTS SceneGroupShares;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolderGroupShares;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolders;");
+        }
+
+        private static async Task DeduplicateRootGroupsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                DECLARE
+                    duplicate RECORD;
+                    keeper_id INT;
+                    duplicate_id INT;
+                    duplicate_index INT;
+                BEGIN
+                    FOR duplicate IN
+                        SELECT WorkspaceId, Name, array_agg(Id ORDER BY Id) AS ids
+                        FROM Groups
+                        WHERE ParentGroupId IS NULL
+                        GROUP BY WorkspaceId, Name
+                        HAVING COUNT(*) > 1
+                    LOOP
+                        keeper_id := duplicate.ids[1];
+
+                        FOR duplicate_index IN 2..array_length(duplicate.ids, 1) LOOP
+                            duplicate_id := duplicate.ids[duplicate_index];
+
+                            INSERT INTO GroupMembers (GroupId, UserId, JoinedAtUtc)
+                            SELECT keeper_id, UserId, JoinedAtUtc
+                            FROM GroupMembers
+                            WHERE GroupId = duplicate_id
+                            ON CONFLICT (GroupId, UserId) DO NOTHING;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'scenegroupshares'
+                            ) THEN
+                                DELETE FROM SceneGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM SceneGroupShares keeper
+                                      WHERE keeper.SceneId = dup.SceneId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE SceneGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'assetgroupshares'
+                            ) THEN
+                                DELETE FROM AssetGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM AssetGroupShares keeper
+                                      WHERE keeper.AssetId = dup.AssetId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE AssetGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'assetfoldergroupshares'
+                            ) THEN
+                                DELETE FROM AssetFolderGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM AssetFolderGroupShares keeper
+                                      WHERE keeper.FolderId = dup.FolderId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE AssetFolderGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'assets'
+                                  AND column_name = 'groupid'
+                            ) THEN
+                                UPDATE Assets SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'scenes'
+                                  AND column_name = 'groupid'
+                            ) THEN
+                                UPDATE Scenes SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'flows'
+                            ) THEN
+                                UPDATE Flows SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            UPDATE Groups SET ParentGroupId = keeper_id WHERE ParentGroupId = duplicate_id;
+
+                            DELETE FROM GroupMembers WHERE GroupId = duplicate_id;
+                            DELETE FROM Groups WHERE Id = duplicate_id;
+                        END LOOP;
+
+                        UPDATE Groups
+                        SET UserCount = (
+                            SELECT COUNT(*) FROM GroupMembers WHERE GroupId = keeper_id
+                        )
+                        WHERE Id = keeper_id;
+                    END LOOP;
+                END $$;
+                """);
+        }
+
+        private static async Task DeduplicateChildGroupsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                DECLARE
+                    duplicate RECORD;
+                    keeper_id INT;
+                    duplicate_id INT;
+                    duplicate_index INT;
+                BEGIN
+                    FOR duplicate IN
+                        SELECT WorkspaceId, ParentGroupId, Name, array_agg(Id ORDER BY Id) AS ids
+                        FROM Groups
+                        WHERE ParentGroupId IS NOT NULL
+                        GROUP BY WorkspaceId, ParentGroupId, Name
+                        HAVING COUNT(*) > 1
+                    LOOP
+                        keeper_id := duplicate.ids[1];
+
+                        FOR duplicate_index IN 2..array_length(duplicate.ids, 1) LOOP
+                            duplicate_id := duplicate.ids[duplicate_index];
+
+                            INSERT INTO GroupMembers (GroupId, UserId, JoinedAtUtc)
+                            SELECT keeper_id, UserId, JoinedAtUtc
+                            FROM GroupMembers
+                            WHERE GroupId = duplicate_id
+                            ON CONFLICT (GroupId, UserId) DO NOTHING;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'scenegroupshares'
+                            ) THEN
+                                DELETE FROM SceneGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM SceneGroupShares keeper
+                                      WHERE keeper.SceneId = dup.SceneId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE SceneGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'assetgroupshares'
+                            ) THEN
+                                DELETE FROM AssetGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM AssetGroupShares keeper
+                                      WHERE keeper.AssetId = dup.AssetId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE AssetGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'assetfoldergroupshares'
+                            ) THEN
+                                DELETE FROM AssetFolderGroupShares dup
+                                WHERE dup.GroupId = duplicate_id
+                                  AND EXISTS (
+                                      SELECT 1 FROM AssetFolderGroupShares keeper
+                                      WHERE keeper.FolderId = dup.FolderId
+                                        AND keeper.GroupId = keeper_id
+                                  );
+                                UPDATE AssetFolderGroupShares SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'assets'
+                                  AND column_name = 'groupid'
+                            ) THEN
+                                UPDATE Assets SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.columns
+                                WHERE table_schema = 'public'
+                                  AND table_name = 'scenes'
+                                  AND column_name = 'groupid'
+                            ) THEN
+                                UPDATE Scenes SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            IF EXISTS (
+                                SELECT 1 FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = 'flows'
+                            ) THEN
+                                UPDATE Flows SET GroupId = keeper_id WHERE GroupId = duplicate_id;
+                            END IF;
+
+                            UPDATE Groups SET ParentGroupId = keeper_id WHERE ParentGroupId = duplicate_id;
+
+                            DELETE FROM GroupMembers WHERE GroupId = duplicate_id;
+                            DELETE FROM Groups WHERE Id = duplicate_id;
+                        END LOOP;
+
+                        UPDATE Groups
+                        SET UserCount = (
+                            SELECT COUNT(*) FROM GroupMembers WHERE GroupId = keeper_id
+                        )
+                        WHERE Id = keeper_id;
+                    END LOOP;
+                END $$;
+                """);
         }
 
         private async Task SeedPlatformAdminUserAsync(System.Data.IDbConnection connection)

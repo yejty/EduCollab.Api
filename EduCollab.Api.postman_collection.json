@@ -2694,13 +2694,14 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/workspace-creation-review/{{reviewToken}}/approve",
+              "raw": "{{baseUrl}}/api/workspace-creation-review/{{requestId}}/{{reviewToken}}/approve",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "workspace-creation-review",
+                "{{requestId}}",
                 "{{reviewToken}}",
                 "approve"
               ]
@@ -2718,13 +2719,14 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/workspace-creation-review/{{reviewToken}}/deny",
+              "raw": "{{baseUrl}}/api/workspace-creation-review/{{requestId}}/{{reviewToken}}/deny",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "workspace-creation-review",
+                "{{requestId}}",
                 "{{reviewToken}}",
                 "deny"
               ]
