@@ -8,6 +8,7 @@ using EduCollab.Contracts.Responses.Workspaces;
 
 namespace EduCollab.Api.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class WorkspaceApiIntegrationTests
 {
     [Fact]

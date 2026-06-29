@@ -6,6 +6,7 @@ using EduCollab.Contracts.Responses.Users;
 
 namespace EduCollab.Api.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class UserApiIntegrationTests
 {
     [Fact]

@@ -12,6 +12,7 @@ using EduCollab.Contracts.Responses.Scenes;
 
 namespace EduCollab.Api.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class SceneAssetsIntegrationTests
 {
     [Fact]

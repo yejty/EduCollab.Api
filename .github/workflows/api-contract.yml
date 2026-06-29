@@ -26,4 +26,9 @@ jobs:
       # Unit + OpenAPI/Postman contract tests only.
       # Integration tests (Postgres on :5433) are run locally — not in CI.
       - name: Run unit and contract tests
-        run: dotnet test EduCollab.Api.sln --configuration Release --no-restore --filter "FullyQualifiedName!~Integration" --verbosity normal
+        run: >
+          dotnet test EduCollab.Api.Tests/EduCollab.Api.Tests.csproj
+          --configuration Release
+          --no-restore
+          --settings .github/ci.runsettings
+          --logger "console;verbosity=normal"

@@ -9,6 +9,7 @@ using EduCollab.Contracts.Responses.Groups;
 
 namespace EduCollab.Api.Tests.Integration;
 
+[Trait("Category", "Integration")]
 public sealed class GroupAssetSharingIntegrationTests
 {
     [Fact]
