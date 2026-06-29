@@ -12,7 +12,7 @@ namespace EduCollab.Api.Swagger
 
         public static string BuildInfoDescription()
         {
-            return string.Join(Environment.NewLine,
+            return string.Join('\n',
                 "EduCollab workspace collaboration API (v1).",
                 "",
                 "## Base URL and tenancy",
