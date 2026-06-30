@@ -17,6 +17,10 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// One-click approve action from the platform admin notification email.
         /// </summary>
+        /// <param name="requestId">Creation request identifier.</param>
+        /// <param name="reviewToken">Signed review token from the email link.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">HTML success or error page.</response>
         [HttpGet(ApiEndpoints.WorkspaceCreationReview.Approve)]
         [Produces("text/html")]
         public async Task<IActionResult> ApproveFromEmail(
@@ -55,6 +59,10 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// One-click deny action from the platform admin notification email.
         /// </summary>
+        /// <param name="requestId">Creation request identifier.</param>
+        /// <param name="reviewToken">Signed review token from the email link.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">HTML success or error page.</response>
         [HttpGet(ApiEndpoints.WorkspaceCreationReview.Deny)]
         [Produces("text/html")]
         public async Task<IActionResult> DenyFromEmail(

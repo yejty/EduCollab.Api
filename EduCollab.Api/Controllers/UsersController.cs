@@ -244,6 +244,12 @@ namespace EduCollab.Api.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// List workspaces the current user belongs to, including the active workspace id.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Workspace memberships for the current user.</response>
+        /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Users.Workspaces)]
         [ProducesResponseType(typeof(UserWorkspacesResponse), StatusCodes.Status200OK)]
@@ -259,6 +265,15 @@ namespace EduCollab.Api.Controllers
             return Ok(workspaces.MapToWorkspacesResponse(memberships, user.WorkspaceId));
         }
 
+        /// <summary>
+        /// Set the caller's active workspace for current-workspace routes.
+        /// </summary>
+        /// <param name="request">Target workspace id. Caller must be a member of the workspace.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Active workspace was updated; returns the current user profile.</response>
+        /// <response code="400">Invalid workspace id or update failed.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller is not a member of the workspace.</response>
         [Authorize]
         [HttpPut(ApiEndpoints.Users.ActiveWorkspace)]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]

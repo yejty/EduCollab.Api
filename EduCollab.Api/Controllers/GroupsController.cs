@@ -105,6 +105,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Create a new group in the current workspace.
+        /// </summary>
+        /// <param name="request">Group creation payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Group was created.</response>
+        /// <response code="400">Group could not be created.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot create groups in this workspace.</response>
         [Authorize]
 
         [HttpPost(ApiEndpoints.Groups.Create)]
@@ -135,6 +144,18 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List groups in the current workspace that the caller can access.
+        /// </summary>
+        /// <param name="parentGroupId">Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of groups.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access groups in this workspace.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetAll)]
@@ -142,8 +163,6 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(GroupsResponse), StatusCodes.Status200OK)]
 
         public async Task<ActionResult<GroupsResponse>> GetAllGroups(
-
-            [FromQuery] bool accessible,
 
             [FromQuery] int? parentGroupId,
 
@@ -183,11 +202,7 @@ namespace EduCollab.Api.Controllers
 
 
 
-            var groups = accessible
-
-                ? await _groupService.GetAccessibleGroupsAsync(parentGroupId, cancellationToken)
-
-                : await _groupService.GetAllGroupsAsync(cancellationToken);
+            var groups = await _groupService.GetAccessibleGroupsAsync(parentGroupId, cancellationToken);
 
 
 
@@ -201,6 +216,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Retrieve a group by id.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the group.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.Get)]
@@ -229,6 +253,16 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Update group metadata.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="request">Group update payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Group was updated.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpPut(ApiEndpoints.Groups.Update)]
@@ -259,6 +293,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Delete a group.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Group was deleted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot delete this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpDelete(ApiEndpoints.Groups.Delete)]
@@ -283,6 +326,19 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List assets placed in a group (group library).
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of assets in the group.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetAssets)]
@@ -351,6 +407,19 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List scenes placed in a group (group library).
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of scenes in the group.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetScenes)]
@@ -425,6 +494,19 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List flows placed in a group (group library).
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of flows in the group.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetFlows)]
@@ -493,6 +575,19 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List members of a group.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="sort">Optional sort field (<c>userId</c>, <c>joinedAt</c>, <c>role</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of group members.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetAllMembers)]
@@ -551,6 +646,17 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Add a workspace member to a group.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="request">Group member creation payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Group member was created.</response>
+        /// <response code="400">Member could not be created.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot manage members in this group.</response>
+        /// <response code="404">Group was not found.</response>
         [Authorize]
 
         [HttpPost(ApiEndpoints.Groups.CreateMember)]
@@ -581,6 +687,16 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Retrieve a group member by user id.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="userId">User identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the group member.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this group.</response>
+        /// <response code="404">Group or member was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Groups.GetMember)]
@@ -609,6 +725,16 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Remove a member from a group.
+        /// </summary>
+        /// <param name="groupId">Group identifier.</param>
+        /// <param name="userId">User identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Group member was removed.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot manage members in this group.</response>
+        /// <response code="404">Group or member was not found.</response>
         [Authorize]
 
         [HttpDelete(ApiEndpoints.Groups.DeleteMember)]

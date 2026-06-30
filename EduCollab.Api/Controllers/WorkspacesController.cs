@@ -139,6 +139,11 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Submit a workspace creation request for platform admin approval.
         /// </summary>
+        /// <param name="request">Requested workspace name and description.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Creation request was submitted.</response>
+        /// <response code="400">Request could not be submitted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
         [Authorize]
         [HttpPost(ApiEndpoints.Workspace.RequestCreation)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status201Created)]
@@ -166,6 +171,10 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Get the current user's latest workspace creation request.
         /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the latest creation request.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="404">No creation request was found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspace.GetMyCreationRequest)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]
@@ -222,6 +231,10 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Retrieve the current user's workspace.
         /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the active workspace.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="404">Active workspace was not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspace.Get)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
@@ -244,6 +257,15 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// List members of the current workspace.
         /// </summary>
+        /// <param name="sort">Optional sort field (<c>userId</c>, <c>joinedAt</c>, <c>role</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of workspace members.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this workspace.</response>
+        /// <response code="404">Workspace was not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspace.GetAllMembers)]
         [ProducesResponseType(typeof(WorkspaceMembersResponse), StatusCodes.Status200OK)]
@@ -285,6 +307,11 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Retrieve the current workspace thumbnail image.
         /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Thumbnail image bytes.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this workspace.</response>
+        /// <response code="404">Workspace or thumbnail was not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -305,6 +332,12 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Upload or replace the current workspace thumbnail image.
         /// </summary>
+        /// <param name="file">Non-empty image file.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Thumbnail was saved.</response>
+        /// <response code="400">File is missing or empty.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this workspace.</response>
         [Authorize]
         [HttpPut(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -326,6 +359,10 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Delete the current workspace thumbnail image.
         /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Thumbnail was deleted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this workspace.</response>
         [Authorize]
         [HttpDelete(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

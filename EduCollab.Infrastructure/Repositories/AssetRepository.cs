@@ -238,45 +238,5 @@ namespace EduCollab.Infrastructure.Repositories
 
             return deleted > 0;
         }
-
-        public async Task<Asset?> MoveAssetToGroupAsync(int workspaceId, int assetId, int groupId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            return await connection.QuerySingleOrDefaultAsync<Asset>(
-                new CommandDefinition(
-                    $"""
-                    UPDATE Assets AS a
-                    SET GroupId = @GroupId,
-                        UpdatedAtUtc = @UpdatedAtUtc
-                    WHERE a.Id = @AssetId
-                      AND a.WorkspaceId = @WorkspaceId
-                      AND EXISTS (
-                          SELECT 1
-                          FROM Groups g
-                          WHERE g.Id = @GroupId
-                            AND g.WorkspaceId = @WorkspaceId
-                      )
-                    RETURNING
-                        a.Id,
-                        a.WorkspaceId,
-                        a.GroupId,
-                        a.OwnerUserId,
-                        a.Name,
-                        a.Description,
-                        a.AssetType,
-                        a.StorageUrl,
-                        a.CreatedAtUtc,
-                        a.UpdatedAtUtc;
-                    """,
-                    new
-                    {
-                        AssetId = assetId,
-                        WorkspaceId = workspaceId,
-                        GroupId = groupId,
-                        UpdatedAtUtc = DateTime.UtcNow
-                    },
-                    cancellationToken: cancellationToken));
-        }
     }
 }

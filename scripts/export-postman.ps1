@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $testProject = Join-Path $repoRoot "EduCollab.Api.Tests\EduCollab.Api.Tests.csproj"
 $outputFile = Join-Path $repoRoot "EduCollab.Api.postman_collection.json"
+$environmentFile = Join-Path $repoRoot "EduCollab.Api.postman_environment.json"
 
 Push-Location $repoRoot
 try {
@@ -19,7 +20,12 @@ try {
         throw "Export did not produce $outputFile"
     }
 
+    if (-not (Test-Path $environmentFile)) {
+        throw "Export did not produce $environmentFile"
+    }
+
     Write-Host "Postman collection exported to $outputFile"
+    Write-Host "Postman environment exported to $environmentFile"
 }
 finally {
     Remove-Item Env:EXPORT_POSTMAN -ErrorAction SilentlyContinue

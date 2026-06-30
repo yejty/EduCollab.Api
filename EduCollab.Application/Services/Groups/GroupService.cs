@@ -118,6 +118,13 @@ namespace EduCollab.Application.Services.Groups
             return group;
         }
 
+        private static void EnsureParentIsNotDescendant(int groupId, int parentGroupId, IReadOnlyList<Group> allGroups)
+        {
+            var descendantIds = GroupAccessResolver.ExpandToDescendants([groupId], allGroups);
+            if (descendantIds.Contains(parentGroupId))
+                throw new ArgumentException("A group cannot be moved under one of its subgroups.");
+        }
+
         private static void AssignGroupPaths(IReadOnlyList<Group> groups)
         {
             var groupsById = groups.ToDictionary(g => g.Id);
@@ -263,6 +270,10 @@ namespace EduCollab.Application.Services.Groups
                     throw new ArgumentException("A group cannot be its own parent.");
 
                 await RequireGroupAsync(workspaceId, parentGroupId, cancellationToken);
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, parentGroupId, cancellationToken);
+
+                var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+                EnsureParentIsNotDescendant(group.Id, parentGroupId, allGroups);
             }
 
             group.CreatedAtUtc = existing.CreatedAtUtc;
@@ -323,7 +334,26 @@ namespace EduCollab.Application.Services.Groups
 
             member.GroupId = groupId;
             member.JoinedAtUtc = DateTime.UtcNow;
-            return await _groupRepository.CreateGroupMemberAsync(workspaceId, member, cancellationToken);
+            var created = await _groupRepository.CreateGroupMemberAsync(workspaceId, member, cancellationToken);
+            if (created is null)
+                return null;
+
+            var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            var descendantGroupIds = GroupAccessResolver.ExpandToDescendants([groupId], allGroups);
+            descendantGroupIds.Remove(groupId);
+
+            foreach (var descendantGroupId in descendantGroupIds)
+            {
+                var descendantMember = new GroupMember
+                {
+                    GroupId = descendantGroupId,
+                    UserId = member.UserId,
+                    JoinedAtUtc = member.JoinedAtUtc,
+                };
+                await _groupRepository.CreateGroupMemberAsync(workspaceId, descendantMember, cancellationToken);
+            }
+
+            return created;
         }
 
         public async Task<bool> DeleteGroupMemberAsync(int groupId, int userId, CancellationToken cancellationToken)
@@ -345,7 +375,18 @@ namespace EduCollab.Application.Services.Groups
                 await EnsureCurrentUserCanManageGroupMembersAsync(workspaceId, groupId, cancellationToken);
             }
 
-            return await _groupRepository.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            var deleted = await _groupRepository.DeleteGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
+            if (!deleted)
+                return false;
+
+            var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            var descendantGroupIds = GroupAccessResolver.ExpandToDescendants([groupId], allGroups);
+            descendantGroupIds.Remove(groupId);
+
+            foreach (var descendantGroupId in descendantGroupIds)
+                await _groupRepository.DeleteGroupMemberAsync(workspaceId, descendantGroupId, userId, cancellationToken);
+
+            return true;
         }
     }
 }

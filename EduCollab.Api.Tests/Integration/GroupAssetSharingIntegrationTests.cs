@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
@@ -100,43 +99,27 @@ public sealed class GroupAssetSharingIntegrationTests
             UserId = checked((int)parentUser.Id),
         }).ContinueWith(t => t.Result.EnsureSuccessStatusCode());
 
+        var parentPhysicsMembershipResponse = await ownerClient.GetAsync(
+            $"/api/workspace/groups/{physics.Id}/users/{parentUser.Id}");
+        parentPhysicsMembershipResponse.EnsureSuccessStatusCode();
+
         await ownerClient.PostAsJsonAsync($"/api/workspace/groups/{physics.Id}/users", new CreateGroupMemberRequest
         {
             UserId = checked((int)childUser.Id),
         }).ContinueWith(t => t.Result.EnsureSuccessStatusCode());
 
-        var scienceAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Science Asset",
-            AssetType = "Package",
-            GroupId = science.Id,
-        });
-        scienceAssetResponse.EnsureSuccessStatusCode();
-        var scienceAsset = await scienceAssetResponse.ReadAsJsonAsync<AssetResponse>();
+        var scienceAsset = await ownerClient.PostAssetAsync("Science Asset", science.Id);
 
-        var physicsAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Physics Asset",
-            AssetType = "Package",
-            GroupId = physics.Id,
-        });
-        physicsAssetResponse.EnsureSuccessStatusCode();
-        var physicsAsset = await physicsAssetResponse.ReadAsJsonAsync<AssetResponse>();
+        var physicsAsset = await ownerClient.PostAssetAsync("Physics Asset", physics.Id);
 
-        var hiddenAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Hidden Asset",
-            AssetType = "Package",
-            GroupId = hidden.Id,
-        });
-        hiddenAssetResponse.EnsureSuccessStatusCode();
+        await ownerClient.PostAssetAsync("Hidden Asset", hidden.Id);
 
-        var parentRootsResponse = await parentMemberClient.GetAsync("/api/workspace/groups?accessible=true");
+        var parentRootsResponse = await parentMemberClient.GetAsync("/api/workspace/groups");
         parentRootsResponse.EnsureSuccessStatusCode();
         var parentRoots = await parentRootsResponse.ReadAsJsonAsync<GroupsResponse>();
         Assert.Contains(parentRoots.Groups, g => g.Id == science.Id);
 
-        var parentSubgroupsResponse = await parentMemberClient.GetAsync($"/api/workspace/groups?accessible=true&parentGroupId={science.Id}");
+        var parentSubgroupsResponse = await parentMemberClient.GetAsync($"/api/workspace/groups?parentGroupId={science.Id}");
         parentSubgroupsResponse.EnsureSuccessStatusCode();
         var parentSubgroups = await parentSubgroupsResponse.ReadAsJsonAsync<GroupsResponse>();
         Assert.Contains(parentSubgroups.Groups, g => g.Id == physics.Id);
@@ -151,7 +134,7 @@ public sealed class GroupAssetSharingIntegrationTests
         var parentScienceAssets = await parentScienceAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
         Assert.Contains(parentScienceAssets.Assets, a => a.Id == scienceAsset.Id);
 
-        var childRootsResponse = await childMemberClient.GetAsync("/api/workspace/groups?accessible=true");
+        var childRootsResponse = await childMemberClient.GetAsync("/api/workspace/groups");
         childRootsResponse.EnsureSuccessStatusCode();
         var childRoots = await childRootsResponse.ReadAsJsonAsync<GroupsResponse>();
         Assert.DoesNotContain(childRoots.Groups, g => g.Id == science.Id);
@@ -178,6 +161,66 @@ public sealed class GroupAssetSharingIntegrationTests
         var childAccessibleAssets = await childAccessibleAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
         Assert.Single(childAccessibleAssets.Assets);
         Assert.Equal(physicsAsset.Id, childAccessibleAssets.Assets[0].Id);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_RejectsParentGroupIdThatIsSubgroup()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Subgroup Parent Validation Workspace",
+            "Group parent validation integration test");
+
+        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Science",
+            Description = "Root science group"
+        });
+        scienceResponse.EnsureSuccessStatusCode();
+        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var physicsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Physics",
+            Description = "Science subgroup",
+            ParentGroupId = science.Id
+        });
+        physicsResponse.EnsureSuccessStatusCode();
+        var physics = await physicsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var chemistryResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Chemistry",
+            Description = "Nested science subgroup",
+            ParentGroupId = physics.Id
+        });
+        chemistryResponse.EnsureSuccessStatusCode();
+        var chemistry = await chemistryResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var moveUnderDirectChildResponse = await ownerClient.PutAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}",
+            new UpdateGroupRequest { ParentGroupId = physics.Id });
+        Assert.Equal(HttpStatusCode.BadRequest, moveUnderDirectChildResponse.StatusCode);
+
+        var moveUnderNestedChildResponse = await ownerClient.PutAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}",
+            new UpdateGroupRequest { ParentGroupId = chemistry.Id });
+        Assert.Equal(HttpStatusCode.BadRequest, moveUnderNestedChildResponse.StatusCode);
+
+        var moveUnderSelfResponse = await ownerClient.PutAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}",
+            new UpdateGroupRequest { ParentGroupId = science.Id });
+        Assert.Equal(HttpStatusCode.BadRequest, moveUnderSelfResponse.StatusCode);
     }
 
     [Fact]

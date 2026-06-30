@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: optional `accessible=true` and `parentGroupId` to browse the group tree. Root browse (`parentGroupId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentGroupId={groupId}`.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has a single `groupId` placement. Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: optional `owner=me`. Each scene has a single `groupId` placement.\n- **Flows** `GET /api/workspace/flows`: optional `owner=me`. Each flow has a single `groupId` placement.\n- **Scene assets** `GET /api/workspace/scene-assets`: required `sceneId` (scene-context asset list). Attach via `POST /api/workspace/scene-assets`; detach via `DELETE /api/workspace/scene-assets?sceneId=&assetId=`.\n- **Flow scenes** `GET /api/workspace/flow-scenes`: required `flowId`. Link via `POST /api/workspace/flow-scenes`; unlink via `DELETE /api/workspace/flow-scenes?flowId=&sceneId=`.\n- **Asset moves** `POST /api/workspace/asset-moves`: body `{ assetId, groupId }` to move an asset to another group.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
+    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: optional `parentGroupId` to browse the group tree. Root browse (`parentGroupId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentGroupId={groupId}`. Adding a user to a group also adds them to all subgroups.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has a single `groupId` placement; change placement with `PUT /api/workspace/assets/{assetId}` (`groupId` in body). Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: optional `owner=me`. Each scene has a single `groupId` placement. Create/update send inline `jsonContent` as JSON (`application/json`) or upload a `.json` file via `multipart/form-data` (`jsonFile` part). Scene objects reference workspace assets with an `assetId` property anywhere in the JSON tree.\n- **Flows** `GET /api/workspace/flows`: optional `owner=me`. Each flow has a single `groupId` placement.\n- **Scene assets** `GET /api/workspace/scene-assets`: required `sceneId` (authoritative manifest of assets required to render the scene). Attach via `POST /api/workspace/scene-assets`; detach via `DELETE /api/workspace/scene-assets?sceneId=&assetId=`. Download ZIP content in scene context via `GET /api/workspace/scene-assets/content?sceneId=&assetId=` (required when `canViewDirectly` is false).\n- **Flow scenes** `GET /api/workspace/flow-scenes`: required `flowId`. Link via `POST /api/workspace/flow-scenes`; unlink via `DELETE /api/workspace/flow-scenes?flowId=&sceneId=`.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. `GET /api/workspace/scenes/{sceneId}` — load `jsonContent` (object graph; objects use `assetId` to point at workspace assets).\n2. `GET /api/workspace/scene-assets?sceneId=` — server-resolved manifest with `usableInScene` and `canViewDirectly` flags.\n3. Download each required asset ZIP:\n   - When `canViewDirectly` is true: `GET /api/workspace/assets/{assetId}/content`.\n   - When `canViewDirectly` is false but `usableInScene` is true: `GET /api/workspace/scene-assets/content?sceneId=&assetId=` (scene-context only).\n4. Cross-check every `assetId` parsed from `jsonContent` against the manifest; ids missing from the manifest are broken or inaccessible references.\n\nScene-context access allows runtime use of assets referenced by a visible scene without granting standalone asset library access.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nInvalid scene asset references on create/update use `error: invalid_asset_reference` with an `invalidAssetReferences` array of `{ assetId, reason }`.\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
     "version": "1.0"
   },
   "paths": {
@@ -55,7 +55,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of creation requests.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -75,7 +75,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -95,7 +95,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller is not a platform administrator.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -115,7 +115,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid status, sort, or pagination.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -152,6 +152,7 @@
           {
             "name": "requestId",
             "in": "path",
+            "description": "Creation request identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -161,7 +162,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Request was approved.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -181,7 +182,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Request could not be approved.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -201,7 +202,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -221,7 +222,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller is not a platform administrator.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -241,7 +242,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Request was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -278,6 +279,7 @@
           {
             "name": "requestId",
             "in": "path",
+            "description": "Creation request identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -286,6 +288,7 @@
           }
         ],
         "requestBody": {
+          "description": "Optional denial reason.",
           "content": {
             "application/json": {
               "schema": {
@@ -306,7 +309,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Request was denied.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -326,7 +329,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Request could not be denied.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -346,7 +349,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -366,7 +369,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller is not a platform administrator.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -386,7 +389,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Request was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -806,86 +809,54 @@
         ]
       }
     },
-    "/api/workspace/asset-moves": {
-      "post": {
-        "tags": [
-          "AssetMoves"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAssetMoveRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAssetMoveRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAssetMoveRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssetResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssetResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AssetResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
     "/api/workspace/assets": {
       "post": {
         "tags": [
           "Assets"
         ],
+        "summary": "Create a new asset in the specified group with required ZIP content.",
         "requestBody": {
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAssetRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAssetRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAssetRequest"
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "type": "string"
+                  },
+                  "GroupId": {
+                    "type": "integer",
+                    "format": "int32"
+                  },
+                  "Description": {
+                    "type": "string"
+                  },
+                  "File": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              },
+              "encoding": {
+                "Name": {
+                  "style": "form"
+                },
+                "GroupId": {
+                  "style": "form"
+                },
+                "Description": {
+                  "style": "form"
+                },
+                "File": {
+                  "style": "form"
+                }
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Asset was created with content.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -903,6 +874,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Metadata or ZIP file is invalid."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot create assets in this group."
           }
         },
         "security": [
@@ -915,10 +895,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "List accessible assets in the current workspace.",
         "parameters": [
           {
             "name": "owner",
             "in": "query",
+            "description": "Optional filter. Set to `me` to return only assets owned by the caller.",
             "schema": {
               "type": "string"
             }
@@ -957,7 +939,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of assets.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -975,6 +957,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid filter, sort, or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access assets in this workspace."
           }
         },
         "security": [
@@ -989,10 +980,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "Retrieve an asset by id.",
         "parameters": [
           {
             "name": "assetId",
             "in": "path",
+            "description": "Asset identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1002,7 +995,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the asset.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1020,6 +1013,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this asset."
+          },
+          "404": {
+            "description": "Asset was not found."
           }
         },
         "security": [
@@ -1032,10 +1034,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "Update asset metadata and group placement.",
         "parameters": [
           {
             "name": "assetId",
             "in": "path",
+            "description": "Asset identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1044,6 +1048,7 @@
           }
         ],
         "requestBody": {
+          "description": "Asset update payload. Include `groupId` to move the asset.",
           "content": {
             "application/json": {
               "schema": {
@@ -1064,7 +1069,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Asset was updated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1082,6 +1087,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot update this asset."
+          },
+          "404": {
+            "description": "Asset was not found."
           }
         },
         "security": [
@@ -1094,10 +1108,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "Delete an asset.",
         "parameters": [
           {
             "name": "assetId",
             "in": "path",
+            "description": "Asset identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1107,7 +1123,16 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Asset was deleted."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot delete this asset."
+          },
+          "404": {
+            "description": "Asset was not found."
           }
         },
         "security": [
@@ -1122,10 +1147,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "Download asset binary content (ZIP file).",
         "parameters": [
           {
             "name": "assetId",
             "in": "path",
+            "description": "Asset identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1135,7 +1162,16 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Asset ZIP content."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this asset."
+          },
+          "404": {
+            "description": "Asset or content was not found."
           }
         },
         "security": [
@@ -1148,10 +1184,12 @@
         "tags": [
           "Assets"
         ],
+        "summary": "Upload or replace asset binary content (ZIP file).",
         "parameters": [
           {
             "name": "assetId",
             "in": "path",
+            "description": "Asset identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1181,7 +1219,19 @@
         },
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Content was saved."
+          },
+          "400": {
+            "description": "File is missing, empty, or not a ZIP."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot update this asset."
+          },
+          "404": {
+            "description": "Asset was not found."
           }
         },
         "security": [
@@ -1196,7 +1246,9 @@
         "tags": [
           "Flows"
         ],
+        "summary": "Create a new flow in the current workspace.",
         "requestBody": {
+          "description": "Flow creation payload including group placement.",
           "content": {
             "application/json": {
               "schema": {
@@ -1217,7 +1269,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Flow was created.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1235,6 +1287,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Flow could not be created."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot create flows in this workspace."
           }
         },
         "security": [
@@ -1247,10 +1308,12 @@
         "tags": [
           "Flows"
         ],
+        "summary": "List flows in the current workspace.",
         "parameters": [
           {
             "name": "owner",
             "in": "query",
+            "description": "Optional filter. Set to `me` to return only flows owned by the caller.",
             "schema": {
               "type": "string"
             }
@@ -1289,7 +1352,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of flows.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1307,6 +1370,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid filter, sort, or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access flows in this workspace."
           }
         },
         "security": [
@@ -1321,10 +1393,12 @@
         "tags": [
           "Flows"
         ],
+        "summary": "Retrieve a flow by id.",
         "parameters": [
           {
             "name": "flowId",
             "in": "path",
+            "description": "Flow identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1334,7 +1408,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the flow.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1352,6 +1426,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this flow."
+          },
+          "404": {
+            "description": "Flow was not found."
           }
         },
         "security": [
@@ -1364,10 +1447,12 @@
         "tags": [
           "Flows"
         ],
+        "summary": "Update flow metadata and group placement.",
         "parameters": [
           {
             "name": "flowId",
             "in": "path",
+            "description": "Flow identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1376,6 +1461,7 @@
           }
         ],
         "requestBody": {
+          "description": "Flow update payload.",
           "content": {
             "application/json": {
               "schema": {
@@ -1396,7 +1482,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Flow was updated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1414,6 +1500,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot update this flow."
+          },
+          "404": {
+            "description": "Flow was not found."
           }
         },
         "security": [
@@ -1426,10 +1521,12 @@
         "tags": [
           "Flows"
         ],
+        "summary": "Delete a flow.",
         "parameters": [
           {
             "name": "flowId",
             "in": "path",
+            "description": "Flow identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1439,7 +1536,16 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Flow was deleted."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot delete this flow."
+          },
+          "404": {
+            "description": "Flow was not found."
           }
         },
         "security": [
@@ -1454,10 +1560,12 @@
         "tags": [
           "FlowScenes"
         ],
+        "summary": "List scenes linked to a flow in sort order.",
         "parameters": [
           {
             "name": "flowId",
             "in": "query",
+            "description": "Flow identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -1466,7 +1574,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Scenes linked to the flow.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1484,6 +1592,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid flow id."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this flow."
+          },
+          "404": {
+            "description": "Flow was not found."
           }
         },
         "security": [
@@ -1496,7 +1616,9 @@
         "tags": [
           "FlowScenes"
         ],
+        "summary": "Link a scene to a flow.",
         "requestBody": {
+          "description": "Flow and scene identifiers plus optional sort order.",
           "content": {
             "application/json": {
               "schema": {
@@ -1517,7 +1639,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Scene was linked to the flow.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1535,6 +1657,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Link could not be created."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot modify this flow."
           }
         },
         "security": [
@@ -1547,10 +1678,12 @@
         "tags": [
           "FlowScenes"
         ],
+        "summary": "Unlink a scene from a flow.",
         "parameters": [
           {
             "name": "flowId",
             "in": "query",
+            "description": "Flow identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -1559,6 +1692,7 @@
           {
             "name": "sceneId",
             "in": "query",
+            "description": "Scene identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -1567,7 +1701,19 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Scene was unlinked from the flow."
+          },
+          "400": {
+            "description": "Invalid flow or scene id."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot modify this flow."
+          },
+          "404": {
+            "description": "Flow-scene link was not found."
           }
         },
         "security": [
@@ -1582,7 +1728,9 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Create a new group in the current workspace.",
         "requestBody": {
+          "description": "Group creation payload.",
           "content": {
             "application/json": {
               "schema": {
@@ -1603,7 +1751,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Group was created.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1621,6 +1769,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Group could not be created."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot create groups in this workspace."
           }
         },
         "security": [
@@ -1633,17 +1790,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "List groups in the current workspace that the caller can access.",
         "parameters": [
-          {
-            "name": "accessible",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
           {
             "name": "parentGroupId",
             "in": "query",
+            "description": "Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups.",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -1683,7 +1835,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of groups.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1701,6 +1853,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid sort or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access groups in this workspace."
           }
         },
         "security": [
@@ -1715,10 +1876,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Retrieve a group by id.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1728,7 +1891,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the group.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1746,6 +1909,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -1758,10 +1930,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Update group metadata.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1770,6 +1944,7 @@
           }
         ],
         "requestBody": {
+          "description": "Group update payload.",
           "content": {
             "application/json": {
               "schema": {
@@ -1790,7 +1965,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Group was updated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1808,6 +1983,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot update this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -1820,10 +2004,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Delete a group.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1833,7 +2019,16 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Group was deleted."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot delete this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -1848,10 +2043,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "List assets placed in a group (group library).",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1892,7 +2089,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of assets in the group.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1910,6 +2107,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid sort or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -1924,10 +2133,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "List scenes placed in a group (group library).",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1968,7 +2179,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of scenes in the group.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1986,6 +2197,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid sort or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -2000,10 +2223,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "List flows placed in a group (group library).",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2044,7 +2269,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of flows in the group.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2062,6 +2287,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid sort or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -2076,10 +2313,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "List members of a group.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2120,7 +2359,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of group members.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2138,6 +2377,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid sort or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -2150,10 +2401,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Add a workspace member to a group.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2162,6 +2415,7 @@
           }
         ],
         "requestBody": {
+          "description": "Group member creation payload.",
           "content": {
             "application/json": {
               "schema": {
@@ -2182,7 +2436,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Group member was created.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2200,6 +2454,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Member could not be created."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot manage members in this group."
+          },
+          "404": {
+            "description": "Group was not found."
           }
         },
         "security": [
@@ -2214,10 +2480,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Retrieve a group member by user id.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2227,6 +2495,7 @@
           {
             "name": "userId",
             "in": "path",
+            "description": "User identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2236,7 +2505,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the group member.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2254,6 +2523,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this group."
+          },
+          "404": {
+            "description": "Group or member was not found."
           }
         },
         "security": [
@@ -2266,10 +2544,12 @@
         "tags": [
           "Groups"
         ],
+        "summary": "Remove a member from a group.",
         "parameters": [
           {
             "name": "groupId",
             "in": "path",
+            "description": "Group identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2279,6 +2559,7 @@
           {
             "name": "userId",
             "in": "path",
+            "description": "User identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2288,7 +2569,16 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Group member was removed."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot manage members in this group."
+          },
+          "404": {
+            "description": "Group or member was not found."
           }
         },
         "security": [
@@ -2303,10 +2593,13 @@
         "tags": [
           "SceneAssets"
         ],
+        "summary": "List assets attached to a scene.",
+        "description": "Authoritative manifest for rendering a scene. Merges assets referenced by `assetId` in scene JSON\r\nwith explicit scene attachments. Use M:EduCollab.Api.Controllers.SceneAssetsController.GetSceneAssetContent(System.Int32,System.Int32,System.Threading.CancellationToken) to download ZIP content when\r\n`canViewDirectly` is false.",
         "parameters": [
           {
             "name": "sceneId",
             "in": "query",
+            "description": "Scene identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -2346,7 +2639,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of scene assets.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2366,7 +2659,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid scene id, sort, or pagination.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2386,7 +2679,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2406,7 +2699,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot access this scene.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2426,7 +2719,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Scene was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2456,7 +2749,9 @@
         "tags": [
           "SceneAssets"
         ],
+        "summary": "Attach an asset to a scene.",
         "requestBody": {
+          "description": "Scene and asset identifiers.",
           "content": {
             "application/json": {
               "schema": {
@@ -2477,7 +2772,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Asset was attached to the scene.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2497,7 +2792,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid scene or asset id.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2517,7 +2812,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2537,7 +2832,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot modify this scene.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2557,7 +2852,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Scene or asset was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2587,10 +2882,12 @@
         "tags": [
           "SceneAssets"
         ],
+        "summary": "Detach an asset from a scene.",
         "parameters": [
           {
             "name": "sceneId",
             "in": "query",
+            "description": "Scene identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -2599,6 +2896,7 @@
           {
             "name": "assetId",
             "in": "query",
+            "description": "Asset identifier (required).",
             "schema": {
               "type": "integer",
               "format": "int32"
@@ -2607,10 +2905,10 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Asset was detached from the scene."
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid scene or asset id.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2630,7 +2928,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2650,7 +2948,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot modify this scene.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2670,7 +2968,126 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Scene-asset link was not found.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/api/workspace/scene-assets/content": {
+      "get": {
+        "tags": [
+          "SceneAssets"
+        ],
+        "summary": "Download asset ZIP content in scene context.",
+        "description": "Use when the manifest lists an asset with `usableInScene: true` and `canViewDirectly: false`.\r\nStandalone `GET /assets/{assetId}/content` remains direct-access only.",
+        "parameters": [
+          {
+            "name": "sceneId",
+            "in": "query",
+            "description": "Scene identifier (required).",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "assetId",
+            "in": "query",
+            "description": "Asset identifier (required).",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset ZIP content."
+          },
+          "400": {
+            "description": "Invalid scene or asset id.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Caller is not authenticated.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller cannot access this scene.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Scene, asset, or content was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2702,19 +3119,12 @@
         "tags": [
           "Scenes"
         ],
+        "summary": "Create a new scene in the specified group.",
+        "description": "Send `jsonContent` inline in the JSON body. Scene objects reference workspace assets via an `assetId`\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a `.json` file instead.",
         "requestBody": {
+          "description": "Scene creation payload including target `groupId` and inline `jsonContent`.",
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSceneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSceneRequest"
-              }
-            },
-            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateSceneRequest"
               }
@@ -2723,7 +3133,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Scene was created.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2741,6 +3151,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Scene could not be created or references an invalid asset."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot create scenes in this group."
           }
         },
         "security": [
@@ -2753,10 +3172,12 @@
         "tags": [
           "Scenes"
         ],
+        "summary": "List accessible scenes in the current workspace.",
         "parameters": [
           {
             "name": "owner",
             "in": "query",
+            "description": "Optional filter. Set to `me` to return only scenes owned by the caller.",
             "schema": {
               "type": "string"
             }
@@ -2795,7 +3216,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of scenes.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2813,6 +3234,15 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid filter, sort, or pagination."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access scenes in this workspace."
           }
         },
         "security": [
@@ -2827,10 +3257,12 @@
         "tags": [
           "Scenes"
         ],
+        "summary": "Retrieve a scene by id.",
         "parameters": [
           {
             "name": "sceneId",
             "in": "path",
+            "description": "Scene identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2840,7 +3272,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the scene.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2858,6 +3290,15 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot access this scene."
+          },
+          "404": {
+            "description": "Scene was not found."
           }
         },
         "security": [
@@ -2870,10 +3311,12 @@
         "tags": [
           "Scenes"
         ],
+        "summary": "Update scene metadata, group placement, and inline JSON content.",
         "parameters": [
           {
             "name": "sceneId",
             "in": "path",
+            "description": "Scene identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2882,18 +3325,9 @@
           }
         ],
         "requestBody": {
+          "description": "Scene update payload including `jsonContent`.",
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSceneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSceneRequest"
-              }
-            },
-            "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateSceneRequest"
               }
@@ -2902,7 +3336,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Scene was updated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -2920,6 +3354,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Scene update payload or asset references are invalid."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot update this scene."
+          },
+          "404": {
+            "description": "Scene was not found."
           }
         },
         "security": [
@@ -2932,10 +3378,12 @@
         "tags": [
           "Scenes"
         ],
+        "summary": "Delete a scene.",
         "parameters": [
           {
             "name": "sceneId",
             "in": "path",
+            "description": "Scene identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2945,7 +3393,16 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Scene was deleted."
+          },
+          "401": {
+            "description": "Caller is not authenticated."
+          },
+          "403": {
+            "description": "Caller cannot delete this scene."
+          },
+          "404": {
+            "description": "Scene was not found."
           }
         },
         "security": [
@@ -3471,9 +3928,10 @@
         "tags": [
           "Users"
         ],
+        "summary": "List workspaces the current user belongs to, including the active workspace id.",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Workspace memberships for the current user.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -3493,7 +3951,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -3525,7 +3983,9 @@
         "tags": [
           "Users"
         ],
+        "summary": "Set the caller's active workspace for current-workspace routes.",
         "requestBody": {
+          "description": "Target workspace id. Caller must be a member of the workspace.",
           "content": {
             "application/json": {
               "schema": {
@@ -3546,7 +4006,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Active workspace was updated; returns the current user profile.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -3566,7 +4026,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid workspace id or update failed.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -3586,7 +4046,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -3606,7 +4066,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller is not a member of the workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -4322,6 +4782,7 @@
           {
             "name": "requestId",
             "in": "path",
+            "description": "Creation request identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -4331,6 +4792,7 @@
           {
             "name": "reviewToken",
             "in": "path",
+            "description": "Signed review token from the email link.",
             "required": true,
             "schema": {
               "type": "string"
@@ -4339,7 +4801,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "HTML success or error page."
           }
         }
       }
@@ -4354,6 +4816,7 @@
           {
             "name": "requestId",
             "in": "path",
+            "description": "Creation request identifier.",
             "required": true,
             "schema": {
               "type": "integer",
@@ -4363,6 +4826,7 @@
           {
             "name": "reviewToken",
             "in": "path",
+            "description": "Signed review token from the email link.",
             "required": true,
             "schema": {
               "type": "string"
@@ -4371,7 +4835,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "HTML success or error page."
           }
         }
       }
@@ -5068,6 +5532,7 @@
         ],
         "summary": "Submit a workspace creation request for platform admin approval.",
         "requestBody": {
+          "description": "Requested workspace name and description.",
           "content": {
             "application/json": {
               "schema": {
@@ -5088,7 +5553,7 @@
         },
         "responses": {
           "201": {
-            "description": "Created",
+            "description": "Creation request was submitted.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5108,7 +5573,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Request could not be submitted.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5128,7 +5593,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5163,7 +5628,7 @@
         "summary": "Get the current user's latest workspace creation request.",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the latest creation request.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5183,7 +5648,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5203,7 +5668,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "No creation request was found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5331,7 +5796,7 @@
         "summary": "Retrieve the current user's workspace.",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Returns the active workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5351,7 +5816,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5371,7 +5836,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Active workspace was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5668,7 +6133,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paged list of workspace members.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5688,7 +6153,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Invalid sort or pagination.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5708,7 +6173,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5728,7 +6193,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot access this workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5748,7 +6213,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Workspace was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5783,10 +6248,10 @@
         "summary": "Retrieve the current workspace thumbnail image.",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Thumbnail image bytes."
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5806,7 +6271,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot access this workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5826,7 +6291,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Workspace or thumbnail was not found.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5879,10 +6344,10 @@
         },
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Thumbnail was saved."
           },
           "400": {
-            "description": "Bad Request",
+            "description": "File is missing or empty.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5902,7 +6367,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5922,7 +6387,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot update this workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5955,10 +6420,10 @@
         "summary": "Delete the current workspace thumbnail image.",
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "Thumbnail was deleted."
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Caller is not authenticated.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5978,7 +6443,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Caller cannot update this workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -6272,42 +6737,6 @@
             "type": "string",
             "format": "password",
             "example": "string"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateAssetMoveRequest": {
-        "type": "object",
-        "properties": {
-          "assetId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateAssetRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "assetType": {
-            "type": "string",
-            "nullable": true
-          },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -7350,10 +7779,6 @@
           },
           "isArchived": {
             "type": "boolean"
-          },
-          "usersCount": {
-            "type": "integer",
-            "format": "int32"
           }
         },
         "additionalProperties": false

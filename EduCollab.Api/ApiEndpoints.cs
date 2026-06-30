@@ -220,18 +220,6 @@
 
 
 
-        public static class AssetMoves
-
-        {
-
-            private const string Base = $"{ApiCurrentWorkspaceBase}/asset-moves";
-
-            public const string Create = Base;
-
-        }
-
-
-
         public static class Scenes
 
         {
@@ -299,6 +287,8 @@
             public const string Create = Base;
 
             public const string Delete = Base;
+
+            public const string Content = $"{Base}/content";
 
         }
 

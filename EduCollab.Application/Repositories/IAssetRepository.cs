@@ -12,6 +12,5 @@ namespace EduCollab.Application.Repositories
         Task<Asset?> UpdateAssetAsync(int workspaceId, Asset asset, CancellationToken cancellationToken);
         Task UpdateAssetStorageUrlAsync(int workspaceId, int assetId, string storageUrl, CancellationToken cancellationToken);
         Task<bool> DeleteAssetAsync(int workspaceId, int assetId, CancellationToken cancellationToken);
-        Task<Asset?> MoveAssetToGroupAsync(int workspaceId, int assetId, int groupId, CancellationToken cancellationToken);
     }
 }

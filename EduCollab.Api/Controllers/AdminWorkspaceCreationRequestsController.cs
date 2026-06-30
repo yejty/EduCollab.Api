@@ -29,6 +29,15 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// List workspace creation requests for platform admin review.
         /// </summary>
+        /// <param name="status">Optional status filter: <c>Pending</c>, <c>Approved</c>, or <c>Denied</c>.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>status</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of creation requests.</response>
+        /// <response code="400">Invalid status, sort, or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller is not a platform administrator.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.AdminWorkspaceCreationRequests.GetAll)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestsResponse), StatusCodes.Status200OK)]
@@ -82,6 +91,13 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Approve a pending workspace creation request and email the requester an approval token.
         /// </summary>
+        /// <param name="requestId">Creation request identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Request was approved.</response>
+        /// <response code="400">Request could not be approved.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller is not a platform administrator.</response>
+        /// <response code="404">Request was not found.</response>
         [Authorize]
         [HttpPost(ApiEndpoints.AdminWorkspaceCreationRequests.Approve)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]
@@ -114,6 +130,14 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// Deny a pending workspace creation request and email the requester.
         /// </summary>
+        /// <param name="requestId">Creation request identifier.</param>
+        /// <param name="request">Optional denial reason.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Request was denied.</response>
+        /// <response code="400">Request could not be denied.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller is not a platform administrator.</response>
+        /// <response code="404">Request was not found.</response>
         [Authorize]
         [HttpPost(ApiEndpoints.AdminWorkspaceCreationRequests.Deny)]
         [ProducesResponseType(typeof(WorkspaceCreationRequestResponse), StatusCodes.Status200OK)]

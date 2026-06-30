@@ -13,12 +13,17 @@ RUN dotnet publish "EduCollab.Api.csproj" -c Release -o /app/publish /p:UseAppHo
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-RUN mkdir -p App_Data/Content/scenes App_Data/Content/assets App_Data/UserPreferences App_Data/WorkspaceThumbnails
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p App_Data/Content/scenes App_Data/Content/assets App_Data/UserPreferences App_Data/WorkspaceThumbnails \
+    && chown -R 1654:1654 App_Data
 
 COPY --from=build /app/publish .
 COPY EduCollab.Api/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+ENV APP_UID=1654
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 

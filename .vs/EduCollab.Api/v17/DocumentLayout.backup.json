@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|c:\\users\\janat\\desktop\\educollab.api\\docker-compose.yml||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|solutionrelative:docker-compose.yml||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{8D795EE8-775E-42AA-A166-5D6E3AA3266B}|EduCollab.Infrastructure\\EduCollab.Infrastructure.csproj|c:\\users\\janat\\desktop\\educollab.api\\educollab.infrastructure\\database\\dbinitializer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{8D795EE8-775E-42AA-A166-5D6E3AA3266B}|EduCollab.Infrastructure\\EduCollab.Infrastructure.csproj|solutionrelative:educollab.infrastructure\\database\\dbinitializer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -19,10 +23,6 @@
       "RelativeMoniker": "D:0:0:{A46162D9-5965-4C2F-B85E-60B20ED9E902}|EduCollab.Api\\EduCollab.Api.csproj|solutionrelative:educollab.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|c:\\users\\janat\\desktop\\educollab.api\\docker-compose.yml||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|solutionrelative:docker-compose.yml||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|c:\\users\\janat\\desktop\\educollab.api\\docker-compose.dcproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
       "RelativeMoniker": "D:0:0:{B84D5E6F-7C8A-4D2E-9F1A-3B4C5D6E7F8A}|docker-compose.dcproj|solutionrelative:docker-compose.dcproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     }
@@ -34,24 +34,24 @@
       "DocumentGroups": [
         {
           "DockedWidth": 333,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "DbInitializer.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Infrastructure\\Database\\DbInitializer.cs",
               "RelativeDocumentMoniker": "EduCollab.Infrastructure\\Database\\DbInitializer.cs",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Infrastructure\\Database\\DbInitializer.cs",
               "RelativeToolTip": "EduCollab.Infrastructure\\Database\\DbInitializer.cs",
-              "ViewState": "AgIAAJgBAAAAAAAAAAD4v6YBAAAMAAAAAAAAAA==",
+              "ViewState": "AgIAAKMBAAAAAAAAAAAmwLABAAAqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-06-26T14:02:15.651Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "PostgresIntegrationApiFactory.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api.Tests\\Integration\\PostgresIntegrationApiFactory.cs",
               "RelativeDocumentMoniker": "EduCollab.Api.Tests\\Integration\\PostgresIntegrationApiFactory.cs",
@@ -63,7 +63,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "ApiWebApplicationFactory.cs",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api.Tests\\ApiWebApplicationFactory.cs",
               "RelativeDocumentMoniker": "EduCollab.Api.Tests\\ApiWebApplicationFactory.cs",
@@ -75,7 +75,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "appsettings.Development.json",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\EduCollab.Api\\appsettings.Development.json",
               "RelativeDocumentMoniker": "EduCollab.Api\\appsettings.Development.json",
@@ -87,15 +87,16 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 0,
               "Title": "docker-compose.yml",
               "DocumentMoniker": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\docker-compose.yml",
               "RelativeDocumentMoniker": "docker-compose.yml",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\docker-compose.yml",
               "RelativeToolTip": "docker-compose.yml",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAQAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003775|",
-              "WhenOpened": "2026-06-17T12:03:17.746Z"
+              "WhenOpened": "2026-06-17T12:03:17.746Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",

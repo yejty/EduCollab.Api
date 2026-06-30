@@ -1,5 +1,5 @@
 using EduCollab.Application.Models;
-
+using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Scenes;
 
 
@@ -33,6 +33,8 @@ public sealed class FakeSceneService : ISceneService
     public Func<int, int, CancellationToken, Task<SceneAssetContextItem?>>? AttachSceneAssetAsyncHandler { get; set; }
 
     public Func<int, int, CancellationToken, Task<bool>>? DetachSceneAssetAsyncHandler { get; set; }
+
+    public Func<int, int, CancellationToken, Task<AssetContent?>>? GetSceneAssetContentAsyncHandler { get; set; }
 
 
 
@@ -99,6 +101,12 @@ public sealed class FakeSceneService : ISceneService
     public Task<bool> DetachSceneAssetAsync(int sceneId, int assetId, CancellationToken cancellationToken) =>
 
         DetachSceneAssetAsyncHandler?.Invoke(sceneId, assetId, cancellationToken) ?? Task.FromResult(false);
+
+
+
+    public Task<AssetContent?> GetSceneAssetContentAsync(int sceneId, int assetId, CancellationToken cancellationToken) =>
+
+        GetSceneAssetContentAsyncHandler?.Invoke(sceneId, assetId, cancellationToken) ?? Task.FromResult<AssetContent?>(null);
 
 }
 

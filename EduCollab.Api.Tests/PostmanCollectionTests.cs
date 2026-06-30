@@ -14,7 +14,9 @@ public sealed class PostmanCollectionTests
 
         var openApiPath = OpenApiSpecTests.ResolveCommittedSpecPath();
         var outputPath = PostmanCollectionExporter.ResolveCommittedCollectionPath();
+        var environmentPath = PostmanCollectionExporter.ResolveCommittedEnvironmentPath();
         await PostmanCollectionExporter.ExportFromOpenApiAsync(openApiPath, outputPath);
+        await PostmanCollectionExporter.ExportEnvironmentAsync(environmentPath);
     }
 
     [Fact]

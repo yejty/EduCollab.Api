@@ -12,7 +12,7 @@ namespace EduCollab.Application.Services.Assets
 
     {
 
-        Task<bool> CreateAssetAsync(Asset asset, int groupId, CancellationToken cancellationToken);
+        Task<bool> CreateAssetWithContentAsync(Asset asset, int groupId, string contentType, string? fileName, Stream content, CancellationToken cancellationToken);
 
         Task<List<Asset>> GetAllAssetsAsync(CancellationToken cancellationToken);
 
@@ -23,8 +23,6 @@ namespace EduCollab.Application.Services.Assets
         Task<Asset?> GetAssetByIdAsync(int assetId, CancellationToken cancellationToken);
 
         Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken);
-
-        Task<Asset?> MoveAssetAsync(int assetId, int groupId, CancellationToken cancellationToken);
 
         Task<bool> DeleteAssetAsync(int assetId, CancellationToken cancellationToken);
 

@@ -18,8 +18,6 @@
         public int CreatedByUserId { get; set; }
 
         public bool IsArchived { get; set; }
-
-        public int UsersCount { get; set; }
     }
 }
 

@@ -2,6 +2,8 @@ using EduCollab.Api.Mapping;
 
 using EduCollab.Api.Query;
 
+using EduCollab.Api.Requests.Scenes;
+
 using EduCollab.Application.Services.Scenes;
 
 using EduCollab.Contracts.Requests.Scenes;
@@ -52,9 +54,24 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Create a new scene in the specified group.
+        /// </summary>
+        /// <remarks>
+        /// Send <c>jsonContent</c> inline in the JSON body. Scene objects reference workspace assets via an <c>assetId</c>
+        /// property anywhere in the JSON tree. Use <see cref="CreateSceneFromForm"/> to upload a <c>.json</c> file instead.
+        /// </remarks>
+        /// <param name="request">Scene creation payload including target <c>groupId</c> and inline <c>jsonContent</c>.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Scene was created.</response>
+        /// <response code="400">Scene could not be created or references an invalid asset.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot create scenes in this group.</response>
         [Authorize]
 
         [HttpPost(ApiEndpoints.Scenes.Create)]
+
+        [Consumes("application/json")]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status201Created)]
 
@@ -82,6 +99,96 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Create a new scene by uploading scene JSON as a file.
+        /// </summary>
+        /// <remarks>
+        /// Alternative to <see cref="CreateScene"/> for desktop exporters. Provide either <c>jsonFile</c> (multipart file)
+        /// or a <c>jsonContent</c> form field. Scene objects reference workspace assets via an <c>assetId</c> property.
+        /// </remarks>
+        /// <param name="request">Multipart form with scene metadata and JSON content.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Scene was created.</response>
+        /// <response code="400">Metadata, JSON content, or asset references are invalid.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot create scenes in this group.</response>
+        [Authorize]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPost(ApiEndpoints.Scenes.Create)]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status201Created)]
+        public async Task<IActionResult> CreateSceneFromForm([FromForm] CreateSceneFormRequest request, CancellationToken cancellationToken)
+
+        {
+
+            if (request.GroupId <= 0)
+
+                return ApiBadRequest("invalid_group", "GroupId is required.");
+
+
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+
+                return ApiBadRequest("invalid_name", "Name is required.");
+
+
+
+            string jsonContent;
+
+            try
+
+            {
+
+                jsonContent = SceneFormContentResolver.ResolveJsonContent(request.JsonContent, request.JsonFile);
+
+                SceneFormContentResolver.ParseJsonContent(jsonContent);
+
+            }
+
+            catch (ArgumentException ex)
+
+            {
+
+                return ApiBadRequest("invalid_json_content", ex.Message);
+
+            }
+
+
+
+            var createRequest = new CreateSceneRequest
+
+            {
+
+                Name = request.Name.Trim(),
+
+                Description = request.Description,
+
+                GroupId = request.GroupId,
+
+                JsonContent = SceneFormContentResolver.ParseJsonContent(jsonContent),
+
+            };
+
+
+
+            return await CreateScene(createRequest, cancellationToken);
+
+        }
+
+
+
+        /// <summary>
+        /// List accessible scenes in the current workspace.
+        /// </summary>
+        /// <param name="owner">Optional filter. Set to <c>me</c> to return only scenes owned by the caller.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of scenes.</response>
+        /// <response code="400">Invalid filter, sort, or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access scenes in this workspace.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Scenes.GetAll)]
@@ -162,6 +269,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Retrieve a scene by id.
+        /// </summary>
+        /// <param name="sceneId">Scene identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the scene.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this scene.</response>
+        /// <response code="404">Scene was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Scenes.Get)]
@@ -190,9 +306,22 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Update scene metadata, group placement, and inline JSON content.
+        /// </summary>
+        /// <param name="sceneId">Scene identifier.</param>
+        /// <param name="request">Scene update payload including <c>jsonContent</c>.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Scene was updated.</response>
+        /// <response code="400">Scene update payload or asset references are invalid.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this scene.</response>
+        /// <response code="404">Scene was not found.</response>
         [Authorize]
 
         [HttpPut(ApiEndpoints.Scenes.Update)]
+
+        [Consumes("application/json")]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
 
@@ -220,6 +349,91 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Update a scene by uploading scene JSON as a file.
+        /// </summary>
+        /// <param name="sceneId">Scene identifier.</param>
+        /// <param name="request">Multipart form with scene metadata and JSON content.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Scene was updated.</response>
+        /// <response code="400">Metadata, JSON content, or asset references are invalid.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this scene.</response>
+        /// <response code="404">Scene was not found.</response>
+        [Authorize]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPut(ApiEndpoints.Scenes.Update)]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
+        public async Task<ActionResult<SceneResponse>> UpdateSceneFromForm(int sceneId, [FromForm] UpdateSceneFormRequest request, CancellationToken cancellationToken)
+
+        {
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+
+                return ApiBadRequest("invalid_name", "Name is required.");
+
+
+
+            if (request.GroupId <= 0)
+
+                return ApiBadRequest("invalid_group", "GroupId is required.");
+
+
+
+            string jsonContent;
+
+            try
+
+            {
+
+                jsonContent = SceneFormContentResolver.ResolveJsonContent(request.JsonContent, request.JsonFile);
+
+                SceneFormContentResolver.ParseJsonContent(jsonContent);
+
+            }
+
+            catch (ArgumentException ex)
+
+            {
+
+                return ApiBadRequest("invalid_json_content", ex.Message);
+
+            }
+
+
+
+            var updateRequest = new UpdateSceneRequest
+
+            {
+
+                Name = request.Name.Trim(),
+
+                Description = request.Description,
+
+                GroupId = request.GroupId,
+
+                JsonContent = SceneFormContentResolver.ParseJsonContent(jsonContent),
+
+            };
+
+
+
+            return await UpdateScene(sceneId, updateRequest, cancellationToken);
+
+        }
+
+
+
+        /// <summary>
+        /// Delete a scene.
+        /// </summary>
+        /// <param name="sceneId">Scene identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Scene was deleted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot delete this scene.</response>
+        /// <response code="404">Scene was not found.</response>
         [Authorize]
 
         [HttpDelete(ApiEndpoints.Scenes.Delete)]

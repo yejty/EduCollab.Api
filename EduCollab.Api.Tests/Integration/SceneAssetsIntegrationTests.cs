@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json.Nodes;
-using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Scenes;
 using EduCollab.Contracts.Requests.Users;
@@ -85,32 +85,11 @@ public sealed class SceneAssetsIntegrationTests
             new CreateGroupMemberRequest { UserId = checked((int)member.Id) });
         addMemberResponse.EnsureSuccessStatusCode();
 
-        var sharedAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Shared Asset",
-            AssetType = "Model",
-            GroupId = sharedGroup.Id,
-        });
-        sharedAssetResponse.EnsureSuccessStatusCode();
-        var sharedAsset = await sharedAssetResponse.ReadAsJsonAsync<AssetResponse>();
+        var sharedAsset = await ownerClient.PostAssetAsync("Shared Asset", sharedGroup.Id);
 
-        var hiddenAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Hidden Asset",
-            AssetType = "Texture",
-            GroupId = privateGroup.Id,
-        });
-        hiddenAssetResponse.EnsureSuccessStatusCode();
-        var hiddenAsset = await hiddenAssetResponse.ReadAsJsonAsync<AssetResponse>();
+        var hiddenAsset = await ownerClient.PostAssetAsync("Hidden Asset", privateGroup.Id);
 
-        var attachAssetResponse = await ownerClient.PostAsJsonAsync("/api/workspace/assets", new CreateAssetRequest
-        {
-            Name = "Attach Target",
-            AssetType = "Model",
-            GroupId = sharedGroup.Id,
-        });
-        attachAssetResponse.EnsureSuccessStatusCode();
-        var attachAsset = await attachAssetResponse.ReadAsJsonAsync<AssetResponse>();
+        var attachAsset = await ownerClient.PostAssetAsync("Attach Target", sharedGroup.Id);
 
         var sceneJson = JsonNode.Parse(
             $$"""
@@ -152,6 +131,15 @@ public sealed class SceneAssetsIntegrationTests
 
         var memberHiddenAssetResponse = await memberClient.GetAsync($"/api/workspace/assets/{hiddenAsset.Id}");
         Assert.Equal(HttpStatusCode.NotFound, memberHiddenAssetResponse.StatusCode);
+
+        var memberHiddenContentResponse = await memberClient.GetAsync(
+            $"/api/workspace/assets/{hiddenAsset.Id}/content");
+        Assert.Equal(HttpStatusCode.NotFound, memberHiddenContentResponse.StatusCode);
+
+        var memberSceneContextContentResponse = await memberClient.GetAsync(
+            $"/api/workspace/scene-assets/content?sceneId={scene.Id}&assetId={hiddenAsset.Id}");
+        memberSceneContextContentResponse.EnsureSuccessStatusCode();
+        Assert.Equal("application/zip", memberSceneContextContentResponse.Content.Headers.ContentType?.MediaType);
 
         var ownerAttachResponse = await ownerClient.PostAsJsonAsync("/api/workspace/scene-assets", new AttachSceneAssetRequest
         {
@@ -258,5 +246,78 @@ public sealed class SceneAssetsIntegrationTests
             AssetId = 1,
         });
         Assert.Equal(HttpStatusCode.Forbidden, memberAttachResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateScene_ReturnsBadRequest_WhenJsonReferencesMissingAsset()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        const string ownerPassword = "Owner123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Scene Validation Workspace",
+            "Scene asset reference validation test");
+
+        var groupResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Shared Team",
+        });
+        groupResponse.EnsureSuccessStatusCode();
+        var group = await groupResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var createSceneResponse = await ownerClient.PostAsJsonAsync("/api/workspace/scenes", new CreateSceneRequest
+        {
+            Name = "Broken Scene",
+            JsonContent = JsonNode.Parse("""{ "objects": [ { "assetId": 999999 } ] }"""),
+            GroupId = group.Id,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, createSceneResponse.StatusCode);
+        var problem = await createSceneResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("invalid_asset_reference", problem.Error);
+    }
+
+    [Fact]
+    public async Task CreateSceneFromForm_AcceptsJsonFile()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        const string ownerPassword = "Owner123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Scene Multipart Workspace",
+            "Scene multipart create test");
+
+        var groupResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Shared Team",
+        });
+        groupResponse.EnsureSuccessStatusCode();
+        var group = await groupResponse.ReadAsJsonAsync<GroupResponse>();
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent("Imported Scene"), "name");
+        form.Add(new StringContent(group.Id.ToString()), "groupId");
+        form.Add(new StringContent("""{ "objects": [] }""", Encoding.UTF8, "application/json"), "jsonFile", "scene.json");
+
+        var createSceneResponse = await ownerClient.PostAsync("/api/workspace/scenes", form);
+        createSceneResponse.EnsureSuccessStatusCode();
+        var scene = await createSceneResponse.ReadAsJsonAsync<SceneResponse>();
+        Assert.Equal("Imported Scene", scene.Name);
     }
 }

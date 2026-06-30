@@ -19,6 +19,15 @@ namespace EduCollab.Api.Controllers
             _flowService = flowService;
         }
 
+        /// <summary>
+        /// Create a new flow in the current workspace.
+        /// </summary>
+        /// <param name="request">Flow creation payload including group placement.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Flow was created.</response>
+        /// <response code="400">Flow could not be created.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot create flows in this workspace.</response>
         [Authorize]
         [HttpPost(ApiEndpoints.Flows.Create)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status201Created)]
@@ -34,6 +43,18 @@ namespace EduCollab.Api.Controllers
             return CreatedAtAction(nameof(GetFlow), new { flowId = flow.Id }, response);
         }
 
+        /// <summary>
+        /// List flows in the current workspace.
+        /// </summary>
+        /// <param name="owner">Optional filter. Set to <c>me</c> to return only flows owned by the caller.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of flows.</response>
+        /// <response code="400">Invalid filter, sort, or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access flows in this workspace.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Flows.GetAll)]
         [ProducesResponseType(typeof(FlowsResponse), StatusCodes.Status200OK)]
@@ -74,6 +95,15 @@ namespace EduCollab.Api.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Retrieve a flow by id.
+        /// </summary>
+        /// <param name="flowId">Flow identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the flow.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this flow.</response>
+        /// <response code="404">Flow was not found.</response>
         [Authorize]
         [HttpGet(ApiEndpoints.Flows.Get)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status200OK)]
@@ -88,6 +118,16 @@ namespace EduCollab.Api.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Update flow metadata and group placement.
+        /// </summary>
+        /// <param name="flowId">Flow identifier.</param>
+        /// <param name="request">Flow update payload.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Flow was updated.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this flow.</response>
+        /// <response code="404">Flow was not found.</response>
         [Authorize]
         [HttpPut(ApiEndpoints.Flows.Update)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status200OK)]
@@ -103,6 +143,15 @@ namespace EduCollab.Api.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Delete a flow.
+        /// </summary>
+        /// <param name="flowId">Flow identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Flow was deleted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot delete this flow.</response>
+        /// <response code="404">Flow was not found.</response>
         [Authorize]
         [HttpDelete(ApiEndpoints.Flows.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]

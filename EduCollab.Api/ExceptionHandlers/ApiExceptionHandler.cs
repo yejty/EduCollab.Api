@@ -38,6 +38,13 @@ namespace EduCollab.Api.ExceptionHandlers
                 : description;
 
             var problem = ApiProblemDetailsFactory.Create(httpContext, statusCode, error, detail);
+            if (exception is InvalidAssetReferenceException invalidAssetReference)
+            {
+                problem.Extensions["invalidAssetReferences"] = invalidAssetReference.References
+                    .Select(reference => new { assetId = reference.AssetId, reason = reference.Reason })
+                    .ToArray();
+            }
+
             await ApiProblemDetailsWriter.WriteAsync(httpContext, problem, cancellationToken);
             return true;
         }
@@ -69,6 +76,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status403Forbidden,
                     "forbidden",
                     "You are not allowed to perform this operation."),
+                InvalidAssetReferenceException => (
+                    StatusCodes.Status400BadRequest,
+                    "invalid_asset_reference",
+                    "One or more asset references in the scene JSON are invalid."),
                 PreconditionFailedException preconditionFailed => (
                     StatusCodes.Status412PreconditionFailed,
                     "precondition_failed",

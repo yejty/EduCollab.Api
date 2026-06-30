@@ -2,6 +2,8 @@ using EduCollab.Api.Mapping;
 
 using EduCollab.Api.Query;
 
+using EduCollab.Api.Requests.Assets;
+
 using EduCollab.Application.Services.Assets;
 
 using EduCollab.Contracts.Requests.Assets;
@@ -40,19 +42,69 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Create a new asset in the specified group with required ZIP content.
+        /// </summary>
+        /// <param name="request">Multipart form with asset metadata and ZIP file.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="201">Asset was created with content.</response>
+        /// <response code="400">Metadata or ZIP file is invalid.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot create assets in this group.</response>
         [Authorize]
 
         [HttpPost(ApiEndpoints.Assets.Create)]
 
+        [Consumes("multipart/form-data")]
+
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status201Created)]
 
-        public async Task<IActionResult> CreateAsset([FromBody] CreateAssetRequest request, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateAsset([FromForm] CreateAssetFormRequest request, CancellationToken cancellationToken)
 
         {
 
-            var asset = request.MapToAsset();
+            if (request.File is null || request.File.Length == 0)
 
-            var created = await _assetService.CreateAssetAsync(asset, request.GroupId, cancellationToken);
+                return ApiBadRequest("invalid_content", "A non-empty ZIP file is required.");
+
+
+
+            if (!AssetContentFormats.IsZipContent(request.File.ContentType, request.File.FileName))
+
+                return ApiBadRequest("invalid_content", "Asset content must be a ZIP file.");
+
+
+
+            if (request.GroupId <= 0)
+
+                return ApiBadRequest("invalid_group", "GroupId is required.");
+
+
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+
+                return ApiBadRequest("invalid_name", "Name is required.");
+
+
+
+            var asset = new EduCollab.Application.Models.Asset
+            {
+                Name = request.Name.Trim(),
+                Description = request.Description,
+                AssetType = AssetContentFormats.DefaultAssetType,
+            };
+
+
+
+            await using var stream = request.File.OpenReadStream();
+
+            var created = await _assetService.CreateAssetWithContentAsync(
+                asset,
+                request.GroupId,
+                request.File.ContentType,
+                request.File.FileName,
+                stream,
+                cancellationToken);
 
             if (!created)
 
@@ -70,6 +122,18 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// List accessible assets in the current workspace.
+        /// </summary>
+        /// <param name="owner">Optional filter. Set to <c>me</c> to return only assets owned by the caller.</param>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged list of assets.</response>
+        /// <response code="400">Invalid filter, sort, or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access assets in this workspace.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Assets.GetAll)]
@@ -150,6 +214,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Retrieve an asset by id.
+        /// </summary>
+        /// <param name="assetId">Asset identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Returns the asset.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this asset.</response>
+        /// <response code="404">Asset was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Assets.Get)]
@@ -178,6 +251,16 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Update asset metadata and group placement.
+        /// </summary>
+        /// <param name="assetId">Asset identifier.</param>
+        /// <param name="request">Asset update payload. Include <c>groupId</c> to move the asset.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Asset was updated.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this asset.</response>
+        /// <response code="404">Asset was not found.</response>
         [Authorize]
 
         [HttpPut(ApiEndpoints.Assets.Update)]
@@ -208,6 +291,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Delete an asset.
+        /// </summary>
+        /// <param name="assetId">Asset identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Asset was deleted.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot delete this asset.</response>
+        /// <response code="404">Asset was not found.</response>
         [Authorize]
 
         [HttpDelete(ApiEndpoints.Assets.Delete)]
@@ -232,6 +324,15 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Download asset binary content (ZIP file).
+        /// </summary>
+        /// <param name="assetId">Asset identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Asset ZIP content.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access this asset.</response>
+        /// <response code="404">Asset or content was not found.</response>
         [Authorize]
 
         [HttpGet(ApiEndpoints.Assets.Content)]
@@ -256,6 +357,17 @@ namespace EduCollab.Api.Controllers
 
 
 
+        /// <summary>
+        /// Upload or replace asset binary content (ZIP file).
+        /// </summary>
+        /// <param name="assetId">Asset identifier.</param>
+        /// <param name="file">Non-empty ZIP file.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="204">Content was saved.</response>
+        /// <response code="400">File is missing, empty, or not a ZIP.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot update this asset.</response>
+        /// <response code="404">Asset was not found.</response>
         [Authorize]
 
         [HttpPut(ApiEndpoints.Assets.Content)]

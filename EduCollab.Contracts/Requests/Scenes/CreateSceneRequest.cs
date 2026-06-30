@@ -11,6 +11,10 @@ namespace EduCollab.Contracts.Requests.Scenes
 
         public string? Description { get; set; }
 
+        /// <summary>
+        /// Inline scene document. Objects that use a workspace asset include an <c>assetId</c> property
+        /// anywhere in the JSON tree (for example under <c>objects[]</c>).
+        /// </summary>
         [Required]
         public JsonNode? JsonContent { get; set; }
 

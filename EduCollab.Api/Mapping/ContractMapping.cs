@@ -27,8 +27,11 @@ namespace EduCollab.Api.Mapping
             return jsonContent.ToJsonString();
         }
 
-        private static JsonNode ParseJsonContent(string jsonContent)
+        private static JsonNode? ParseJsonContent(string? jsonContent)
         {
+            if (string.IsNullOrWhiteSpace(jsonContent))
+                return null;
+
             try
             {
                 return JsonNode.Parse(jsonContent)

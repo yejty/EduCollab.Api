@@ -254,72 +254,66 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-        public async Task<bool> CreateAssetAsync(Asset asset, int groupId, CancellationToken cancellationToken)
-
+        public async Task<bool> CreateAssetWithContentAsync(
+            Asset asset,
+            int groupId,
+            string contentType,
+            string? fileName,
+            Stream content,
+            CancellationToken cancellationToken)
         {
-
             ArgumentNullException.ThrowIfNull(asset);
-
-
+            ArgumentNullException.ThrowIfNull(content);
 
             if (groupId <= 0)
-
                 throw new ArgumentException("GroupId is required.", nameof(groupId));
 
+            if (string.IsNullOrWhiteSpace(contentType))
+                throw new ArgumentException("Content type is required.", nameof(contentType));
 
+            if (!AssetContentFormats.IsZipContent(contentType, fileName))
+                throw new ArgumentException("Asset content must be a ZIP file.", nameof(contentType));
+
+            var buffered = await BufferZipContentAsync(content, cancellationToken);
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-
             EnsureCanCreateAsset(membership);
-
             var userId = RequireCurrentUserId();
 
-
-
             await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
-
             await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, userId, cancellationToken);
 
-
-
             asset.WorkspaceId = workspaceId;
-
             asset.GroupId = groupId;
-
             asset.OwnerUserId = userId;
-
             asset.Name = RequireTrimmed(asset.Name, nameof(asset.Name));
-
             asset.Description = string.IsNullOrWhiteSpace(asset.Description) ? null : asset.Description.Trim();
-
             asset.AssetType = RequireTrimmed(asset.AssetType, nameof(asset.AssetType));
-
             asset.StorageUrl = string.Empty;
-
             asset.CreatedAtUtc = DateTime.UtcNow;
-
             asset.UpdatedAtUtc = asset.CreatedAtUtc;
 
-
-
             var id = await _assetRepository.CreateAssetAsync(workspaceId, asset, cancellationToken);
-
             if (id <= 0)
-
                 return false;
 
-
-
             asset.Id = id;
-
             asset.StorageUrl = AssetContentUrls.GetRelativeUrl(id);
 
-
-
-            await _assetRepository.UpdateAssetStorageUrlAsync(workspaceId, id, asset.StorageUrl, cancellationToken);
+            try
+            {
+                await _assetRepository.UpdateAssetStorageUrlAsync(workspaceId, id, asset.StorageUrl, cancellationToken);
+                buffered.Position = 0;
+                await _assetContentStore.SaveAsync(workspaceId, id, contentType.Trim(), fileName, buffered, cancellationToken);
+            }
+            catch
+            {
+                await _assetContentStore.DeleteAsync(workspaceId, id, cancellationToken);
+                await _assetRepository.DeleteAssetAsync(workspaceId, id, cancellationToken);
+                throw;
+            }
 
             return true;
-
         }
 
 
@@ -538,58 +532,23 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-            await using var buffered = new MemoryStream();
+            var buffered = await BufferZipContentAsync(content, cancellationToken);
+            buffered.Position = 0;
+            await _assetContentStore.SaveAsync(workspaceId, assetId, contentType.Trim(), fileName, buffered, cancellationToken);
+        }
 
+        private async Task<MemoryStream> BufferZipContentAsync(Stream content, CancellationToken cancellationToken)
+        {
+            if (content.CanSeek && content.Length > _maxAssetBytes)
+                throw new ArgumentException($"Asset content must be {_maxAssetBytes / (1024 * 1024)} MB or smaller.");
+
+            var buffered = new MemoryStream();
             await content.CopyToAsync(buffered, cancellationToken);
 
             if (buffered.Length > _maxAssetBytes)
-
                 throw new ArgumentException($"Asset content must be {_maxAssetBytes / (1024 * 1024)} MB or smaller.");
 
-
-
-            buffered.Position = 0;
-
-            await _assetContentStore.SaveAsync(workspaceId, assetId, contentType.Trim(), fileName, buffered, cancellationToken);
-
-        }
-
-
-
-        public async Task<Asset?> MoveAssetAsync(int assetId, int groupId, CancellationToken cancellationToken)
-
-        {
-
-            if (assetId <= 0)
-
-                throw new ArgumentOutOfRangeException(nameof(assetId));
-
-            if (groupId <= 0)
-
-                throw new ArgumentOutOfRangeException(nameof(groupId));
-
-
-
-            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-
-            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
-
-            if (existing is null)
-
-                return null;
-
-
-
-            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
-
-            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
-
-            await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, RequireCurrentUserId(), cancellationToken);
-
-
-
-            return await _assetRepository.MoveAssetToGroupAsync(workspaceId, assetId, groupId, cancellationToken);
-
+            return buffered;
         }
 
 

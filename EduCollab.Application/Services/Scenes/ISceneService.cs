@@ -1,4 +1,5 @@
 using EduCollab.Application.Models;
+using EduCollab.Application.Repositories;
 
 
 
@@ -31,6 +32,8 @@ namespace EduCollab.Application.Services.Scenes
         Task<SceneAssetContextItem?> AttachSceneAssetAsync(int sceneId, int assetId, CancellationToken cancellationToken);
 
         Task<bool> DetachSceneAssetAsync(int sceneId, int assetId, CancellationToken cancellationToken);
+
+        Task<AssetContent?> GetSceneAssetContentAsync(int sceneId, int assetId, CancellationToken cancellationToken);
 
     }
 

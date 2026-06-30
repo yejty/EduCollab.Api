@@ -17,6 +17,7 @@ namespace EduCollab.Application.Services.Scenes
         private readonly ISceneRepository _sceneRepository;
         private readonly ISceneContentStore _sceneContentStore;
         private readonly IAssetRepository _assetRepository;
+        private readonly IAssetContentStore _assetContentStore;
         private readonly IAssetService _assetService;
         private readonly IGroupRepository _groupRepository;
         private readonly IGroupAccessResolver _groupAccessResolver;
@@ -29,6 +30,7 @@ namespace EduCollab.Application.Services.Scenes
             ISceneRepository sceneRepository,
             ISceneContentStore sceneContentStore,
             IAssetRepository assetRepository,
+            IAssetContentStore assetContentStore,
             IAssetService assetService,
             IGroupRepository groupRepository,
             IGroupAccessResolver groupAccessResolver,
@@ -40,6 +42,7 @@ namespace EduCollab.Application.Services.Scenes
             _sceneRepository = sceneRepository;
             _sceneContentStore = sceneContentStore;
             _assetRepository = assetRepository;
+            _assetContentStore = assetContentStore;
             _assetService = assetService;
             _groupRepository = groupRepository;
             _groupAccessResolver = groupAccessResolver;
@@ -171,6 +174,7 @@ namespace EduCollab.Application.Services.Scenes
             scene.Description = string.IsNullOrWhiteSpace(scene.Description) ? null : scene.Description.Trim();
             var jsonContent = RequireTrimmed(scene.JsonContent, nameof(scene.JsonContent));
             EnsureJsonSize(jsonContent, _maxSceneJsonBytes);
+            await EnsureValidSceneAssetReferencesAsync(workspaceId, jsonContent, cancellationToken);
             scene.JsonContent = EmptySceneJson;
             scene.CreatedAtUtc = DateTime.UtcNow;
             scene.UpdatedAtUtc = scene.CreatedAtUtc;
@@ -258,6 +262,7 @@ namespace EduCollab.Application.Services.Scenes
 
             var jsonContent = RequireTrimmed(scene.JsonContent, nameof(scene.JsonContent));
             EnsureJsonSize(jsonContent, _maxSceneJsonBytes);
+            await EnsureValidSceneAssetReferencesAsync(workspaceId, jsonContent, cancellationToken);
 
             existing.Name = RequireTrimmed(scene.Name, nameof(scene.Name));
             existing.Description = string.IsNullOrWhiteSpace(scene.Description) ? null : scene.Description.Trim();
@@ -339,23 +344,10 @@ namespace EduCollab.Application.Services.Scenes
             scene.JsonContent = await LoadSceneContentAsync(workspaceId, sceneId, scene.JsonContent, cancellationToken)
                 ?? EmptySceneJson;
 
-            var attachedAssetIds = (await _sceneRepository.GetSceneAssetLinksAsync(workspaceId, sceneId, cancellationToken))
-                .Select(link => link.AssetId)
-                .ToHashSet();
-            var jsonAssetIds = SceneJsonAssetReferenceParser.ExtractAssetIds(scene.JsonContent);
-
-            var resolvedSources = new Dictionary<int, SceneAssetResolvedFrom>();
-            foreach (var assetId in attachedAssetIds)
-                resolvedSources[assetId] = SceneAssetResolvedFrom.SceneAttachment;
-
-            foreach (var assetId in jsonAssetIds)
-            {
-                if (!resolvedSources.ContainsKey(assetId))
-                    resolvedSources[assetId] = SceneAssetResolvedFrom.SceneJsonReference;
-            }
+            var referencedAssetIds = await GetReferencedAssetIdsAsync(workspaceId, sceneId, scene.JsonContent, cancellationToken);
 
             var items = new List<SceneAssetContextItem>();
-            foreach (var (assetId, resolvedFrom) in resolvedSources)
+            foreach (var assetId in referencedAssetIds.Keys)
             {
                 var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
                 if (asset is null)
@@ -371,11 +363,79 @@ namespace EduCollab.Application.Services.Scenes
                     AssetType = asset.AssetType,
                     UsableInScene = true,
                     CanViewDirectly = canViewDirectly,
-                    ResolvedFrom = resolvedFrom
+                    ResolvedFrom = referencedAssetIds[assetId]
                 });
             }
 
             return items.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.AssetId).ToList();
+        }
+
+        public async Task<AssetContent?> GetSceneAssetContentAsync(int sceneId, int assetId, CancellationToken cancellationToken)
+        {
+            if (sceneId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(sceneId));
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+            var scene = await GetVisibleSceneAsync(workspaceId, sceneId, membership, userId, cancellationToken);
+            if (scene is null)
+                return null;
+
+            scene.JsonContent = await LoadSceneContentAsync(workspaceId, sceneId, scene.JsonContent, cancellationToken)
+                ?? EmptySceneJson;
+
+            var referencedAssetIds = await GetReferencedAssetIdsAsync(workspaceId, sceneId, scene.JsonContent, cancellationToken);
+            if (!referencedAssetIds.ContainsKey(assetId))
+                return null;
+
+            var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (asset is null)
+                return null;
+
+            return await _assetContentStore.GetAsync(workspaceId, assetId, cancellationToken);
+        }
+
+        private async Task EnsureValidSceneAssetReferencesAsync(
+            int workspaceId,
+            string jsonContent,
+            CancellationToken cancellationToken)
+        {
+            var invalidReferences = new List<InvalidAssetReference>();
+            foreach (var assetId in SceneJsonAssetReferenceParser.ExtractAssetIds(jsonContent))
+            {
+                var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+                if (asset is null)
+                    invalidReferences.Add(new InvalidAssetReference(assetId, "Asset was not found in this workspace."));
+            }
+
+            if (invalidReferences.Count > 0)
+                throw new InvalidAssetReferenceException(invalidReferences);
+        }
+
+        private async Task<Dictionary<int, SceneAssetResolvedFrom>> GetReferencedAssetIdsAsync(
+            int workspaceId,
+            int sceneId,
+            string jsonContent,
+            CancellationToken cancellationToken)
+        {
+            var attachedAssetIds = (await _sceneRepository.GetSceneAssetLinksAsync(workspaceId, sceneId, cancellationToken))
+                .Select(link => link.AssetId)
+                .ToHashSet();
+            var jsonAssetIds = SceneJsonAssetReferenceParser.ExtractAssetIds(jsonContent);
+
+            var resolvedSources = new Dictionary<int, SceneAssetResolvedFrom>();
+            foreach (var attachedAssetId in attachedAssetIds)
+                resolvedSources[attachedAssetId] = SceneAssetResolvedFrom.SceneAttachment;
+
+            foreach (var jsonAssetId in jsonAssetIds)
+            {
+                if (!resolvedSources.ContainsKey(jsonAssetId))
+                    resolvedSources[jsonAssetId] = SceneAssetResolvedFrom.SceneJsonReference;
+            }
+
+            return resolvedSources;
         }
 
         public async Task<SceneAssetContextItem?> AttachSceneAssetAsync(int sceneId, int assetId, CancellationToken cancellationToken)

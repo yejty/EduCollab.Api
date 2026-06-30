@@ -1,17 +1,74 @@
 {
   "info": {
     "name": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under \u0060/api\u0060.\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\n- Users may belong to multiple workspaces; \u0060Users.WorkspaceId\u0060 stores the active workspace used by current-workspace routes.\n- List memberships with \u0060GET /api/users/me/workspaces\u0060; switch active workspace with \u0060PUT /api/users/me/active-workspace\u0060.\n- Platform administration uses \u0060/api/admin/...\u0060.\n\n## Authentication\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\n\n### Allowed \u0060sort\u0060 fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\n\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** \u0060GET /api/workspace/groups\u0060: optional \u0060accessible=true\u0060 and \u0060parentGroupId\u0060 to browse the group tree. Root browse (\u0060parentGroupId\u0060 omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with \u0060parentGroupId={groupId}\u0060.\n- **Group library** \u0060GET /api/workspace/groups/{groupId}/assets|scenes|flows\u0060: resources placed in that group (requires effective group access).\n- **Assets** \u0060GET /api/workspace/assets\u0060: union of all accessible assets. Optional filter: \u0060owner=me\u0060. Each asset has a single \u0060groupId\u0060 placement. Binary content is a ZIP file via \u0060PUT /api/workspace/assets/{assetId}/content\u0060.\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060. Each scene has a single \u0060groupId\u0060 placement.\n- **Flows** \u0060GET /api/workspace/flows\u0060: optional \u0060owner=me\u0060. Each flow has a single \u0060groupId\u0060 placement.\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (scene-context asset list). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060.\n- **Flow scenes** \u0060GET /api/workspace/flow-scenes\u0060: required \u0060flowId\u0060. Link via \u0060POST /api/workspace/flow-scenes\u0060; unlink via \u0060DELETE /api/workspace/flow-scenes?flowId=\u0026sceneId=\u0060.\n- **Asset moves** \u0060POST /api/workspace/asset-moves\u0060: body \u0060{ assetId, groupId }\u0060 to move an asset to another group.\n\n## Errors\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
+    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under \u0060/api\u0060.\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\n- Users may belong to multiple workspaces; \u0060Users.WorkspaceId\u0060 stores the active workspace used by current-workspace routes.\n- List memberships with \u0060GET /api/users/me/workspaces\u0060; switch active workspace with \u0060PUT /api/users/me/active-workspace\u0060.\n- Platform administration uses \u0060/api/admin/...\u0060.\n\n## Authentication\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\n\n### Allowed \u0060sort\u0060 fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\n\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** \u0060GET /api/workspace/groups\u0060: optional \u0060parentGroupId\u0060 to browse the group tree. Root browse (\u0060parentGroupId\u0060 omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with \u0060parentGroupId={groupId}\u0060. Adding a user to a group also adds them to all subgroups.\n- **Group library** \u0060GET /api/workspace/groups/{groupId}/assets|scenes|flows\u0060: resources placed in that group (requires effective group access).\n- **Assets** \u0060GET /api/workspace/assets\u0060: union of all accessible assets. Optional filter: \u0060owner=me\u0060. Each asset has a single \u0060groupId\u0060 placement; change placement with \u0060PUT /api/workspace/assets/{assetId}\u0060 (\u0060groupId\u0060 in body). Binary content is a ZIP file via \u0060PUT /api/workspace/assets/{assetId}/content\u0060.\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060. Each scene has a single \u0060groupId\u0060 placement. Create/update send inline \u0060jsonContent\u0060 as JSON (\u0060application/json\u0060) or upload a \u0060.json\u0060 file via \u0060multipart/form-data\u0060 (\u0060jsonFile\u0060 part). Scene objects reference workspace assets with an \u0060assetId\u0060 property anywhere in the JSON tree.\n- **Flows** \u0060GET /api/workspace/flows\u0060: optional \u0060owner=me\u0060. Each flow has a single \u0060groupId\u0060 placement.\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (authoritative manifest of assets required to render the scene). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060. Download ZIP content in scene context via \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (required when \u0060canViewDirectly\u0060 is false).\n- **Flow scenes** \u0060GET /api/workspace/flow-scenes\u0060: required \u0060flowId\u0060. Link via \u0060POST /api/workspace/flow-scenes\u0060; unlink via \u0060DELETE /api/workspace/flow-scenes?flowId=\u0026sceneId=\u0060.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. \u0060GET /api/workspace/scenes/{sceneId}\u0060 \u2014 load \u0060jsonContent\u0060 (object graph; objects use \u0060assetId\u0060 to point at workspace assets).\n2. \u0060GET /api/workspace/scene-assets?sceneId=\u0060 \u2014 server-resolved manifest with \u0060usableInScene\u0060 and \u0060canViewDirectly\u0060 flags.\n3. Download each required asset ZIP:\n   - When \u0060canViewDirectly\u0060 is true: \u0060GET /api/workspace/assets/{assetId}/content\u0060.\n   - When \u0060canViewDirectly\u0060 is false but \u0060usableInScene\u0060 is true: \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (scene-context only).\n4. Cross-check every \u0060assetId\u0060 parsed from \u0060jsonContent\u0060 against the manifest; ids missing from the manifest are broken or inaccessible references.\n\nScene-context access allows runtime use of assets referenced by a visible scene without granting standalone asset library access.\n\n## Errors\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\nInvalid scene asset references on create/update use \u0060error: invalid_asset_reference\u0060 with an \u0060invalidAssetReferences\u0060 array of \u0060{ assetId, reason }\u0060.\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "https://localhost:7001"
+      "value": "http://localhost:8080",
+      "type": "default"
     },
     {
       "key": "accessToken",
-      "value": ""
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "userId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "groupId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "assetId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "sceneId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "flowId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "requestId",
+      "value": "1",
+      "type": "default"
+    },
+    {
+      "key": "reviewToken",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "invitationToken",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "email",
+      "value": "user@example.com",
+      "type": "default"
+    },
+    {
+      "key": "password",
+      "value": "Password1!",
+      "type": "default"
     }
   ],
   "auth": {
@@ -92,7 +149,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022reason\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -320,41 +377,53 @@
       ]
     },
     {
-      "name": "AssetMoves",
+      "name": "Assets",
       "item": [
         {
-          "name": "POST /api/workspace/asset-moves",
+          "name": "Create a new asset in the specified group with required ZIP content.",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/workspace/asset-moves",
+              "raw": "{{baseUrl}}/api/workspace/assets",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "workspace",
-                "asset-moves"
+                "assets"
               ]
             },
             "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "Example name"
+                },
+                {
+                  "key": "groupId",
+                  "type": "text",
+                  "value": "{{groupId}}"
+                },
+                {
+                  "key": "description",
+                  "type": "text",
+                  "value": "Optional description"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "value": ""
                 }
-              }
+              ]
             },
             "auth": {
               "type": "bearer",
@@ -367,14 +436,9 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "Assets",
-      "item": [
+        },
         {
-          "name": "DELETE /api/workspace/assets/{assetId}",
+          "name": "Delete an asset.",
           "request": {
             "method": "DELETE",
             "header": [
@@ -408,7 +472,42 @@
           }
         },
         {
-          "name": "GET /api/workspace/assets",
+          "name": "Download asset binary content (ZIP file).",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "assets",
+                "{{assetId}}",
+                "content"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List accessible assets in the current workspace.",
           "request": {
             "method": "GET",
             "header": [
@@ -430,8 +529,8 @@
               "query": [
                 {
                   "key": "owner",
-                  "value": "",
-                  "description": "",
+                  "value": "me",
+                  "description": "Optional filter. Set to \u0060me\u0060 to return only assets owned by the caller.",
                   "disabled": true
                 },
                 {
@@ -467,7 +566,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/assets/{assetId}",
+          "name": "Retrieve an asset by id.",
           "request": {
             "method": "GET",
             "header": [
@@ -501,88 +600,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/assets/{assetId}/content",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/assets/{{assetId}}/content",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "assets",
-                "{{assetId}}",
-                "content"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST /api/workspace/assets",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/assets",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "assets"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "PUT /api/workspace/assets/{assetId}",
+          "name": "Update asset metadata and group placement.",
           "request": {
             "method": "PUT",
             "header": [
@@ -609,7 +627,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022groupId\u0022: 1,\r\n  \u0022assetType\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -629,17 +647,13 @@
           }
         },
         {
-          "name": "PUT /api/workspace/assets/{assetId}/content",
+          "name": "Upload or replace asset binary content (ZIP file).",
           "request": {
             "method": "PUT",
             "header": [
               {
                 "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+                "value": "*/*"
               }
             ],
             "url": {
@@ -656,13 +670,14 @@
               ]
             },
             "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "value": ""
                 }
-              }
+              ]
             },
             "auth": {
               "type": "bearer",
@@ -682,95 +697,7 @@
       "name": "FlowScenes",
       "item": [
         {
-          "name": "DELETE /api/workspace/flow-scenes",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/flow-scenes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "flow-scenes"
-              ],
-              "query": [
-                {
-                  "key": "flowId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                },
-                {
-                  "key": "sceneId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET /api/workspace/flow-scenes",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/flow-scenes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "flow-scenes"
-              ],
-              "query": [
-                {
-                  "key": "flowId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST /api/workspace/flow-scenes",
+          "name": "Link a scene to a flow.",
           "request": {
             "method": "POST",
             "header": [
@@ -796,12 +723,100 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022flowId\u0022: 1,\r\n  \u0022sceneId\u0022: 1,\r\n  \u0022sortOrder\u0022: 1\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List scenes linked to a flow in sort order.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/flow-scenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "flow-scenes"
+              ],
+              "query": [
+                {
+                  "key": "flowId",
+                  "value": "{{flowId}}",
+                  "description": "Flow identifier (required).",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unlink a scene from a flow.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/flow-scenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "flow-scenes"
+              ],
+              "query": [
+                {
+                  "key": "flowId",
+                  "value": "{{flowId}}",
+                  "description": "Flow identifier (required).",
+                  "disabled": false
+                },
+                {
+                  "key": "sceneId",
+                  "value": "{{sceneId}}",
+                  "description": "Scene identifier (required).",
+                  "disabled": false
+                }
+              ]
             },
             "auth": {
               "type": "bearer",
@@ -821,7 +836,53 @@
       "name": "Flows",
       "item": [
         {
-          "name": "DELETE /api/workspace/flows/{flowId}",
+          "name": "Create a new flow in the current workspace.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/flows",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "flows"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022groupId\u0022: 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete a flow.",
           "request": {
             "method": "DELETE",
             "header": [
@@ -855,7 +916,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/flows",
+          "name": "List flows in the current workspace.",
           "request": {
             "method": "GET",
             "header": [
@@ -877,8 +938,8 @@
               "query": [
                 {
                   "key": "owner",
-                  "value": "",
-                  "description": "",
+                  "value": "me",
+                  "description": "Optional filter. Set to \u0060me\u0060 to return only flows owned by the caller.",
                   "disabled": true
                 },
                 {
@@ -914,7 +975,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/flows/{flowId}",
+          "name": "Retrieve a flow by id.",
           "request": {
             "method": "GET",
             "header": [
@@ -948,53 +1009,7 @@
           }
         },
         {
-          "name": "POST /api/workspace/flows",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/flows",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "flows"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "PUT /api/workspace/flows/{flowId}",
+          "name": "Update flow metadata and group placement.",
           "request": {
             "method": "PUT",
             "header": [
@@ -1021,7 +1036,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022groupId\u0022: 1\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1046,51 +1061,21 @@
       "name": "Groups",
       "item": [
         {
-          "name": "DELETE /api/workspace/groups/{groupId}",
+          "name": "Add a workspace member to a group.",
           "request": {
-            "method": "DELETE",
+            "method": "POST",
             "header": [
               {
                 "key": "Accept",
                 "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "groups",
-                "{{groupId}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "DELETE /api/workspace/groups/{groupId}/users/{userId}",
-          "request": {
-            "method": "DELETE",
-            "header": [
+              },
               {
-                "key": "Accept",
+                "key": "Content-Type",
                 "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users/{{userId}}",
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1099,9 +1084,17 @@
                 "workspace",
                 "groups",
                 "{{groupId}}",
-                "users",
-                "{{userId}}"
+                "users"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \u0022userId\u0022: 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "auth": {
               "type": "bearer",
@@ -1116,12 +1109,16 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups",
+          "name": "Create a new group in the current workspace.",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
                 "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
                 "value": "application/json"
               }
             ],
@@ -1134,39 +1131,16 @@
                 "api",
                 "workspace",
                 "groups"
-              ],
-              "query": [
-                {
-                  "key": "accessible",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                },
-                {
-                  "key": "parentGroupId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                },
-                {
-                  "key": "sort",
-                  "value": "",
-                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20",
-                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                }
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "auth": {
               "type": "bearer",
@@ -1181,9 +1155,9 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}",
+          "name": "Delete a group.",
           "request": {
-            "method": "GET",
+            "method": "DELETE",
             "header": [
               {
                 "key": "Accept",
@@ -1215,7 +1189,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}/assets",
+          "name": "List assets placed in a group (group library).",
           "request": {
             "method": "GET",
             "header": [
@@ -1270,7 +1244,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}/flows",
+          "name": "List flows placed in a group (group library).",
           "request": {
             "method": "GET",
             "header": [
@@ -1325,7 +1299,121 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}/scenes",
+          "name": "List groups in the current workspace that the caller can access.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups"
+              ],
+              "query": [
+                {
+                  "key": "parentGroupId",
+                  "value": "{{parentGroupId}}",
+                  "description": "Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups.",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List members of a group.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List scenes placed in a group (group library).",
           "request": {
             "method": "GET",
             "header": [
@@ -1380,9 +1468,9 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}/users",
+          "name": "Remove a member from a group.",
           "request": {
-            "method": "GET",
+            "method": "DELETE",
             "header": [
               {
                 "key": "Accept",
@@ -1390,7 +1478,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users/{{userId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1399,27 +1487,8 @@
                 "workspace",
                 "groups",
                 "{{groupId}}",
-                "users"
-              ],
-              "query": [
-                {
-                  "key": "sort",
-                  "value": "",
-                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20",
-                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                }
+                "users",
+                "{{userId}}"
               ]
             },
             "auth": {
@@ -1435,7 +1504,41 @@
           }
         },
         {
-          "name": "GET /api/workspace/groups/{groupId}/users/{userId}",
+          "name": "Retrieve a group by id.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "groups",
+                "{{groupId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retrieve a group member by user id.",
           "request": {
             "method": "GET",
             "header": [
@@ -1471,101 +1574,7 @@
           }
         },
         {
-          "name": "POST /api/workspace/groups",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/groups",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "groups"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST /api/workspace/groups/{groupId}/users",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/groups/{{groupId}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "groups",
-                "{{groupId}}",
-                "users"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "PUT /api/workspace/groups/{groupId}",
+          "name": "Update group metadata.",
           "request": {
             "method": "PUT",
             "header": [
@@ -1592,7 +1601,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022parentGroupId\u0022: 1\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1617,113 +1626,7 @@
       "name": "SceneAssets",
       "item": [
         {
-          "name": "DELETE /api/workspace/scene-assets",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/scene-assets",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "scene-assets"
-              ],
-              "query": [
-                {
-                  "key": "sceneId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                },
-                {
-                  "key": "assetId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "GET /api/workspace/scene-assets",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/scene-assets",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "scene-assets"
-              ],
-              "query": [
-                {
-                  "key": "sceneId",
-                  "value": "",
-                  "description": "",
-                  "disabled": true
-                },
-                {
-                  "key": "sort",
-                  "value": "",
-                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20",
-                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                }
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "POST /api/workspace/scene-assets",
+          "name": "Attach an asset to a scene.",
           "request": {
             "method": "POST",
             "header": [
@@ -1749,13 +1652,169 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022sceneId\u0022: 1,\r\n  \u0022assetId\u0022: 1\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detach an asset from a scene.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets"
+              ],
+              "query": [
+                {
+                  "key": "sceneId",
+                  "value": "{{sceneId}}",
+                  "description": "Scene identifier (required).",
+                  "disabled": false
+                },
+                {
+                  "key": "assetId",
+                  "value": "{{assetId}}",
+                  "description": "Asset identifier (required).",
+                  "disabled": false
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download asset ZIP content in scene context.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "*/*"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "sceneId",
+                  "value": "{{sceneId}}",
+                  "description": "Scene identifier (required).",
+                  "disabled": false
+                },
+                {
+                  "key": "assetId",
+                  "value": "{{assetId}}",
+                  "description": "Asset identifier (required).",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Use when the manifest lists an asset with \u0060usableInScene: true\u0060 and \u0060canViewDirectly: false\u0060.\r\nStandalone \u0060GET /assets/{assetId}/content\u0060 remains direct-access only.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List assets attached to a scene.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scene-assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scene-assets"
+              ],
+              "query": [
+                {
+                  "key": "sceneId",
+                  "value": "{{sceneId}}",
+                  "description": "Scene identifier (required).",
+                  "disabled": false
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20",
+                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Authoritative manifest for rendering a scene. Merges assets referenced by \u0060assetId\u0060 in scene JSON\r\nwith explicit scene attachments. Use M:EduCollab.Api.Controllers.SceneAssetsController.GetSceneAssetContent(System.Int32,System.Int32,System.Threading.CancellationToken) to download ZIP content when\r\n\u0060canViewDirectly\u0060 is false.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1774,7 +1833,54 @@
       "name": "Scenes",
       "item": [
         {
-          "name": "DELETE /api/workspace/scenes/{sceneId}",
+          "name": "Create a new scene in the specified group.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/workspace/scenes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "workspace",
+                "scenes"
+              ]
+            },
+            "description": "Send \u0060jsonContent\u0060 inline in the JSON body. Scene objects reference workspace assets via an \u0060assetId\u0060\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a \u0060.json\u0060 file instead.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022jsonContent\u0022: {\r\n    \u0022objects\u0022: []\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete a scene.",
           "request": {
             "method": "DELETE",
             "header": [
@@ -1808,7 +1914,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/scenes",
+          "name": "List accessible scenes in the current workspace.",
           "request": {
             "method": "GET",
             "header": [
@@ -1830,8 +1936,8 @@
               "query": [
                 {
                   "key": "owner",
-                  "value": "",
-                  "description": "",
+                  "value": "me",
+                  "description": "Optional filter. Set to \u0060me\u0060 to return only scenes owned by the caller.",
                   "disabled": true
                 },
                 {
@@ -1867,7 +1973,7 @@
           }
         },
         {
-          "name": "GET /api/workspace/scenes/{sceneId}",
+          "name": "Retrieve a scene by id.",
           "request": {
             "method": "GET",
             "header": [
@@ -1901,53 +2007,7 @@
           }
         },
         {
-          "name": "POST /api/workspace/scenes",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/scenes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "scenes"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "PUT /api/workspace/scenes/{sceneId}",
+          "name": "Update scene metadata, group placement, and inline JSON content.",
           "request": {
             "method": "PUT",
             "header": [
@@ -1974,7 +2034,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022groupId\u0022: 1,\r\n  \u0022jsonContent\u0022: {\r\n    \u0022objects\u0022: []\r\n  }\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2025,7 +2085,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022password\u0022: \u0022{{password}}\u0022,\r\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2071,14 +2131,33 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022token\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    const body = pm.response.json();\r",
+                  "    if (body.accessToken) {\r",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
+                  "    }\r",
+                  "    if (body.refreshToken) {\r",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
+                  "    }\r",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Delete user by user Id. The id must match the authenticated user (JWT subject).",
@@ -2114,7 +2193,7 @@
           }
         },
         {
-          "name": "GET /api/users/me/workspaces",
+          "name": "List workspaces the current user belongs to, including the active workspace id.",
           "request": {
             "method": "GET",
             "header": [
@@ -2175,14 +2254,33 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022code\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    const body = pm.response.json();\r",
+                  "    if (body.accessToken) {\r",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
+                  "    }\r",
+                  "    if (body.refreshToken) {\r",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
+                  "    }\r",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Log in a user with provided credentials.",
@@ -2211,14 +2309,33 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    const body = pm.response.json();\r",
+                  "    if (body.accessToken) {\r",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
+                  "    }\r",
+                  "    if (body.refreshToken) {\r",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
+                  "    }\r",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Login with a refresh token to obtain a new access token.",
@@ -2247,61 +2364,33 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022refreshToken\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
-        },
-        {
-          "name": "PUT /api/users/me/active-workspace",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {\r",
+                  "    const body = pm.response.json();\r",
+                  "    if (body.accessToken) {\r",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
+                  "    }\r",
+                  "    if (body.refreshToken) {\r",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
+                  "    }\r",
+                  "}"
+                ]
               }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/me/active-workspace",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "me",
-                "active-workspace"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
             }
-          }
+          ]
         },
         {
           "name": "Register a new user. A confirmation email is sent; sign-in is blocked until email is confirmed.",
@@ -2330,7 +2419,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022firstName\u0022: \u0022string\u0022,\r\n  \u0022lastName\u0022: \u0022string\u0022,\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2365,9 +2454,10 @@
                 "preferences"
               ]
             },
+            "description": "The request body is stored as opaque JSON without schema binding or validation.",
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022objects\u0022: []\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2414,7 +2504,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2450,7 +2540,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022token\u0022: \u0022string\u0022,\r\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2486,7 +2576,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2517,6 +2607,7 @@
                 "preferences"
               ]
             },
+            "description": "The backend treats this document as opaque JSON and stores it outside the database.\r\nIt is intended for web-client profile preferences only.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2623,12 +2714,59 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "Set the caller\u0027s active workspace for current-workspace routes.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me/active-workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me",
+                "active-workspace"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \u0022workspaceId\u0022: 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -2659,7 +2797,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022firstName\u0022: \u0022string\u0022,\r\n  \u0022lastName\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2764,7 +2902,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022approvalToken\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2811,7 +2949,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022firstName\u0022: \u0022string\u0022,\r\n  \u0022lastName\u0022: \u0022string\u0022,\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2948,7 +3086,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022role\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3212,7 +3350,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3259,7 +3397,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022role\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3304,7 +3442,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{}",
+              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3331,10 +3469,6 @@
               {
                 "key": "Accept",
                 "value": "application/json"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
               }
             ],
             "url": {
@@ -3349,13 +3483,14 @@
               ]
             },
             "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "value": ""
                 }
-              }
+              ]
             },
             "auth": {
               "type": "bearer",
