@@ -147,7 +147,8 @@ namespace EduCollab.Api.Controllers
         /// <summary>
         /// List groups in the current workspace that the caller can access.
         /// </summary>
-        /// <param name="parentGroupId">Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups.</param>
+        /// <param name="parentGroupId">Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups. Ignored when <paramref name="view"/> is <c>flat</c>.</param>
+        /// <param name="view">List layout. Default <c>tree</c> (hierarchical browse). Use <c>flat</c> for all accessible groups in one list (for pickers, search, admin views).</param>
         /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
         /// <param name="page">1-based page index. Default: 1.</param>
         /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
@@ -166,6 +167,8 @@ namespace EduCollab.Api.Controllers
 
             [FromQuery] int? parentGroupId,
 
+            [FromQuery] string? view,
+
             [FromQuery] string? sort,
 
             [FromQuery] int? page,
@@ -175,6 +178,18 @@ namespace EduCollab.Api.Controllers
             CancellationToken cancellationToken)
 
         {
+
+            if (!GroupListViewQueryParser.TryParse(view, out var listView, out var viewError))
+
+                return ApiBadRequest("invalid_filter", viewError!);
+
+
+
+            if (listView == GroupListView.Flat && parentGroupId is not null)
+
+                return ApiBadRequest("invalid_filter", "parentGroupId cannot be used with view=flat.");
+
+
 
             if (!TryParseListQuery(
 
@@ -202,7 +217,11 @@ namespace EduCollab.Api.Controllers
 
 
 
-            var groups = await _groupService.GetAccessibleGroupsAsync(parentGroupId, cancellationToken);
+            var groups = listView == GroupListView.Flat
+
+                ? await _groupService.GetAccessibleGroupsFlatAsync(cancellationToken)
+
+                : await _groupService.GetAccessibleGroupsAsync(parentGroupId, cancellationToken);
 
 
 

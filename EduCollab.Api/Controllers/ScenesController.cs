@@ -1,7 +1,5 @@
 using EduCollab.Api.Mapping;
 
-using EduCollab.Api.Query;
-
 using EduCollab.Api.Requests.Scenes;
 
 using EduCollab.Application.Services.Scenes;
@@ -172,98 +170,6 @@ namespace EduCollab.Api.Controllers
 
 
             return await CreateScene(createRequest, cancellationToken);
-
-        }
-
-
-
-        /// <summary>
-        /// List accessible scenes in the current workspace.
-        /// </summary>
-        /// <param name="owner">Optional filter. Set to <c>me</c> to return only scenes owned by the caller.</param>
-        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
-        /// <param name="page">1-based page index. Default: 1.</param>
-        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Paged list of scenes.</response>
-        /// <response code="400">Invalid filter, sort, or pagination.</response>
-        /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="403">Caller cannot access scenes in this workspace.</response>
-        [Authorize]
-
-        [HttpGet(ApiEndpoints.Scenes.GetAll)]
-
-        [ProducesResponseType(typeof(ScenesResponse), StatusCodes.Status200OK)]
-
-        public async Task<ActionResult<ScenesResponse>> GetScenes(
-
-            [FromQuery] string? owner,
-
-            [FromQuery] string? sort,
-
-            [FromQuery] int? page,
-
-            [FromQuery] int? pageSize,
-
-            CancellationToken cancellationToken)
-
-        {
-
-            if (!OwnerQueryParser.TryParse(owner, out var ownerIsCurrentUser, out var ownerError))
-
-                return ApiBadRequest("invalid_filter", ownerError!);
-
-
-
-            if (!TryParseListQuery(
-
-                    sort,
-
-                    page,
-
-                    pageSize,
-
-                    ResourceSortProfiles.NamedResource.AllowedFields,
-
-                    ResourceSortProfiles.NamedResource.Default,
-
-                    out var sortSpecification,
-
-                    out var paginationSpecification,
-
-                    out var problem))
-
-            {
-
-                return problem!;
-
-            }
-
-
-
-            var scenes = ownerIsCurrentUser
-
-                ? await _sceneService.GetMyScenesAsync(cancellationToken)
-
-                : await _sceneService.GetAllScenesAsync(cancellationToken);
-
-
-
-            var sorted = ResourceSortProfiles.NamedResource.ApplyScenes(scenes, sortSpecification);
-
-            var paged = PaginationApplier.Apply(sorted, paginationSpecification);
-
-            var response = paged.MapToResponse();
-
-
-
-            foreach (var scene in response.Scenes)
-
-                await PopulateAccessMetadataAsync(scene, cancellationToken);
-
-
-
-            return Ok(response);
 
         }
 

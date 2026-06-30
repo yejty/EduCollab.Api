@@ -78,24 +78,6 @@ namespace EduCollab.Infrastructure.Repositories
             return sceneId ?? 0;
         }
 
-        public async Task<List<Scene>> GetAllScenesAsync(int workspaceId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var scenes = await connection.QueryAsync<Scene>(
-                new CommandDefinition(
-                    $"""
-                    SELECT {SceneListColumns}
-                    FROM Scenes
-                    WHERE WorkspaceId = @WorkspaceId
-                    ORDER BY Name ASC, Id ASC;
-                    """,
-                    new { WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return scenes.AsList();
-        }
-
         public async Task<List<Scene>> GetScenesByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -110,25 +92,6 @@ namespace EduCollab.Infrastructure.Repositories
                     ORDER BY Name ASC, Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, GroupId = groupId },
-                    cancellationToken: cancellationToken));
-
-            return scenes.AsList();
-        }
-
-        public async Task<List<Scene>> GetScenesByOwnerAsync(int workspaceId, int ownerUserId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var scenes = await connection.QueryAsync<Scene>(
-                new CommandDefinition(
-                    $"""
-                    SELECT {SceneListColumns}
-                    FROM Scenes
-                    WHERE WorkspaceId = @WorkspaceId
-                      AND OwnerUserId = @OwnerUserId
-                    ORDER BY Name ASC, Id ASC;
-                    """,
-                    new { WorkspaceId = workspaceId, OwnerUserId = ownerUserId },
                     cancellationToken: cancellationToken));
 
             return scenes.AsList();

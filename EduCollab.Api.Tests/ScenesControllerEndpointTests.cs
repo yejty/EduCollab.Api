@@ -40,10 +40,10 @@ public sealed class ScenesControllerEndpointTests
     }
 
     [Fact]
-    public async Task GetScenes_ReturnsOk_WhenListItemsHaveNoLoadedJsonContent()
+    public async Task GetGroupScenes_ReturnsOk_WhenListItemsHaveNoLoadedJsonContent()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.SceneService.GetAllScenesAsyncHandler = _ => Task.FromResult(new List<Scene>
+        factory.SceneService.GetScenesInGroupAsyncHandler = (_, _) => Task.FromResult(new List<Scene>
         {
             new()
             {
@@ -60,7 +60,7 @@ public sealed class ScenesControllerEndpointTests
 
         using var client = factory.CreateClient(userId: 54);
 
-        var response = await client.GetAsync("/api/workspace/scenes");
+        var response = await client.GetAsync("/api/workspace/groups/1/scenes");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<ScenesResponse>();

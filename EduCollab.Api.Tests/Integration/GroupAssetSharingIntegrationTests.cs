@@ -161,6 +161,30 @@ public sealed class GroupAssetSharingIntegrationTests
         var childAccessibleAssets = await childAccessibleAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
         Assert.Single(childAccessibleAssets.Assets);
         Assert.Equal(physicsAsset.Id, childAccessibleAssets.Assets[0].Id);
+
+        var parentFlatResponse = await parentMemberClient.GetAsync("/api/workspace/groups?view=flat");
+        parentFlatResponse.EnsureSuccessStatusCode();
+        var parentFlatGroups = await parentFlatResponse.ReadAsJsonAsync<GroupsResponse>();
+        Assert.Contains(parentFlatGroups.Groups, g => g.Id == science.Id);
+        Assert.Contains(parentFlatGroups.Groups, g => g.Id == physics.Id);
+        Assert.DoesNotContain(parentFlatGroups.Groups, g => g.Id == hidden.Id);
+
+        var childFlatResponse = await childMemberClient.GetAsync("/api/workspace/groups?view=flat");
+        childFlatResponse.EnsureSuccessStatusCode();
+        var childFlatGroups = await childFlatResponse.ReadAsJsonAsync<GroupsResponse>();
+        Assert.DoesNotContain(childFlatGroups.Groups, g => g.Id == science.Id);
+        Assert.Contains(childFlatGroups.Groups, g => g.Id == physics.Id);
+
+        var ownerFlatResponse = await ownerClient.GetAsync("/api/workspace/groups?view=flat");
+        ownerFlatResponse.EnsureSuccessStatusCode();
+        var ownerFlatGroups = await ownerFlatResponse.ReadAsJsonAsync<GroupsResponse>();
+        Assert.Contains(ownerFlatGroups.Groups, g => g.Id == science.Id);
+        Assert.Contains(ownerFlatGroups.Groups, g => g.Id == physics.Id);
+        Assert.Contains(ownerFlatGroups.Groups, g => g.Id == hidden.Id);
+
+        var invalidFlatParentResponse = await parentMemberClient.GetAsync(
+            $"/api/workspace/groups?view=flat&parentGroupId={science.Id}");
+        Assert.Equal(HttpStatusCode.BadRequest, invalidFlatParentResponse.StatusCode);
     }
 
     [Fact]

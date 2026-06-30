@@ -234,6 +234,20 @@ namespace EduCollab.Application.Services.Groups
             return browseRoots;
         }
 
+        public async Task<List<Group>> GetAccessibleGroupsFlatAsync(CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+            var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
+            AssignGroupPaths(allGroups);
+
+            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                return allGroups;
+
+            var accessibleIds = await _groupAccessResolver.GetEffectiveAccessibleGroupIdsAsync(workspaceId, userId, cancellationToken);
+            return allGroups.Where(g => accessibleIds.Contains(g.Id)).ToList();
+        }
+
         public async Task<Group?> GetGroupByIdAsync(int groupId, CancellationToken cancellationToken)
         {
             if (groupId <= 0)

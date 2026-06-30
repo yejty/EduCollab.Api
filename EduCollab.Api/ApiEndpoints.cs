@@ -228,8 +228,6 @@
 
             public const string Create = Base;
 
-            public const string GetAll = Base;
-
             public const string Get = $"{Base}/{{sceneId}}";
 
             public const string Update = $"{Base}/{{sceneId}}";

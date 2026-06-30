@@ -189,17 +189,6 @@ namespace EduCollab.Application.Services.Scenes
             return true;
         }
 
-        public async Task<List<Scene>> GetAllScenesAsync(CancellationToken cancellationToken)
-        {
-            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var userId = RequireCurrentUserId();
-            var scenes = await _sceneRepository.GetAllScenesAsync(workspaceId, cancellationToken);
-            var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            return scenes
-                .Where(scene => WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
-                .ToList();
-        }
-
         public async Task<List<Scene>> GetScenesInGroupAsync(int groupId, CancellationToken cancellationToken)
         {
             if (groupId <= 0)
@@ -216,13 +205,6 @@ namespace EduCollab.Application.Services.Scenes
 
             await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
             return await _sceneRepository.GetScenesByGroupAsync(workspaceId, groupId, cancellationToken);
-        }
-
-        public async Task<List<Scene>> GetMyScenesAsync(CancellationToken cancellationToken)
-        {
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var userId = RequireCurrentUserId();
-            return await _sceneRepository.GetScenesByOwnerAsync(workspaceId, userId, cancellationToken);
         }
 
         public async Task<Scene?> GetSceneByIdAsync(int sceneId, CancellationToken cancellationToken)

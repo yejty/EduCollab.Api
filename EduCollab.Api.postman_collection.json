@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under \u0060/api\u0060.\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\n- Users may belong to multiple workspaces; \u0060Users.WorkspaceId\u0060 stores the active workspace used by current-workspace routes.\n- List memberships with \u0060GET /api/users/me/workspaces\u0060; switch active workspace with \u0060PUT /api/users/me/active-workspace\u0060.\n- Platform administration uses \u0060/api/admin/...\u0060.\n\n## Authentication\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\n\n### Allowed \u0060sort\u0060 fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\n\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** \u0060GET /api/workspace/groups\u0060: optional \u0060parentGroupId\u0060 to browse the group tree. Root browse (\u0060parentGroupId\u0060 omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with \u0060parentGroupId={groupId}\u0060. Adding a user to a group also adds them to all subgroups.\n- **Group library** \u0060GET /api/workspace/groups/{groupId}/assets|scenes|flows\u0060: resources placed in that group (requires effective group access).\n- **Assets** \u0060GET /api/workspace/assets\u0060: union of all accessible assets. Optional filter: \u0060owner=me\u0060. Each asset has a single \u0060groupId\u0060 placement; change placement with \u0060PUT /api/workspace/assets/{assetId}\u0060 (\u0060groupId\u0060 in body). Binary content is a ZIP file via \u0060PUT /api/workspace/assets/{assetId}/content\u0060.\n- **Scenes** \u0060GET /api/workspace/scenes\u0060: optional \u0060owner=me\u0060. Each scene has a single \u0060groupId\u0060 placement. Create/update send inline \u0060jsonContent\u0060 as JSON (\u0060application/json\u0060) or upload a \u0060.json\u0060 file via \u0060multipart/form-data\u0060 (\u0060jsonFile\u0060 part). Scene objects reference workspace assets with an \u0060assetId\u0060 property anywhere in the JSON tree.\n- **Flows** \u0060GET /api/workspace/flows\u0060: optional \u0060owner=me\u0060. Each flow has a single \u0060groupId\u0060 placement.\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (authoritative manifest of assets required to render the scene). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060. Download ZIP content in scene context via \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (required when \u0060canViewDirectly\u0060 is false).\n- **Flow scenes** \u0060GET /api/workspace/flow-scenes\u0060: required \u0060flowId\u0060. Link via \u0060POST /api/workspace/flow-scenes\u0060; unlink via \u0060DELETE /api/workspace/flow-scenes?flowId=\u0026sceneId=\u0060.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. \u0060GET /api/workspace/scenes/{sceneId}\u0060 \u2014 load \u0060jsonContent\u0060 (object graph; objects use \u0060assetId\u0060 to point at workspace assets).\n2. \u0060GET /api/workspace/scene-assets?sceneId=\u0060 \u2014 server-resolved manifest with \u0060usableInScene\u0060 and \u0060canViewDirectly\u0060 flags.\n3. Download each required asset ZIP:\n   - When \u0060canViewDirectly\u0060 is true: \u0060GET /api/workspace/assets/{assetId}/content\u0060.\n   - When \u0060canViewDirectly\u0060 is false but \u0060usableInScene\u0060 is true: \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (scene-context only).\n4. Cross-check every \u0060assetId\u0060 parsed from \u0060jsonContent\u0060 against the manifest; ids missing from the manifest are broken or inaccessible references.\n\nScene-context access allows runtime use of assets referenced by a visible scene without granting standalone asset library access.\n\n## Errors\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\nInvalid scene asset references on create/update use \u0060error: invalid_asset_reference\u0060 with an \u0060invalidAssetReferences\u0060 array of \u0060{ assetId, reason }\u0060.\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
+    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under \u0060/api\u0060.\n- Authenticated workspace operations use the **current workspace** scope: \u0060/api/workspace/...\u0060.\n- Users may belong to multiple workspaces; \u0060Users.WorkspaceId\u0060 stores the active workspace used by current-workspace routes.\n- List memberships with \u0060GET /api/users/me/workspaces\u0060; switch active workspace with \u0060PUT /api/users/me/active-workspace\u0060.\n- Platform administration uses \u0060/api/admin/...\u0060.\n\n## Authentication\n- Send \u0060Authorization: Bearer {accessToken}\u0060 on protected routes.\n- Obtain tokens from \u0060POST /api/users/login\u0060, \u0060POST /api/users/login/confirm-code\u0060, or \u0060POST /api/users/registration-confirm\u0060.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| \u0060page\u0060 | 1 | Must be \u003E= 1. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060pageSize\u0060 | 20 | Must be 1\u2013100. Invalid values return \u0060400\u0060 with \u0060error: invalid_pagination\u0060. |\n| \u0060sort\u0060 | per resource (see below) | Ascending: \u0060sort=name\u0060. Descending: \u0060sort=-createdAt\u0060. Unknown fields return \u0060400\u0060 with \u0060error: invalid_sort\u0060. |\n\n### Allowed \u0060sort\u0060 fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: \u0060name\u0060, \u0060createdAt\u0060, \u0060updatedAt\u0060, \u0060id\u0060 (default \u0060name\u0060 ascending).\n- **Workspace / group members**: \u0060userId\u0060, \u0060joinedAt\u0060, \u0060role\u0060 where applicable (default \u0060joinedAt\u0060 ascending).\n- **Workspace creation requests**: \u0060name\u0060, \u0060createdAt\u0060, \u0060status\u0060, \u0060id\u0060 (default \u0060createdAt\u0060 descending).\n\nPaged list responses include \u0060page\u0060, \u0060pageSize\u0060, and \u0060totalCount\u0060 alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** \u0060GET /api/workspace/groups\u0060: default \u0060view=tree\u0060 with optional \u0060parentGroupId\u0060 to browse the group tree. Root browse (\u0060parentGroupId\u0060 omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with \u0060parentGroupId={groupId}\u0060. Use \u0060view=flat\u0060 for all accessible groups in one list (group pickers, search, admin tables); \u0060parentGroupId\u0060 is not allowed with \u0060view=flat\u0060. Adding a user to a group also adds them to all subgroups.\n- **Group library** \u0060GET /api/workspace/groups/{groupId}/assets|scenes|flows\u0060: resources placed in that group (requires effective group access). Scenes are listed only via this group endpoint.\n- **Assets** \u0060GET /api/workspace/assets\u0060: union of all accessible assets. Optional filter: \u0060owner=me\u0060. Each asset has a single \u0060groupId\u0060 placement; change placement with \u0060PUT /api/workspace/assets/{assetId}\u0060 (\u0060groupId\u0060 in body). Binary content is a ZIP file via \u0060PUT /api/workspace/assets/{assetId}/content\u0060.\n- **Scenes** (CRUD at \u0060/api/workspace/scenes\u0060): each scene belongs to one group (\u0060groupId\u0060). Create/update send inline \u0060jsonContent\u0060 as JSON (\u0060application/json\u0060) or upload a \u0060.json\u0060 file via \u0060multipart/form-data\u0060 (\u0060jsonFile\u0060 part). Scene objects reference workspace assets with an \u0060assetId\u0060 property anywhere in the JSON tree.\n- **Flows** \u0060GET /api/workspace/flows\u0060: optional \u0060owner=me\u0060. Each flow has a single \u0060groupId\u0060 placement.\n- **Scene assets** \u0060GET /api/workspace/scene-assets\u0060: required \u0060sceneId\u0060 (authoritative manifest of assets required to render the scene). Attach via \u0060POST /api/workspace/scene-assets\u0060; detach via \u0060DELETE /api/workspace/scene-assets?sceneId=\u0026assetId=\u0060. Download ZIP content in scene context via \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (required when \u0060canViewDirectly\u0060 is false).\n- **Flow scenes** \u0060GET /api/workspace/flow-scenes\u0060: required \u0060flowId\u0060. Link via \u0060POST /api/workspace/flow-scenes\u0060; unlink via \u0060DELETE /api/workspace/flow-scenes?flowId=\u0026sceneId=\u0060.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. \u0060GET /api/workspace/scenes/{sceneId}\u0060 \u2014 load \u0060jsonContent\u0060 (object graph; objects use \u0060assetId\u0060 to point at workspace assets).\n2. \u0060GET /api/workspace/scene-assets?sceneId=\u0060 \u2014 server-resolved manifest with \u0060usableInScene\u0060 and \u0060canViewDirectly\u0060 flags.\n3. Download each required asset ZIP:\n   - When \u0060canViewDirectly\u0060 is true: \u0060GET /api/workspace/assets/{assetId}/content\u0060.\n   - When \u0060canViewDirectly\u0060 is false but \u0060usableInScene\u0060 is true: \u0060GET /api/workspace/scene-assets/content?sceneId=\u0026assetId=\u0060 (scene-context only).\n4. Cross-check every \u0060assetId\u0060 parsed from \u0060jsonContent\u0060 against the manifest; ids missing from the manifest are broken or inaccessible references.\n\nScene-context access allows runtime use of assets referenced by a visible scene without granting standalone asset library access.\n\n## Errors\nAll \u00604xx\u0060 and \u00605xx\u0060 responses use RFC 9457 Problem Details (\u0060application/problem\u002Bjson\u0060).\nCommon properties: \u0060type\u0060, \u0060title\u0060, \u0060status\u0060, \u0060detail\u0060, \u0060instance\u0060, \u0060error\u0060, \u0060requestId\u0060.\nModel validation failures use \u0060error: validation_failed\u0060 and an \u0060errors\u0060 object keyed by field name (camelCase).\nInvalid scene asset references on create/update use \u0060error: invalid_asset_reference\u0060 with an \u0060invalidAssetReferences\u0060 array of \u0060{ assetId, reason }\u0060.\nEvery response includes an \u0060X-Request-Id\u0060 header matching \u0060requestId\u0060 in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at \u0060openapi/v1/openapi.json\u0060.\nRegenerate with \u0060scripts/export-openapi.ps1\u0060.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -1322,7 +1322,13 @@
                 {
                   "key": "parentGroupId",
                   "value": "{{parentGroupId}}",
-                  "description": "Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups.",
+                  "description": "Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups. Ignored when view is \u0060flat\u0060.",
+                  "disabled": true
+                },
+                {
+                  "key": "view",
+                  "value": "",
+                  "description": "List layout. Default \u0060tree\u0060 (hierarchical browse). Use \u0060flat\u0060 for all accessible groups in one list (for pickers, search, admin views).",
                   "disabled": true
                 },
                 {
@@ -1899,65 +1905,6 @@
                 "workspace",
                 "scenes",
                 "{{sceneId}}"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List accessible scenes in the current workspace.",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Accept",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/workspace/scenes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "workspace",
-                "scenes"
-              ],
-              "query": [
-                {
-                  "key": "owner",
-                  "value": "me",
-                  "description": "Optional filter. Set to \u0060me\u0060 to return only scenes owned by the caller.",
-                  "disabled": true
-                },
-                {
-                  "key": "sort",
-                  "value": "",
-                  "description": "Sort field. Prefix with \u0060-\u0060 for descending (e.g. \u0060-createdAt\u0060). Allowed fields vary by resource; see API description. Invalid fields return \u0060invalid_sort\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "page",
-                  "value": "1",
-                  "description": "1-based page index. Default: 1. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20",
-                  "description": "Page size. Default: 20, maximum: 100. Invalid values return \u0060invalid_pagination\u0060.",
-                  "disabled": true
-                }
               ]
             },
             "auth": {

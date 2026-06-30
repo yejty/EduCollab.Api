@@ -13,11 +13,7 @@ namespace EduCollab.Application.Services.Scenes
 
         Task<bool> CreateSceneAsync(Scene scene, int groupId, CancellationToken cancellationToken);
 
-        Task<List<Scene>> GetAllScenesAsync(CancellationToken cancellationToken);
-
         Task<List<Scene>> GetScenesInGroupAsync(int groupId, CancellationToken cancellationToken);
-
-        Task<List<Scene>> GetMyScenesAsync(CancellationToken cancellationToken);
 
         Task<Scene?> GetSceneByIdAsync(int sceneId, CancellationToken cancellationToken);
 
