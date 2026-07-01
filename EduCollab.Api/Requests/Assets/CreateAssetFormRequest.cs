@@ -6,6 +6,8 @@ public sealed class CreateAssetFormRequest
 
     public int GroupId { get; set; }
 
+    public List<int>? GroupIds { get; set; }
+
     public string? Description { get; set; }
 
     public IFormFile? File { get; set; }

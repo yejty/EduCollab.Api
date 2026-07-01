@@ -45,7 +45,7 @@ namespace EduCollab.Infrastructure.Repositories
                         StorageUrl,
                         CreatedAtUtc,
                         UpdatedAtUtc)
-                    SELECT
+                    VALUES (
                         @WorkspaceId,
                         @GroupId,
                         @OwnerUserId,
@@ -54,13 +54,7 @@ namespace EduCollab.Infrastructure.Repositories
                         @AssetType,
                         @StorageUrl,
                         @CreatedAtUtc,
-                        @UpdatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Groups g
-                        WHERE g.Id = @GroupId
-                          AND g.WorkspaceId = @WorkspaceId
-                    )
+                        @UpdatedAtUtc)
                     RETURNING Id;
                     """,
                     new
@@ -105,10 +99,11 @@ namespace EduCollab.Infrastructure.Repositories
             var assets = await connection.QueryAsync<Asset>(
                 new CommandDefinition(
                     $"""
-                    SELECT {AssetSelectColumns}
-                    FROM Assets
-                    WHERE WorkspaceId = @WorkspaceId
-                      AND GroupId = @GroupId
+                    SELECT DISTINCT {AssetSelectColumns}
+                    FROM Assets a
+                    INNER JOIN AssetGroupShares ags ON ags.AssetId = a.Id
+                    WHERE a.WorkspaceId = @WorkspaceId
+                      AND ags.GroupId = @GroupId
                     ORDER BY Name ASC, Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, GroupId = groupId },
@@ -161,19 +156,12 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     $"""
                     UPDATE Assets AS a
-                    SET GroupId = @GroupId,
-                        Name = @Name,
+                    SET Name = @Name,
                         Description = @Description,
                         AssetType = @AssetType,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE a.Id = @Id
                       AND a.WorkspaceId = @WorkspaceId
-                      AND EXISTS (
-                          SELECT 1
-                          FROM Groups g
-                          WHERE g.Id = @GroupId
-                            AND g.WorkspaceId = @WorkspaceId
-                      )
                     RETURNING
                         a.Id,
                         a.WorkspaceId,
@@ -190,7 +178,6 @@ namespace EduCollab.Infrastructure.Repositories
                     {
                         asset.Id,
                         WorkspaceId = workspaceId,
-                        asset.GroupId,
                         asset.Name,
                         asset.Description,
                         asset.AssetType,
@@ -237,6 +224,202 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return deleted > 0;
+        }
+
+        public async Task<List<int>> GetAssetGroupIdsAsync(int workspaceId, int assetId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var groupIds = await connection.QueryAsync<int>(
+                new CommandDefinition(
+                    """
+                    SELECT ags.GroupId
+                    FROM AssetGroupShares ags
+                    INNER JOIN Assets a ON a.Id = ags.AssetId
+                    WHERE ags.AssetId = @AssetId
+                      AND a.WorkspaceId = @WorkspaceId
+                    ORDER BY ags.CreatedAtUtc, ags.GroupId;
+                    """,
+                    new { AssetId = assetId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return groupIds.AsList();
+        }
+
+        public async Task<Dictionary<int, List<int>>> GetAssetGroupIdsByAssetIdsAsync(
+            int workspaceId,
+            IReadOnlyCollection<int> assetIds,
+            CancellationToken cancellationToken)
+        {
+            if (assetIds.Count == 0)
+                return new Dictionary<int, List<int>>();
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var rows = await connection.QueryAsync<(int AssetId, int GroupId)>(
+                new CommandDefinition(
+                    """
+                    SELECT ags.AssetId, ags.GroupId
+                    FROM AssetGroupShares ags
+                    INNER JOIN Assets a ON a.Id = ags.AssetId
+                    WHERE a.WorkspaceId = @WorkspaceId
+                      AND ags.AssetId = ANY(@AssetIds)
+                    ORDER BY ags.AssetId, ags.CreatedAtUtc, ags.GroupId;
+                    """,
+                    new { WorkspaceId = workspaceId, AssetIds = assetIds.ToArray() },
+                    cancellationToken: cancellationToken));
+
+            return rows
+                .GroupBy(row => row.AssetId)
+                .ToDictionary(group => group.Key, group => group.Select(row => row.GroupId).ToList());
+        }
+
+        public async Task ReplaceAssetGroupSharesAsync(
+            int workspaceId,
+            int assetId,
+            IReadOnlyList<int> groupIds,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            using var transaction = connection.BeginTransaction();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM AssetGroupShares ags
+                    USING Assets a
+                    WHERE ags.AssetId = @AssetId
+                      AND a.Id = ags.AssetId
+                      AND a.WorkspaceId = @WorkspaceId;
+                    """,
+                    new { AssetId = assetId, WorkspaceId = workspaceId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            var createdAtUtc = DateTime.UtcNow;
+            foreach (var groupId in groupIds.Distinct())
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO AssetGroupShares (AssetId, GroupId, CreatedAtUtc)
+                        SELECT @AssetId, @GroupId, @CreatedAtUtc
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM Assets a
+                            WHERE a.Id = @AssetId
+                              AND a.WorkspaceId = @WorkspaceId
+                        )
+                          AND EXISTS (
+                            SELECT 1
+                            FROM Groups g
+                            WHERE g.Id = @GroupId
+                              AND g.WorkspaceId = @WorkspaceId
+                        );
+                        """,
+                        new
+                        {
+                            AssetId = assetId,
+                            GroupId = groupId,
+                            CreatedAtUtc = createdAtUtc,
+                            WorkspaceId = workspaceId
+                        },
+                        transaction: transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            transaction.Commit();
+        }
+
+        public async Task<bool> AddAssetGroupShareAsync(
+            int workspaceId,
+            int assetId,
+            int groupId,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var inserted = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO AssetGroupShares (AssetId, GroupId, CreatedAtUtc)
+                    SELECT @AssetId, @GroupId, @CreatedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Assets a
+                        WHERE a.Id = @AssetId
+                          AND a.WorkspaceId = @WorkspaceId
+                    )
+                      AND EXISTS (
+                        SELECT 1
+                        FROM Groups g
+                        WHERE g.Id = @GroupId
+                          AND g.WorkspaceId = @WorkspaceId
+                    )
+                    ON CONFLICT (AssetId, GroupId) DO NOTHING;
+                    """,
+                    new
+                    {
+                        AssetId = assetId,
+                        GroupId = groupId,
+                        CreatedAtUtc = DateTime.UtcNow,
+                        WorkspaceId = workspaceId
+                    },
+                    cancellationToken: cancellationToken));
+
+            return inserted > 0;
+        }
+
+        public async Task<bool> RemoveAssetGroupShareAsync(
+            int workspaceId,
+            int assetId,
+            int groupId,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var deleted = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM AssetGroupShares ags
+                    USING Assets a
+                    WHERE ags.AssetId = @AssetId
+                      AND ags.GroupId = @GroupId
+                      AND a.Id = ags.AssetId
+                      AND a.WorkspaceId = @WorkspaceId;
+                    """,
+                    new { AssetId = assetId, GroupId = groupId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return deleted > 0;
+        }
+
+        public async Task SyncAssetPrimaryGroupIdAsync(int workspaceId, int assetId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Assets a
+                    SET GroupId = (
+                        SELECT ags.GroupId
+                        FROM AssetGroupShares ags
+                        WHERE ags.AssetId = a.Id
+                        ORDER BY ags.CreatedAtUtc, ags.GroupId
+                        LIMIT 1
+                    ),
+                    UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE a.Id = @AssetId
+                      AND a.WorkspaceId = @WorkspaceId;
+                    """,
+                    new
+                    {
+                        AssetId = assetId,
+                        WorkspaceId = workspaceId,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken: cancellationToken));
         }
     }
 }

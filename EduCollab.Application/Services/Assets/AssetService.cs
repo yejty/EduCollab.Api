@@ -200,8 +200,16 @@ namespace EduCollab.Application.Services.Assets
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
-            if (membership.Role == WorkspaceRole.Manager && accessibleGroupIds.Contains(asset.GroupId))
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, asset, cancellationToken);
 
+            if (membership.Role == WorkspaceRole.Manager
+                && ContentGroupShareOperations.ManagerCanManageViaGroups(
+                    membership,
+                    asset.OwnerUserId,
+                    userId,
+                    asset.GroupIds,
+                    asset.GroupId,
+                    accessibleGroupIds))
                 return;
 
 
@@ -256,7 +264,7 @@ namespace EduCollab.Application.Services.Assets
 
         public async Task<bool> CreateAssetWithContentAsync(
             Asset asset,
-            int groupId,
+            IReadOnlyList<int> groupIds,
             string contentType,
             string? fileName,
             Stream content,
@@ -264,9 +272,6 @@ namespace EduCollab.Application.Services.Assets
         {
             ArgumentNullException.ThrowIfNull(asset);
             ArgumentNullException.ThrowIfNull(content);
-
-            if (groupId <= 0)
-                throw new ArgumentException("GroupId is required.", nameof(groupId));
 
             if (string.IsNullOrWhiteSpace(contentType))
                 throw new ArgumentException("Content type is required.", nameof(contentType));
@@ -280,11 +285,19 @@ namespace EduCollab.Application.Services.Assets
             EnsureCanCreateAsset(membership);
             var userId = RequireCurrentUserId();
 
-            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
-            await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, userId, cancellationToken);
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(asset.GroupId, groupIds.ToList());
+            await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                _groupRepository,
+                _groupAccessResolver,
+                workspaceId,
+                resolvedGroupIds,
+                membership,
+                userId,
+                cancellationToken);
 
             asset.WorkspaceId = workspaceId;
-            asset.GroupId = groupId;
+            asset.GroupId = ResourceGroupPlacement.PrimaryGroupId(resolvedGroupIds);
+            asset.GroupIds = resolvedGroupIds.ToList();
             asset.OwnerUserId = userId;
             asset.Name = RequireTrimmed(asset.Name, nameof(asset.Name));
             asset.Description = string.IsNullOrWhiteSpace(asset.Description) ? null : asset.Description.Trim();
@@ -303,6 +316,12 @@ namespace EduCollab.Application.Services.Assets
             try
             {
                 await _assetRepository.UpdateAssetStorageUrlAsync(workspaceId, id, asset.StorageUrl, cancellationToken);
+                if (resolvedGroupIds.Count > 0)
+                {
+                    await _assetRepository.ReplaceAssetGroupSharesAsync(workspaceId, id, resolvedGroupIds, cancellationToken);
+                    await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, id, cancellationToken);
+                }
+
                 buffered.Position = 0;
                 await _assetContentStore.SaveAsync(workspaceId, id, contentType.Trim(), fileName, buffered, cancellationToken);
             }
@@ -327,6 +346,8 @@ namespace EduCollab.Application.Services.Assets
             var userId = RequireCurrentUserId();
 
             var assets = await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
+
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, assets, cancellationToken);
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
@@ -370,7 +391,9 @@ namespace EduCollab.Application.Services.Assets
 
             await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
 
-            return await _assetRepository.GetAssetsByGroupAsync(workspaceId, groupId, cancellationToken);
+            var assets = await _assetRepository.GetAssetsByGroupAsync(workspaceId, groupId, cancellationToken);
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, assets, cancellationToken);
+            return assets;
 
         }
 
@@ -384,7 +407,9 @@ namespace EduCollab.Application.Services.Assets
 
             var userId = RequireCurrentUserId();
 
-            return await _assetRepository.GetAssetsByOwnerAsync(workspaceId, userId, cancellationToken);
+            var assets = await _assetRepository.GetAssetsByOwnerAsync(workspaceId, userId, cancellationToken);
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, assets, cancellationToken);
+            return assets;
 
         }
 
@@ -410,6 +435,8 @@ namespace EduCollab.Application.Services.Assets
 
 
 
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, asset, cancellationToken);
+
             var userId = RequireCurrentUserId();
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
@@ -424,7 +451,7 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-        public async Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken)
+        public async Task<Asset?> UpdateAssetAsync(Asset asset, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken)
 
         {
 
@@ -446,11 +473,23 @@ namespace EduCollab.Application.Services.Assets
 
 
 
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
 
-            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, asset.GroupId, cancellationToken);
-
-            await EnsureCanPlaceInGroupAsync(workspaceId, asset.GroupId, membership, RequireCurrentUserId(), cancellationToken);
+            if (groupIds is not null)
+            {
+                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(asset.GroupId, groupIds.ToList());
+                await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                    _groupRepository,
+                    _groupAccessResolver,
+                    workspaceId,
+                    resolvedGroupIds,
+                    membership,
+                    RequireCurrentUserId(),
+                    cancellationToken);
+                await _assetRepository.ReplaceAssetGroupSharesAsync(workspaceId, asset.Id, resolvedGroupIds, cancellationToken);
+                await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, asset.Id, cancellationToken);
+            }
 
 
 
@@ -458,13 +497,16 @@ namespace EduCollab.Application.Services.Assets
 
             existing.Description = string.IsNullOrWhiteSpace(asset.Description) ? null : asset.Description.Trim();
 
-            existing.GroupId = asset.GroupId;
-
             existing.AssetType = RequireTrimmed(asset.AssetType, nameof(asset.AssetType));
 
 
 
-            return await _assetRepository.UpdateAssetAsync(workspaceId, existing, cancellationToken);
+            var updated = await _assetRepository.UpdateAssetAsync(workspaceId, existing, cancellationToken);
+            if (updated is null)
+                return null;
+
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, updated, cancellationToken);
+            return updated;
 
         }
 
@@ -661,6 +703,94 @@ namespace EduCollab.Application.Services.Assets
 
             return asset is not null;
 
+        }
+
+        public async Task<List<int>> GetAssetGroupIdsAsync(int assetId, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var asset = await GetAssetByIdAsync(assetId, cancellationToken);
+            if (asset is null)
+                throw new KeyNotFoundException("Asset not found.");
+
+            return asset.GroupIds;
+        }
+
+        public async Task<List<int>?> SetAssetGroupIdsAsync(int assetId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (existing is null)
+                return null;
+
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(0, groupIds.ToList());
+            await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                _groupRepository,
+                _groupAccessResolver,
+                workspaceId,
+                resolvedGroupIds,
+                membership,
+                RequireCurrentUserId(),
+                cancellationToken);
+
+            await _assetRepository.ReplaceAssetGroupSharesAsync(workspaceId, assetId, resolvedGroupIds, cancellationToken);
+            await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, assetId, cancellationToken);
+            return resolvedGroupIds.ToList();
+        }
+
+        public async Task<bool> AddAssetGroupAsync(int assetId, int groupId, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, RequireCurrentUserId(), cancellationToken);
+
+            var added = await _assetRepository.AddAssetGroupShareAsync(workspaceId, assetId, groupId, cancellationToken);
+            if (!added && !existing.GroupIds.Contains(groupId))
+                return false;
+
+            await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, assetId, cancellationToken);
+            return true;
+        }
+
+        public async Task<bool> RemoveAssetGroupAsync(int assetId, int groupId, CancellationToken cancellationToken)
+        {
+            if (assetId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(assetId));
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
+            await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
+
+            var removed = await _assetRepository.RemoveAssetGroupShareAsync(workspaceId, assetId, groupId, cancellationToken);
+            if (!removed)
+                return false;
+
+            await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, assetId, cancellationToken);
+            return true;
         }
 
     }

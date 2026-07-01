@@ -1,5 +1,6 @@
 using EduCollab.Api.Mapping;
 using EduCollab.Api.Query;
+using EduCollab.Application.Services.Content;
 using EduCollab.Application.Services.Flows;
 using EduCollab.Contracts.Requests.Flows;
 using EduCollab.Contracts.Responses;
@@ -34,7 +35,8 @@ namespace EduCollab.Api.Controllers
         public async Task<IActionResult> CreateFlow([FromBody] CreateFlowRequest request, CancellationToken cancellationToken)
         {
             var flow = request.MapToFlow();
-            var created = await _flowService.CreateFlowAsync(flow, cancellationToken);
+            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupId, request.GroupIds);
+            var created = await _flowService.CreateFlowAsync(flow, groupIds, cancellationToken);
             if (!created)
                 return ApiBadRequest("creation_failed", "Flow could not be created.");
 
@@ -44,7 +46,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// List flows in the current workspace.
+        /// List accessible flows in the current workspace.
         /// </summary>
         /// <param name="owner">Optional filter. Set to <c>me</c> to return only flows owned by the caller.</param>
         /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
@@ -134,7 +136,11 @@ namespace EduCollab.Api.Controllers
         public async Task<ActionResult<FlowResponse>> UpdateFlow(int flowId, [FromBody] UpdateFlowRequest request, CancellationToken cancellationToken)
         {
             var flow = request.MapToFlow(flowId);
-            var updated = await _flowService.UpdateFlowAsync(flow, cancellationToken);
+            var groupIdsToApply = request.GroupIds;
+            if (groupIdsToApply is null && request.GroupId > 0)
+                groupIdsToApply = new List<int> { request.GroupId };
+
+            var updated = await _flowService.UpdateFlowAsync(flow, groupIdsToApply, cancellationToken);
             if (updated is null)
                 return ApiNotFound("update_failed", "Flow was not found.");
 

@@ -425,6 +425,7 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
             await MigrateToHierarchicalGroupsAsync(connection);
+            await MigrateToMultiGroupSharingAsync(connection);
             await SeedPlatformAdminUserAsync(connection);
         }
 
@@ -607,18 +608,121 @@ namespace EduCollab.Infrastructure.Database
                 CREATE TABLE IF NOT EXISTS FlowScenes (
                     FlowId INT NOT NULL REFERENCES Flows(Id) ON DELETE CASCADE,
                     SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
-                    SortOrder INT NOT NULL DEFAULT 0,
+                    CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     PRIMARY KEY (FlowId, SceneId)
                 );
                 """);
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_FlowScenes_SceneId ON FlowScenes (SceneId);");
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes ADD COLUMN IF NOT EXISTS CreatedByUserId INT NULL REFERENCES Users(Id) ON DELETE RESTRICT;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes ADD COLUMN IF NOT EXISTS CreatedAtUtc TIMESTAMPTZ NULL;");
+            await connection.ExecuteAsync(
+                """
+                UPDATE FlowScenes fs
+                SET CreatedByUserId = f.OwnerUserId,
+                    CreatedAtUtc = COALESCE(fs.CreatedAtUtc, NOW())
+                FROM Flows f
+                WHERE fs.FlowId = f.Id
+                  AND fs.CreatedByUserId IS NULL;
+                """);
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes ALTER COLUMN CreatedByUserId SET NOT NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes ALTER COLUMN CreatedAtUtc SET NOT NULL;");
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes ALTER COLUMN CreatedAtUtc SET DEFAULT NOW();");
+            await connection.ExecuteAsync(
+                "ALTER TABLE FlowScenes DROP COLUMN IF EXISTS SortOrder;");
 
             await connection.ExecuteAsync("ALTER TABLE Assets DROP COLUMN IF EXISTS FolderId;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetGroupShares;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS SceneGroupShares;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolderGroupShares;");
             await connection.ExecuteAsync("DROP TABLE IF EXISTS AssetFolders;");
+        }
+
+        private static async Task MigrateToMultiGroupSharingAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS AssetGroupShares (
+                    AssetId INT NOT NULL REFERENCES Assets(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (AssetId, GroupId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_AssetGroupShares_GroupId ON AssetGroupShares (GroupId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SceneGroupShares (
+                    SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (SceneId, GroupId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SceneGroupShares_GroupId ON SceneGroupShares (GroupId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS FlowGroupShares (
+                    FlowId INT NOT NULL REFERENCES Flows(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (FlowId, GroupId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_FlowGroupShares_GroupId ON FlowGroupShares (GroupId);");
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO AssetGroupShares (AssetId, GroupId, CreatedAtUtc)
+                SELECT a.Id, a.GroupId, COALESCE(a.CreatedAtUtc, NOW())
+                FROM Assets a
+                WHERE a.GroupId IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM AssetGroupShares ags
+                      WHERE ags.AssetId = a.Id AND ags.GroupId = a.GroupId
+                  );
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO SceneGroupShares (SceneId, GroupId, CreatedAtUtc)
+                SELECT s.Id, s.GroupId, COALESCE(s.CreatedAtUtc, NOW())
+                FROM Scenes s
+                WHERE s.GroupId IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM SceneGroupShares sgs
+                      WHERE sgs.SceneId = s.Id AND sgs.GroupId = s.GroupId
+                  );
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO FlowGroupShares (FlowId, GroupId, CreatedAtUtc)
+                SELECT f.Id, f.GroupId, COALESCE(f.CreatedAtUtc, NOW())
+                FROM Flows f
+                WHERE f.GroupId IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM FlowGroupShares fgs
+                      WHERE fgs.FlowId = f.Id AND fgs.GroupId = f.GroupId
+                  );
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE Flows
+                ALTER COLUMN GroupId DROP NOT NULL;
+                """);
         }
 
         private async Task SeedPlatformAdminUserAsync(System.Data.IDbConnection connection)

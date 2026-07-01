@@ -10,5 +10,6 @@ namespace EduCollab.Application.Models
         public string? Description { get; set; }
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
+        public List<int> GroupIds { get; set; } = new();
     }
 }

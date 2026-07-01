@@ -170,6 +170,8 @@
 
             public const string GetAll = Base;
 
+            public const string GetAllFlat = $"{Base}/flat";
+
             public const string Get = $"{Base}/{{groupId}}";
 
             public const string Update = $"{Base}/{{groupId}}";
@@ -228,6 +230,8 @@
 
             public const string Create = Base;
 
+            public const string GetAll = Base;
+
             public const string Get = $"{Base}/{{sceneId}}";
 
             public const string Update = $"{Base}/{{sceneId}}";
@@ -270,6 +274,8 @@
 
             public const string Delete = Base;
 
+            public const string Content = $"{Base}/content";
+
         }
 
 
@@ -287,6 +293,60 @@
             public const string Delete = Base;
 
             public const string Content = $"{Base}/content";
+
+        }
+
+
+
+        public static class AssetGroups
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/asset-groups";
+
+            public const string GetAll = Base;
+
+            public const string Create = Base;
+
+            public const string Update = Base;
+
+            public const string Delete = Base;
+
+        }
+
+
+
+        public static class SceneGroups
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/scene-groups";
+
+            public const string GetAll = Base;
+
+            public const string Create = Base;
+
+            public const string Update = Base;
+
+            public const string Delete = Base;
+
+        }
+
+
+
+        public static class FlowGroups
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/flow-groups";
+
+            public const string GetAll = Base;
+
+            public const string Create = Base;
+
+            public const string Update = Base;
+
+            public const string Delete = Base;
 
         }
 

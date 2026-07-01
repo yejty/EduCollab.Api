@@ -145,15 +145,14 @@ namespace EduCollab.Api.Controllers
 
 
         /// <summary>
-        /// List groups in the current workspace that the caller can access.
+        /// Browse groups in tree layout at the current level.
         /// </summary>
-        /// <param name="parentGroupId">Optional parent group for tree navigation. Root browse returns entry groups; use this to drill down into subgroups. Ignored when <paramref name="view"/> is <c>flat</c>.</param>
-        /// <param name="view">List layout. Default <c>tree</c> (hierarchical browse). Use <c>flat</c> for all accessible groups in one list (for pickers, search, admin views).</param>
+        /// <param name="parentId">Optional parent group. Omit for root entry groups; set to drill down into subgroups.</param>
         /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
         /// <param name="page">1-based page index. Default: 1.</param>
         /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <response code="200">Paged list of groups.</response>
+        /// <response code="200">Paged list of groups at the requested tree level.</response>
         /// <response code="400">Invalid sort or pagination.</response>
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access groups in this workspace.</response>
@@ -163,11 +162,9 @@ namespace EduCollab.Api.Controllers
 
         [ProducesResponseType(typeof(GroupsResponse), StatusCodes.Status200OK)]
 
-        public async Task<ActionResult<GroupsResponse>> GetAllGroups(
+        public async Task<ActionResult<GroupsResponse>> GetGroupsTree(
 
-            [FromQuery] int? parentGroupId,
-
-            [FromQuery] string? view,
+            [FromQuery] int? parentId,
 
             [FromQuery] string? sort,
 
@@ -178,18 +175,6 @@ namespace EduCollab.Api.Controllers
             CancellationToken cancellationToken)
 
         {
-
-            if (!GroupListViewQueryParser.TryParse(view, out var listView, out var viewError))
-
-                return ApiBadRequest("invalid_filter", viewError!);
-
-
-
-            if (listView == GroupListView.Flat && parentGroupId is not null)
-
-                return ApiBadRequest("invalid_filter", "parentGroupId cannot be used with view=flat.");
-
-
 
             if (!TryParseListQuery(
 
@@ -217,13 +202,74 @@ namespace EduCollab.Api.Controllers
 
 
 
-            var groups = listView == GroupListView.Flat
+            var groups = await _groupService.GetAccessibleGroupsAsync(parentId, cancellationToken);
 
-                ? await _groupService.GetAccessibleGroupsFlatAsync(cancellationToken)
+            var sortedGroups = ResourceSortProfiles.NamedResource.ApplyGroups(groups, sortSpecification);
 
-                : await _groupService.GetAccessibleGroupsAsync(parentGroupId, cancellationToken);
+            var pagedGroups = PaginationApplier.Apply(sortedGroups, paginationSpecification);
+
+            return Ok(pagedGroups.MapToResponse());
+
+        }
 
 
+
+        /// <summary>
+        /// List all accessible groups in a flat layout (pickers, search, admin views).
+        /// </summary>
+        /// <param name="sort">Optional sort field (<c>name</c>, <c>createdAt</c>, <c>updatedAt</c>, <c>id</c>). Prefix with <c>-</c> for descending.</param>
+        /// <param name="page">1-based page index. Default: 1.</param>
+        /// <param name="pageSize">Page size. Default: 20, maximum: 100.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <response code="200">Paged flat list of all accessible groups.</response>
+        /// <response code="400">Invalid sort or pagination.</response>
+        /// <response code="401">Caller is not authenticated.</response>
+        /// <response code="403">Caller cannot access groups in this workspace.</response>
+        [Authorize]
+
+        [HttpGet(ApiEndpoints.Groups.GetAllFlat)]
+
+        [ProducesResponseType(typeof(GroupsResponse), StatusCodes.Status200OK)]
+
+        public async Task<ActionResult<GroupsResponse>> GetGroupsFlat(
+
+            [FromQuery] string? sort,
+
+            [FromQuery] int? page,
+
+            [FromQuery] int? pageSize,
+
+            CancellationToken cancellationToken)
+
+        {
+
+            if (!TryParseListQuery(
+
+                    sort,
+
+                    page,
+
+                    pageSize,
+
+                    ResourceSortProfiles.NamedResource.AllowedFields,
+
+                    ResourceSortProfiles.NamedResource.Default,
+
+                    out var sortSpecification,
+
+                    out var paginationSpecification,
+
+                    out var problem))
+
+            {
+
+                return problem!;
+
+            }
+
+
+
+            var groups = await _groupService.GetAccessibleGroupsFlatAsync(cancellationToken);
 
             var sortedGroups = ResourceSortProfiles.NamedResource.ApplyGroups(groups, sortSpecification);
 

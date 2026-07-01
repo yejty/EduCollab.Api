@@ -12,13 +12,17 @@ public sealed class FakeSceneService : ISceneService
 
 {
 
-    public Func<Scene, int, CancellationToken, Task<bool>>? CreateSceneAsyncHandler { get; set; }
+    public Func<Scene, IReadOnlyList<int>, CancellationToken, Task<bool>>? CreateSceneAsyncHandler { get; set; }
+
+    public Func<CancellationToken, Task<List<Scene>>>? GetAllScenesAsyncHandler { get; set; }
+
+    public Func<CancellationToken, Task<List<Scene>>>? GetMyScenesAsyncHandler { get; set; }
 
     public Func<int, CancellationToken, Task<List<Scene>>>? GetScenesInGroupAsyncHandler { get; set; }
 
     public Func<int, CancellationToken, Task<Scene?>>? GetSceneByIdAsyncHandler { get; set; }
 
-    public Func<Scene, CancellationToken, Task<Scene?>>? UpdateSceneAsyncHandler { get; set; }
+    public Func<Scene, IReadOnlyList<int>?, CancellationToken, Task<Scene?>>? UpdateSceneAsyncHandler { get; set; }
 
     public Func<int, CancellationToken, Task<bool>>? DeleteSceneAsyncHandler { get; set; }
 
@@ -34,9 +38,21 @@ public sealed class FakeSceneService : ISceneService
 
 
 
-    public Task<bool> CreateSceneAsync(Scene scene, int groupId, CancellationToken cancellationToken) =>
+    public Task<bool> CreateSceneAsync(Scene scene, IReadOnlyList<int> groupIds, CancellationToken cancellationToken) =>
 
-        CreateSceneAsyncHandler?.Invoke(scene, groupId, cancellationToken) ?? Task.FromResult(true);
+        CreateSceneAsyncHandler?.Invoke(scene, groupIds, cancellationToken) ?? Task.FromResult(true);
+
+
+
+    public Task<List<Scene>> GetAllScenesAsync(CancellationToken cancellationToken) =>
+
+        GetAllScenesAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult(new List<Scene>());
+
+
+
+    public Task<List<Scene>> GetMyScenesAsync(CancellationToken cancellationToken) =>
+
+        GetMyScenesAsyncHandler?.Invoke(cancellationToken) ?? Task.FromResult(new List<Scene>());
 
 
 
@@ -52,9 +68,9 @@ public sealed class FakeSceneService : ISceneService
 
 
 
-    public Task<Scene?> UpdateSceneAsync(Scene scene, CancellationToken cancellationToken) =>
+    public Task<Scene?> UpdateSceneAsync(Scene scene, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken) =>
 
-        UpdateSceneAsyncHandler?.Invoke(scene, cancellationToken) ?? Task.FromResult<Scene?>(null);
+        UpdateSceneAsyncHandler?.Invoke(scene, groupIds, cancellationToken) ?? Task.FromResult<Scene?>(null);
 
 
 
@@ -92,6 +108,17 @@ public sealed class FakeSceneService : ISceneService
 
         GetSceneAssetContentAsyncHandler?.Invoke(sceneId, assetId, cancellationToken) ?? Task.FromResult<AssetContent?>(null);
 
-}
+    public Task<List<int>> GetSceneGroupIdsAsync(int sceneId, CancellationToken cancellationToken) =>
+        Task.FromResult(new List<int>());
 
+    public Task<List<int>?> SetSceneGroupIdsAsync(int sceneId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken) =>
+        Task.FromResult<List<int>?>(groupIds.ToList());
+
+    public Task<bool> AddSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
+
+    public Task<bool> RemoveSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
+
+}
 

@@ -8,6 +8,8 @@ namespace EduCollab.Api.Requests.Scenes
 
         public int GroupId { get; set; }
 
+        public List<int>? GroupIds { get; set; }
+
         /// <summary>
         /// Inline scene JSON when not uploading a <see cref="JsonFile"/>.
         /// </summary>

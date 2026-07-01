@@ -16,7 +16,7 @@ namespace EduCollab.Application.Services.Content
             if (asset.OwnerUserId == userId)
                 return true;
 
-            return accessibleGroupIds.Contains(asset.GroupId);
+            return SharesAnyGroup(ResourceGroupPlacement.EffectiveGroupIds(asset.GroupIds, asset.GroupId), accessibleGroupIds);
         }
 
         public static bool IsSceneVisibleToUser(
@@ -31,7 +31,7 @@ namespace EduCollab.Application.Services.Content
             if (scene.OwnerUserId == userId)
                 return true;
 
-            return accessibleGroupIds.Contains(scene.GroupId);
+            return SharesAnyGroup(ResourceGroupPlacement.EffectiveGroupIds(scene.GroupIds, scene.GroupId), accessibleGroupIds);
         }
 
         public static bool IsFlowVisibleToUser(
@@ -46,7 +46,18 @@ namespace EduCollab.Application.Services.Content
             if (flow.OwnerUserId == userId)
                 return true;
 
-            return accessibleGroupIds.Contains(flow.GroupId);
+            return SharesAnyGroup(ResourceGroupPlacement.EffectiveGroupIds(flow.GroupIds, flow.GroupId), accessibleGroupIds);
+        }
+
+        private static bool SharesAnyGroup(IReadOnlyList<int> resourceGroupIds, IReadOnlySet<int> accessibleGroupIds)
+        {
+            foreach (var groupId in resourceGroupIds)
+            {
+                if (accessibleGroupIds.Contains(groupId))
+                    return true;
+            }
+
+            return false;
         }
     }
 }

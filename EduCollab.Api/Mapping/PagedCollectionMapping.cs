@@ -97,5 +97,14 @@ namespace EduCollab.Api.Mapping
                 PageSize = paged.PageSize,
                 TotalCount = paged.TotalCount,
             };
+
+        public static FlowScenesResponse MapToResponse(this PagedResult<FlowSceneContextItem> paged) =>
+            new()
+            {
+                Scenes = paged.Items.Select(static item => item.MapToResponse()).ToList(),
+                Page = paged.Page,
+                PageSize = paged.PageSize,
+                TotalCount = paged.TotalCount,
+            };
     }
 }

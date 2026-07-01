@@ -12,7 +12,13 @@ namespace EduCollab.Application.Services.Assets
 
     {
 
-        Task<bool> CreateAssetWithContentAsync(Asset asset, int groupId, string contentType, string? fileName, Stream content, CancellationToken cancellationToken);
+        Task<bool> CreateAssetWithContentAsync(
+            Asset asset,
+            IReadOnlyList<int> groupIds,
+            string contentType,
+            string? fileName,
+            Stream content,
+            CancellationToken cancellationToken);
 
         Task<List<Asset>> GetAllAssetsAsync(CancellationToken cancellationToken);
 
@@ -22,7 +28,7 @@ namespace EduCollab.Application.Services.Assets
 
         Task<Asset?> GetAssetByIdAsync(int assetId, CancellationToken cancellationToken);
 
-        Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken);
+        Task<Asset?> UpdateAssetAsync(Asset asset, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken);
 
         Task<bool> DeleteAssetAsync(int assetId, CancellationToken cancellationToken);
 
@@ -34,8 +40,15 @@ namespace EduCollab.Application.Services.Assets
 
         Task<bool> CanCurrentUserViewAssetDirectlyAsync(int assetId, CancellationToken cancellationToken);
 
+        Task<List<int>> GetAssetGroupIdsAsync(int assetId, CancellationToken cancellationToken);
+
+        Task<List<int>?> SetAssetGroupIdsAsync(int assetId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken);
+
+        Task<bool> AddAssetGroupAsync(int assetId, int groupId, CancellationToken cancellationToken);
+
+        Task<bool> RemoveAssetGroupAsync(int assetId, int groupId, CancellationToken cancellationToken);
+
     }
 
 }
-
 

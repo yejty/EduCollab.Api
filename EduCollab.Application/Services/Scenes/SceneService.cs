@@ -152,23 +152,28 @@ namespace EduCollab.Application.Services.Scenes
         private static bool CanCreateScene(WorkspaceMember membership) =>
             !WorkspaceRolePermissions.IsReadOnly(membership.Role);
 
-        public async Task<bool> CreateSceneAsync(Scene scene, int groupId, CancellationToken cancellationToken)
+        public async Task<bool> CreateSceneAsync(Scene scene, IReadOnlyList<int> groupIds, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(scene);
-
-            if (groupId <= 0)
-                throw new ArgumentException("GroupId is required.", nameof(groupId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
             if (!CanCreateScene(membership))
                 throw new AccessDeniedException("Viewers have read-only access to scenes.");
 
             var userId = RequireCurrentUserId();
-            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
-            await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, userId, cancellationToken);
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(scene.GroupId, groupIds.ToList());
+            await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                _groupRepository,
+                _groupAccessResolver,
+                workspaceId,
+                resolvedGroupIds,
+                membership,
+                userId,
+                cancellationToken);
 
             scene.WorkspaceId = workspaceId;
-            scene.GroupId = groupId;
+            scene.GroupId = ResourceGroupPlacement.PrimaryGroupId(resolvedGroupIds);
+            scene.GroupIds = resolvedGroupIds.ToList();
             scene.OwnerUserId = userId;
             scene.Name = RequireTrimmed(scene.Name, nameof(scene.Name));
             scene.Description = string.IsNullOrWhiteSpace(scene.Description) ? null : scene.Description.Trim();
@@ -184,9 +189,36 @@ namespace EduCollab.Application.Services.Scenes
                 return false;
 
             scene.Id = id;
+            if (resolvedGroupIds.Count > 0)
+            {
+                await _sceneRepository.ReplaceSceneGroupSharesAsync(workspaceId, id, resolvedGroupIds, cancellationToken);
+                await _sceneRepository.SyncScenePrimaryGroupIdAsync(workspaceId, id, cancellationToken);
+            }
+
             await _sceneContentStore.SaveAsync(workspaceId, id, jsonContent, cancellationToken);
             scene.JsonContent = jsonContent;
             return true;
+        }
+
+        public async Task<List<Scene>> GetAllScenesAsync(CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+            var scenes = await _sceneRepository.GetAllScenesAsync(workspaceId, cancellationToken);
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scenes, cancellationToken);
+            var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
+            return scenes
+                .Where(scene => WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+                .ToList();
+        }
+
+        public async Task<List<Scene>> GetMyScenesAsync(CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var userId = RequireCurrentUserId();
+            var scenes = await _sceneRepository.GetScenesByOwnerAsync(workspaceId, userId, cancellationToken);
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scenes, cancellationToken);
+            return scenes;
         }
 
         public async Task<List<Scene>> GetScenesInGroupAsync(int groupId, CancellationToken cancellationToken)
@@ -204,7 +236,9 @@ namespace EduCollab.Application.Services.Scenes
             }
 
             await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
-            return await _sceneRepository.GetScenesByGroupAsync(workspaceId, groupId, cancellationToken);
+            var scenes = await _sceneRepository.GetScenesByGroupAsync(workspaceId, groupId, cancellationToken);
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scenes, cancellationToken);
+            return scenes;
         }
 
         public async Task<Scene?> GetSceneByIdAsync(int sceneId, CancellationToken cancellationToken)
@@ -217,6 +251,8 @@ namespace EduCollab.Application.Services.Scenes
             if (scene is null)
                 return null;
 
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scene, cancellationToken);
+
             var userId = RequireCurrentUserId();
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
             if (!WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
@@ -227,7 +263,7 @@ namespace EduCollab.Application.Services.Scenes
             return scene;
         }
 
-        public async Task<Scene?> UpdateSceneAsync(Scene scene, CancellationToken cancellationToken)
+        public async Task<Scene?> UpdateSceneAsync(Scene scene, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(scene);
             if (scene.Id <= 0)
@@ -239,8 +275,21 @@ namespace EduCollab.Application.Services.Scenes
                 return null;
 
             await EnsureCanManageSceneAsync(existing.OwnerUserId, cancellationToken);
-            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, scene.GroupId, cancellationToken);
-            await EnsureCanPlaceInGroupAsync(workspaceId, scene.GroupId, membership, RequireCurrentUserId(), cancellationToken);
+
+            if (groupIds is not null)
+            {
+                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(scene.GroupId, groupIds.ToList());
+                await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                    _groupRepository,
+                    _groupAccessResolver,
+                    workspaceId,
+                    resolvedGroupIds,
+                    membership,
+                    RequireCurrentUserId(),
+                    cancellationToken);
+                await _sceneRepository.ReplaceSceneGroupSharesAsync(workspaceId, scene.Id, resolvedGroupIds, cancellationToken);
+                await _sceneRepository.SyncScenePrimaryGroupIdAsync(workspaceId, scene.Id, cancellationToken);
+            }
 
             var jsonContent = RequireTrimmed(scene.JsonContent, nameof(scene.JsonContent));
             EnsureJsonSize(jsonContent, _maxSceneJsonBytes);
@@ -248,7 +297,6 @@ namespace EduCollab.Application.Services.Scenes
 
             existing.Name = RequireTrimmed(scene.Name, nameof(scene.Name));
             existing.Description = string.IsNullOrWhiteSpace(scene.Description) ? null : scene.Description.Trim();
-            existing.GroupId = scene.GroupId;
             existing.UpdatedAtUtc = DateTime.UtcNow;
 
             var updated = await _sceneRepository.UpdateSceneAsync(workspaceId, existing, cancellationToken);
@@ -257,6 +305,7 @@ namespace EduCollab.Application.Services.Scenes
 
             await _sceneContentStore.SaveAsync(workspaceId, scene.Id, jsonContent, cancellationToken);
             updated.JsonContent = jsonContent;
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, updated, cancellationToken);
             return updated;
         }
 
@@ -305,6 +354,8 @@ namespace EduCollab.Application.Services.Scenes
             var scene = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
             if (scene is null)
                 return null;
+
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scene, cancellationToken);
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
             return WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds)
@@ -483,6 +534,76 @@ namespace EduCollab.Application.Services.Scenes
 
             await EnsureCanManageSceneAsync(scene.OwnerUserId, cancellationToken);
             return await _sceneRepository.DeleteSceneAssetLinkAsync(workspaceId, sceneId, assetId, cancellationToken);
+        }
+
+        public async Task<List<int>> GetSceneGroupIdsAsync(int sceneId, CancellationToken cancellationToken)
+        {
+            var scene = await GetSceneByIdAsync(sceneId, cancellationToken);
+            if (scene is null)
+                throw new KeyNotFoundException("Scene not found.");
+
+            return scene.GroupIds;
+        }
+
+        public async Task<List<int>?> SetSceneGroupIdsAsync(int sceneId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
+            if (existing is null)
+                return null;
+
+            await EnsureCanManageSceneAsync(existing.OwnerUserId, cancellationToken);
+
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(0, groupIds.ToList());
+            await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
+                _groupRepository,
+                _groupAccessResolver,
+                workspaceId,
+                resolvedGroupIds,
+                membership,
+                RequireCurrentUserId(),
+                cancellationToken);
+
+            await _sceneRepository.ReplaceSceneGroupSharesAsync(workspaceId, sceneId, resolvedGroupIds, cancellationToken);
+            await _sceneRepository.SyncScenePrimaryGroupIdAsync(workspaceId, sceneId, cancellationToken);
+            return resolvedGroupIds.ToList();
+        }
+
+        public async Task<bool> AddSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken)
+        {
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureCanManageSceneAsync(existing.OwnerUserId, cancellationToken);
+            await EnsureGroupBelongsToWorkspaceAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCanPlaceInGroupAsync(workspaceId, groupId, membership, RequireCurrentUserId(), cancellationToken);
+
+            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, existing, cancellationToken);
+            var added = await _sceneRepository.AddSceneGroupShareAsync(workspaceId, sceneId, groupId, cancellationToken);
+            if (!added && !existing.GroupIds.Contains(groupId))
+                return false;
+
+            await _sceneRepository.SyncScenePrimaryGroupIdAsync(workspaceId, sceneId, cancellationToken);
+            return true;
+        }
+
+        public async Task<bool> RemoveSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken)
+        {
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var existing = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
+            if (existing is null)
+                return false;
+
+            await EnsureCanManageSceneAsync(existing.OwnerUserId, cancellationToken);
+
+            var removed = await _sceneRepository.RemoveSceneGroupShareAsync(workspaceId, sceneId, groupId, cancellationToken);
+            if (!removed)
+                return false;
+
+            await _sceneRepository.SyncScenePrimaryGroupIdAsync(workspaceId, sceneId, cancellationToken);
+            return true;
         }
     }
 }

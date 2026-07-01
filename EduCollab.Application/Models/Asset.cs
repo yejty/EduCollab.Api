@@ -12,5 +12,6 @@ namespace EduCollab.Application.Models
         public string StorageUrl { get; set; } = string.Empty;
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
+        public List<int> GroupIds { get; set; } = new();
     }
 }

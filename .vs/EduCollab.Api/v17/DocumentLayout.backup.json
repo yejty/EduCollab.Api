@@ -46,8 +46,7 @@
               "RelativeToolTip": "EduCollab.Infrastructure\\Database\\DbInitializer.cs",
               "ViewState": "AgIAAKMBAAAAAAAAAAAmwLABAAAqAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-26T14:02:15.651Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-26T14:02:15.651Z"
             },
             {
               "$type": "Document",
@@ -93,7 +92,7 @@
               "RelativeDocumentMoniker": "docker-compose.yml",
               "ToolTip": "C:\\Users\\janat\\Desktop\\EduCollab.Api\\docker-compose.yml",
               "RelativeToolTip": "docker-compose.yml",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAPAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABQAAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003775|",
               "WhenOpened": "2026-06-17T12:03:17.746Z",
               "EditorCaption": ""

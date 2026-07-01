@@ -41,20 +41,14 @@ namespace EduCollab.Infrastructure.Repositories
                         Description,
                         CreatedAtUtc,
                         UpdatedAtUtc)
-                    SELECT
+                    VALUES (
                         @WorkspaceId,
                         @OwnerUserId,
                         @GroupId,
                         @Name,
                         @Description,
                         @CreatedAtUtc,
-                        @UpdatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Groups g
-                        WHERE g.Id = @GroupId
-                          AND g.WorkspaceId = @WorkspaceId
-                    )
+                        @UpdatedAtUtc)
                     RETURNING Id;
                     """,
                     new
@@ -90,25 +84,6 @@ namespace EduCollab.Infrastructure.Repositories
             return flows.AsList();
         }
 
-        public async Task<List<Flow>> GetFlowsByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var flows = await connection.QueryAsync<Flow>(
-                new CommandDefinition(
-                    $"""
-                    SELECT {FlowSelectColumns}
-                    FROM Flows
-                    WHERE WorkspaceId = @WorkspaceId
-                      AND GroupId = @GroupId
-                    ORDER BY Name ASC, Id ASC;
-                    """,
-                    new { WorkspaceId = workspaceId, GroupId = groupId },
-                    cancellationToken: cancellationToken));
-
-            return flows.AsList();
-        }
-
         public async Task<List<Flow>> GetFlowsByOwnerAsync(int workspaceId, int ownerUserId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -123,6 +98,26 @@ namespace EduCollab.Infrastructure.Repositories
                     ORDER BY Name ASC, Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, OwnerUserId = ownerUserId },
+                    cancellationToken: cancellationToken));
+
+            return flows.AsList();
+        }
+
+        public async Task<List<Flow>> GetFlowsByGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var flows = await connection.QueryAsync<Flow>(
+                new CommandDefinition(
+                    $"""
+                    SELECT DISTINCT {FlowSelectColumns}
+                    FROM Flows f
+                    INNER JOIN FlowGroupShares fgs ON fgs.FlowId = f.Id
+                    WHERE f.WorkspaceId = @WorkspaceId
+                      AND fgs.GroupId = @GroupId
+                    ORDER BY Name ASC, Id ASC;
+                    """,
+                    new { WorkspaceId = workspaceId, GroupId = groupId },
                     cancellationToken: cancellationToken));
 
             return flows.AsList();
@@ -155,23 +150,15 @@ namespace EduCollab.Infrastructure.Repositories
                     UPDATE Flows
                     SET Name = @Name,
                         Description = @Description,
-                        GroupId = @GroupId,
                         UpdatedAtUtc = @UpdatedAtUtc
                     WHERE Id = @Id
                       AND WorkspaceId = @WorkspaceId
-                      AND EXISTS (
-                          SELECT 1
-                          FROM Groups g
-                          WHERE g.Id = @GroupId
-                            AND g.WorkspaceId = @WorkspaceId
-                      )
                     RETURNING {FlowSelectColumns};
                     """,
                     new
                     {
                         flow.Id,
                         WorkspaceId = workspaceId,
-                        flow.GroupId,
                         flow.Name,
                         flow.Description,
                         UpdatedAtUtc = DateTime.UtcNow
@@ -196,38 +183,47 @@ namespace EduCollab.Infrastructure.Repositories
             return deleted > 0;
         }
 
-        public async Task<List<FlowScene>> GetFlowScenesAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
+        public async Task<List<FlowSceneLink>> GetFlowSceneLinksAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
 
-            var flowScenes = await connection.QueryAsync<FlowScene>(
+            var links = await connection.QueryAsync<FlowSceneLink>(
                 new CommandDefinition(
                     """
                     SELECT
                         fs.FlowId,
                         fs.SceneId,
-                        fs.SortOrder
+                        fs.CreatedByUserId,
+                        fs.CreatedAtUtc
                     FROM FlowScenes fs
                     INNER JOIN Flows f ON f.Id = fs.FlowId
                     WHERE fs.FlowId = @FlowId
                       AND f.WorkspaceId = @WorkspaceId
-                    ORDER BY fs.SortOrder, fs.SceneId;
+                    ORDER BY fs.CreatedAtUtc, fs.SceneId;
                     """,
                     new { FlowId = flowId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
-            return flowScenes.AsList();
+            return links.AsList();
         }
 
-        public async Task<FlowScene?> AddFlowSceneAsync(int workspaceId, FlowScene flowScene, CancellationToken cancellationToken)
+        public async Task<FlowSceneLink?> CreateFlowSceneLinkAsync(int workspaceId, FlowSceneLink link, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
 
-            return await connection.QuerySingleOrDefaultAsync<FlowScene>(
+            return await connection.QuerySingleOrDefaultAsync<FlowSceneLink>(
                 new CommandDefinition(
                     """
-                    INSERT INTO FlowScenes (FlowId, SceneId, SortOrder)
-                    SELECT @FlowId, @SceneId, @SortOrder
+                    INSERT INTO FlowScenes (
+                        FlowId,
+                        SceneId,
+                        CreatedByUserId,
+                        CreatedAtUtc)
+                    SELECT
+                        @FlowId,
+                        @SceneId,
+                        @CreatedByUserId,
+                        @CreatedAtUtc
                     WHERE EXISTS (
                         SELECT 1
                         FROM Flows f
@@ -241,19 +237,20 @@ namespace EduCollab.Infrastructure.Repositories
                           AND s.WorkspaceId = @WorkspaceId
                     )
                     ON CONFLICT (FlowId, SceneId) DO NOTHING
-                    RETURNING FlowId, SceneId, SortOrder;
+                    RETURNING FlowId, SceneId, CreatedByUserId, CreatedAtUtc;
                     """,
                     new
                     {
-                        flowScene.FlowId,
-                        flowScene.SceneId,
-                        flowScene.SortOrder,
+                        link.FlowId,
+                        link.SceneId,
+                        link.CreatedByUserId,
+                        link.CreatedAtUtc,
                         WorkspaceId = workspaceId
                     },
                     cancellationToken: cancellationToken));
         }
 
-        public async Task<bool> RemoveFlowSceneAsync(int workspaceId, int flowId, int sceneId, CancellationToken cancellationToken)
+        public async Task<bool> DeleteFlowSceneLinkAsync(int workspaceId, int flowId, int sceneId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
 
@@ -261,16 +258,214 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     """
                     DELETE FROM FlowScenes fs
-                    USING Flows f
+                    USING Flows f, Scenes s
                     WHERE fs.FlowId = @FlowId
                       AND fs.SceneId = @SceneId
                       AND f.Id = fs.FlowId
-                      AND f.WorkspaceId = @WorkspaceId;
+                      AND s.Id = fs.SceneId
+                      AND f.WorkspaceId = @WorkspaceId
+                      AND s.WorkspaceId = @WorkspaceId;
                     """,
                     new { FlowId = flowId, SceneId = sceneId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
             return deleted > 0;
+        }
+
+        public async Task<List<int>> GetFlowGroupIdsAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var groupIds = await connection.QueryAsync<int>(
+                new CommandDefinition(
+                    """
+                    SELECT fgs.GroupId
+                    FROM FlowGroupShares fgs
+                    INNER JOIN Flows f ON f.Id = fgs.FlowId
+                    WHERE fgs.FlowId = @FlowId
+                      AND f.WorkspaceId = @WorkspaceId
+                    ORDER BY fgs.CreatedAtUtc, fgs.GroupId;
+                    """,
+                    new { FlowId = flowId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return groupIds.AsList();
+        }
+
+        public async Task<Dictionary<int, List<int>>> GetFlowGroupIdsByFlowIdsAsync(
+            int workspaceId,
+            IReadOnlyCollection<int> flowIds,
+            CancellationToken cancellationToken)
+        {
+            if (flowIds.Count == 0)
+                return new Dictionary<int, List<int>>();
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var rows = await connection.QueryAsync<(int FlowId, int GroupId)>(
+                new CommandDefinition(
+                    """
+                    SELECT fgs.FlowId, fgs.GroupId
+                    FROM FlowGroupShares fgs
+                    INNER JOIN Flows f ON f.Id = fgs.FlowId
+                    WHERE f.WorkspaceId = @WorkspaceId
+                      AND fgs.FlowId = ANY(@FlowIds)
+                    ORDER BY fgs.FlowId, fgs.CreatedAtUtc, fgs.GroupId;
+                    """,
+                    new { WorkspaceId = workspaceId, FlowIds = flowIds.ToArray() },
+                    cancellationToken: cancellationToken));
+
+            return rows
+                .GroupBy(row => row.FlowId)
+                .ToDictionary(group => group.Key, group => group.Select(row => row.GroupId).ToList());
+        }
+
+        public async Task ReplaceFlowGroupSharesAsync(
+            int workspaceId,
+            int flowId,
+            IReadOnlyList<int> groupIds,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            using var transaction = connection.BeginTransaction();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM FlowGroupShares fgs
+                    USING Flows f
+                    WHERE fgs.FlowId = @FlowId
+                      AND f.Id = fgs.FlowId
+                      AND f.WorkspaceId = @WorkspaceId;
+                    """,
+                    new { FlowId = flowId, WorkspaceId = workspaceId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            var createdAtUtc = DateTime.UtcNow;
+            foreach (var groupId in groupIds.Distinct())
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO FlowGroupShares (FlowId, GroupId, CreatedAtUtc)
+                        SELECT @FlowId, @GroupId, @CreatedAtUtc
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM Flows f
+                            WHERE f.Id = @FlowId
+                              AND f.WorkspaceId = @WorkspaceId
+                        )
+                          AND EXISTS (
+                            SELECT 1
+                            FROM Groups g
+                            WHERE g.Id = @GroupId
+                              AND g.WorkspaceId = @WorkspaceId
+                        );
+                        """,
+                        new
+                        {
+                            FlowId = flowId,
+                            GroupId = groupId,
+                            CreatedAtUtc = createdAtUtc,
+                            WorkspaceId = workspaceId
+                        },
+                        transaction: transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            transaction.Commit();
+        }
+
+        public async Task<bool> AddFlowGroupShareAsync(
+            int workspaceId,
+            int flowId,
+            int groupId,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var inserted = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    INSERT INTO FlowGroupShares (FlowId, GroupId, CreatedAtUtc)
+                    SELECT @FlowId, @GroupId, @CreatedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Flows f
+                        WHERE f.Id = @FlowId
+                          AND f.WorkspaceId = @WorkspaceId
+                    )
+                      AND EXISTS (
+                        SELECT 1
+                        FROM Groups g
+                        WHERE g.Id = @GroupId
+                          AND g.WorkspaceId = @WorkspaceId
+                    )
+                    ON CONFLICT (FlowId, GroupId) DO NOTHING;
+                    """,
+                    new
+                    {
+                        FlowId = flowId,
+                        GroupId = groupId,
+                        CreatedAtUtc = DateTime.UtcNow,
+                        WorkspaceId = workspaceId
+                    },
+                    cancellationToken: cancellationToken));
+
+            return inserted > 0;
+        }
+
+        public async Task<bool> RemoveFlowGroupShareAsync(
+            int workspaceId,
+            int flowId,
+            int groupId,
+            CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var deleted = await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM FlowGroupShares fgs
+                    USING Flows f
+                    WHERE fgs.FlowId = @FlowId
+                      AND fgs.GroupId = @GroupId
+                      AND f.Id = fgs.FlowId
+                      AND f.WorkspaceId = @WorkspaceId;
+                    """,
+                    new { FlowId = flowId, GroupId = groupId, WorkspaceId = workspaceId },
+                    cancellationToken: cancellationToken));
+
+            return deleted > 0;
+        }
+
+        public async Task SyncFlowPrimaryGroupIdAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
+        {
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Flows f
+                    SET GroupId = (
+                        SELECT fgs.GroupId
+                        FROM FlowGroupShares fgs
+                        WHERE fgs.FlowId = f.Id
+                        ORDER BY fgs.CreatedAtUtc, fgs.GroupId
+                        LIMIT 1
+                    ),
+                    UpdatedAtUtc = @UpdatedAtUtc
+                    WHERE f.Id = @FlowId
+                      AND f.WorkspaceId = @WorkspaceId;
+                    """,
+                    new
+                    {
+                        FlowId = flowId,
+                        WorkspaceId = workspaceId,
+                        UpdatedAtUtc = DateTime.UtcNow
+                    },
+                    cancellationToken: cancellationToken));
         }
     }
 }

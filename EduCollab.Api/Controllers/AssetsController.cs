@@ -5,6 +5,7 @@ using EduCollab.Api.Query;
 using EduCollab.Api.Requests.Assets;
 
 using EduCollab.Application.Services.Assets;
+using EduCollab.Application.Services.Content;
 
 using EduCollab.Contracts.Requests.Assets;
 
@@ -75,17 +76,13 @@ namespace EduCollab.Api.Controllers
 
 
 
-            if (request.GroupId <= 0)
-
-                return ApiBadRequest("invalid_group", "GroupId is required.");
-
-
-
             if (string.IsNullOrWhiteSpace(request.Name))
 
                 return ApiBadRequest("invalid_name", "Name is required.");
 
 
+
+            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupId, request.GroupIds);
 
             var asset = new EduCollab.Application.Models.Asset
             {
@@ -100,7 +97,7 @@ namespace EduCollab.Api.Controllers
 
             var created = await _assetService.CreateAssetWithContentAsync(
                 asset,
-                request.GroupId,
+                groupIds,
                 request.File.ContentType,
                 request.File.FileName,
                 stream,
@@ -273,7 +270,11 @@ namespace EduCollab.Api.Controllers
 
             var asset = request.MapToAsset(assetId);
 
-            var updated = await _assetService.UpdateAssetAsync(asset, cancellationToken);
+            var groupIdsToApply = request.GroupIds;
+            if (groupIdsToApply is null && request.GroupId > 0)
+                groupIdsToApply = new List<int> { request.GroupId };
+
+            var updated = await _assetService.UpdateAssetAsync(asset, groupIdsToApply, cancellationToken);
 
             if (updated is null)
 

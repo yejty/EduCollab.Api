@@ -1,6 +1,11 @@
-namespace EduCollab.Contracts.Responses.Flows
+namespace EduCollab.Application.Models
 {
-    public class FlowSceneResponse
+    public enum FlowSceneResolvedFrom
+    {
+        FlowAttachment
+    }
+
+    public class FlowSceneContextItem
     {
         public int SceneId { get; set; }
         public int FlowId { get; set; }
@@ -9,6 +14,6 @@ namespace EduCollab.Contracts.Responses.Flows
         public int GroupId { get; set; }
         public bool UsableInFlow { get; set; }
         public bool CanViewDirectly { get; set; }
-        public string ResolvedFrom { get; set; } = string.Empty;
+        public FlowSceneResolvedFrom ResolvedFrom { get; set; }
     }
 }

@@ -12,7 +12,7 @@ public sealed class ScenesControllerEndpointTests
     public async Task UpdateScene_ReturnsOk_WhenSceneExists()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.SceneService.UpdateSceneAsyncHandler = (scene, _) =>
+        factory.SceneService.UpdateSceneAsyncHandler = (scene, _, _) =>
             Task.FromResult<Scene?>(new Scene
             {
                 Id = scene.Id,
@@ -37,6 +37,36 @@ public sealed class ScenesControllerEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<SceneResponse>();
         Assert.Equal("Updated scene", body.Name);
+    }
+
+    [Fact]
+    public async Task GetScenes_ReturnsOk_WhenListItemsHaveNoLoadedJsonContent()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.SceneService.GetAllScenesAsyncHandler = _ => Task.FromResult(new List<Scene>
+        {
+            new()
+            {
+                Id = 10,
+                WorkspaceId = 1,
+                OwnerUserId = 54,
+                GroupId = 1,
+                Name = "Scene",
+                JsonContent = string.Empty,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow,
+            },
+        });
+
+        using var client = factory.CreateClient(userId: 54);
+
+        var response = await client.GetAsync("/api/workspace/scenes");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ScenesResponse>();
+        Assert.Single(body.Scenes);
+        Assert.Equal("Scene", body.Scenes[0].Name);
+        Assert.Null(body.Scenes[0].JsonContent);
     }
 
     [Fact]

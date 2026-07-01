@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EduCollab.Application.Models;
+using EduCollab.Application.Services.Content;
 using EduCollab.Contracts.Requests.Assets;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Flows;
@@ -353,6 +354,9 @@ namespace EduCollab.Api.Mapping
                 Id = asset.Id,
                 WorkspaceId = asset.WorkspaceId,
                 GroupId = asset.GroupId,
+                GroupIds = asset.GroupIds.Count > 0
+                    ? asset.GroupIds.ToList()
+                    : ResourceGroupPlacement.EffectiveGroupIds(asset.GroupIds, asset.GroupId).ToList(),
                 OwnerUserId = asset.OwnerUserId,
                 Name = asset.Name,
                 Description = asset.Description,
@@ -379,6 +383,9 @@ namespace EduCollab.Api.Mapping
                 WorkspaceId = scene.WorkspaceId,
                 OwnerUserId = scene.OwnerUserId,
                 GroupId = scene.GroupId,
+                GroupIds = scene.GroupIds.Count > 0
+                    ? scene.GroupIds.ToList()
+                    : ResourceGroupPlacement.EffectiveGroupIds(scene.GroupIds, scene.GroupId).ToList(),
                 Name = scene.Name,
                 Description = scene.Description,
                 JsonContent = ParseJsonContent(scene.JsonContent),
@@ -395,6 +402,9 @@ namespace EduCollab.Api.Mapping
                 WorkspaceId = flow.WorkspaceId,
                 OwnerUserId = flow.OwnerUserId,
                 GroupId = flow.GroupId,
+                GroupIds = flow.GroupIds.Count > 0
+                    ? flow.GroupIds.ToList()
+                    : ResourceGroupPlacement.EffectiveGroupIds(flow.GroupIds, flow.GroupId).ToList(),
                 Name = flow.Name,
                 Description = flow.Description,
                 CreatedAt = flow.CreatedAtUtc,
@@ -410,18 +420,23 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static FlowSceneResponse MapToResponse(this FlowScene flowScene) =>
+        public static FlowSceneResponse MapToResponse(this FlowSceneContextItem item) =>
             new()
             {
-                FlowId = flowScene.FlowId,
-                SceneId = flowScene.SceneId,
-                SortOrder = flowScene.SortOrder
+                SceneId = item.SceneId,
+                FlowId = item.FlowId,
+                WorkspaceId = item.WorkspaceId,
+                Name = item.Name,
+                GroupId = item.GroupId,
+                UsableInFlow = item.UsableInFlow,
+                CanViewDirectly = item.CanViewDirectly,
+                ResolvedFrom = item.ResolvedFrom.ToString(),
             };
 
-        public static FlowScenesResponse MapToResponse(this IEnumerable<FlowScene> flowScenes) =>
+        public static FlowScenesResponse MapToResponse(this IEnumerable<FlowSceneContextItem> flowScenes) =>
             new()
             {
-                Scenes = flowScenes.Select(static fs => fs.MapToResponse()).ToList()
+                Scenes = flowScenes.Select(static item => item.MapToResponse()).ToList()
             };
 
         public static ScenesResponse MapToResponse(this IEnumerable<Scene> scenes)
