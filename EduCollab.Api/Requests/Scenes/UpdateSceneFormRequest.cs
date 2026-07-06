@@ -6,7 +6,7 @@ namespace EduCollab.Api.Requests.Scenes
 
         public string? Description { get; set; }
 
-        public int GroupId { get; set; }
+        public List<int>? GroupIds { get; set; }
 
         /// <summary>
         /// Inline scene JSON when not uploading a <see cref="JsonFile"/>.

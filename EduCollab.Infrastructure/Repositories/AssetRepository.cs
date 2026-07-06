@@ -23,6 +23,20 @@ namespace EduCollab.Infrastructure.Repositories
             UpdatedAtUtc
             """;
 
+        private const string AssetSelectColumnsAliased =
+            """
+            a.Id,
+            a.WorkspaceId,
+            a.GroupId,
+            a.OwnerUserId,
+            a.Name,
+            a.Description,
+            a.AssetType,
+            a.StorageUrl,
+            a.CreatedAtUtc,
+            a.UpdatedAtUtc
+            """;
+
         public AssetRepository(IDbConnectionFactory dbConnectionFactory)
         {
             _dbConnectionFactory = dbConnectionFactory;
@@ -99,12 +113,12 @@ namespace EduCollab.Infrastructure.Repositories
             var assets = await connection.QueryAsync<Asset>(
                 new CommandDefinition(
                     $"""
-                    SELECT DISTINCT {AssetSelectColumns}
+                    SELECT DISTINCT {AssetSelectColumnsAliased}
                     FROM Assets a
                     INNER JOIN AssetGroupShares ags ON ags.AssetId = a.Id
                     WHERE a.WorkspaceId = @WorkspaceId
                       AND ags.GroupId = @GroupId
-                    ORDER BY Name ASC, Id ASC;
+                    ORDER BY a.Name ASC, a.Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, GroupId = groupId },
                     cancellationToken: cancellationToken));

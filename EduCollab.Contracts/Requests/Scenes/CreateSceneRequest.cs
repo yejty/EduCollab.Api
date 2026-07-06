@@ -19,13 +19,7 @@ namespace EduCollab.Contracts.Requests.Scenes
         public JsonNode? JsonContent { get; set; }
 
         /// <summary>
-        /// Primary group placement when creating the scene.
-        /// </summary>
-        public int GroupId { get; set; }
-
-        /// <summary>
         /// Groups that receive access to this scene when it is created.
-        /// When provided, takes precedence over <see cref="GroupId"/>.
         /// </summary>
         public List<int>? GroupIds { get; set; }
     }

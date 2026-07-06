@@ -22,6 +22,19 @@ namespace EduCollab.Infrastructure.Repositories
             UpdatedAtUtc
             """;
 
+        private const string SceneListColumnsAliased =
+            """
+            s.Id,
+            s.WorkspaceId,
+            s.OwnerUserId,
+            s.GroupId,
+            s.Name,
+            s.Description,
+            '' AS JsonContent,
+            s.CreatedAtUtc,
+            s.UpdatedAtUtc
+            """;
+
         public SceneRepository(IDbConnectionFactory dbConnectionFactory)
         {
             _dbConnectionFactory = dbConnectionFactory;
@@ -116,12 +129,12 @@ namespace EduCollab.Infrastructure.Repositories
             var scenes = await connection.QueryAsync<Scene>(
                 new CommandDefinition(
                     $"""
-                    SELECT DISTINCT {SceneListColumns}
+                    SELECT DISTINCT {SceneListColumnsAliased}
                     FROM Scenes s
                     INNER JOIN SceneGroupShares sgs ON sgs.SceneId = s.Id
                     WHERE s.WorkspaceId = @WorkspaceId
                       AND sgs.GroupId = @GroupId
-                    ORDER BY Name ASC, Id ASC;
+                    ORDER BY s.Name ASC, s.Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, GroupId = groupId },
                     cancellationToken: cancellationToken));
@@ -202,95 +215,6 @@ namespace EduCollab.Infrastructure.Repositories
                       AND WorkspaceId = @WorkspaceId;
                     """,
                     new { SceneId = sceneId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return deleted > 0;
-        }
-
-        public async Task<List<SceneAssetLink>> GetSceneAssetLinksAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var links = await connection.QueryAsync<SceneAssetLink>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        sa.SceneId,
-                        sa.AssetId,
-                        sa.CreatedByUserId,
-                        sa.CreatedAtUtc
-                    FROM SceneAssets sa
-                    INNER JOIN Scenes sc ON sc.Id = sa.SceneId
-                    WHERE sa.SceneId = @SceneId
-                      AND sc.WorkspaceId = @WorkspaceId
-                    ORDER BY sa.CreatedAtUtc, sa.AssetId;
-                    """,
-                    new { SceneId = sceneId, WorkspaceId = workspaceId },
-                    cancellationToken: cancellationToken));
-
-            return links.AsList();
-        }
-
-        public async Task<SceneAssetLink?> CreateSceneAssetLinkAsync(int workspaceId, SceneAssetLink link, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            return await connection.QuerySingleOrDefaultAsync<SceneAssetLink>(
-                new CommandDefinition(
-                    """
-                    INSERT INTO SceneAssets (
-                        SceneId,
-                        AssetId,
-                        CreatedByUserId,
-                        CreatedAtUtc)
-                    SELECT
-                        @SceneId,
-                        @AssetId,
-                        @CreatedByUserId,
-                        @CreatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Scenes sc
-                        WHERE sc.Id = @SceneId
-                          AND sc.WorkspaceId = @WorkspaceId
-                    )
-                      AND EXISTS (
-                        SELECT 1
-                        FROM Assets a
-                        WHERE a.Id = @AssetId
-                          AND a.WorkspaceId = @WorkspaceId
-                    )
-                    ON CONFLICT (SceneId, AssetId) DO NOTHING
-                    RETURNING SceneId, AssetId, CreatedByUserId, CreatedAtUtc;
-                    """,
-                    new
-                    {
-                        link.SceneId,
-                        link.AssetId,
-                        link.CreatedByUserId,
-                        link.CreatedAtUtc,
-                        WorkspaceId = workspaceId
-                    },
-                    cancellationToken: cancellationToken));
-        }
-
-        public async Task<bool> DeleteSceneAssetLinkAsync(int workspaceId, int sceneId, int assetId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var deleted = await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    DELETE FROM SceneAssets sa
-                    USING Scenes sc, Assets a
-                    WHERE sa.SceneId = @SceneId
-                      AND sa.AssetId = @AssetId
-                      AND sc.Id = sa.SceneId
-                      AND a.Id = sa.AssetId
-                      AND sc.WorkspaceId = @WorkspaceId
-                      AND a.WorkspaceId = @WorkspaceId;
-                    """,
-                    new { SceneId = sceneId, AssetId = assetId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
             return deleted > 0;

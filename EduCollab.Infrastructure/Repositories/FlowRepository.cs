@@ -21,6 +21,18 @@ namespace EduCollab.Infrastructure.Repositories
             UpdatedAtUtc
             """;
 
+        private const string FlowSelectColumnsAliased =
+            """
+            f.Id,
+            f.WorkspaceId,
+            f.OwnerUserId,
+            f.GroupId,
+            f.Name,
+            f.Description,
+            f.CreatedAtUtc,
+            f.UpdatedAtUtc
+            """;
+
         public FlowRepository(IDbConnectionFactory dbConnectionFactory)
         {
             _dbConnectionFactory = dbConnectionFactory;
@@ -110,12 +122,12 @@ namespace EduCollab.Infrastructure.Repositories
             var flows = await connection.QueryAsync<Flow>(
                 new CommandDefinition(
                     $"""
-                    SELECT DISTINCT {FlowSelectColumns}
+                    SELECT DISTINCT {FlowSelectColumnsAliased}
                     FROM Flows f
                     INNER JOIN FlowGroupShares fgs ON fgs.FlowId = f.Id
                     WHERE f.WorkspaceId = @WorkspaceId
                       AND fgs.GroupId = @GroupId
-                    ORDER BY Name ASC, Id ASC;
+                    ORDER BY f.Name ASC, f.Id ASC;
                     """,
                     new { WorkspaceId = workspaceId, GroupId = groupId },
                     cancellationToken: cancellationToken));
@@ -207,69 +219,71 @@ namespace EduCollab.Infrastructure.Repositories
             return links.AsList();
         }
 
-        public async Task<FlowSceneLink?> CreateFlowSceneLinkAsync(int workspaceId, FlowSceneLink link, CancellationToken cancellationToken)
+        public async Task ReplaceFlowSceneLinksAsync(
+            int workspaceId,
+            int flowId,
+            IReadOnlyList<int> sceneIds,
+            int createdByUserId,
+            CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+            using var transaction = connection.BeginTransaction();
 
-            return await connection.QuerySingleOrDefaultAsync<FlowSceneLink>(
-                new CommandDefinition(
-                    """
-                    INSERT INTO FlowScenes (
-                        FlowId,
-                        SceneId,
-                        CreatedByUserId,
-                        CreatedAtUtc)
-                    SELECT
-                        @FlowId,
-                        @SceneId,
-                        @CreatedByUserId,
-                        @CreatedAtUtc
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM Flows f
-                        WHERE f.Id = @FlowId
-                          AND f.WorkspaceId = @WorkspaceId
-                    )
-                      AND EXISTS (
-                        SELECT 1
-                        FROM Scenes s
-                        WHERE s.Id = @SceneId
-                          AND s.WorkspaceId = @WorkspaceId
-                    )
-                    ON CONFLICT (FlowId, SceneId) DO NOTHING
-                    RETURNING FlowId, SceneId, CreatedByUserId, CreatedAtUtc;
-                    """,
-                    new
-                    {
-                        link.FlowId,
-                        link.SceneId,
-                        link.CreatedByUserId,
-                        link.CreatedAtUtc,
-                        WorkspaceId = workspaceId
-                    },
-                    cancellationToken: cancellationToken));
-        }
-
-        public async Task<bool> DeleteFlowSceneLinkAsync(int workspaceId, int flowId, int sceneId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-
-            var deleted = await connection.ExecuteAsync(
+            await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
                     DELETE FROM FlowScenes fs
-                    USING Flows f, Scenes s
+                    USING Flows f
                     WHERE fs.FlowId = @FlowId
-                      AND fs.SceneId = @SceneId
                       AND f.Id = fs.FlowId
-                      AND s.Id = fs.SceneId
-                      AND f.WorkspaceId = @WorkspaceId
-                      AND s.WorkspaceId = @WorkspaceId;
+                      AND f.WorkspaceId = @WorkspaceId;
                     """,
-                    new { FlowId = flowId, SceneId = sceneId, WorkspaceId = workspaceId },
+                    new { FlowId = flowId, WorkspaceId = workspaceId },
+                    transaction: transaction,
                     cancellationToken: cancellationToken));
 
-            return deleted > 0;
+            var createdAtUtc = DateTime.UtcNow;
+            foreach (var sceneId in sceneIds.Distinct())
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO FlowScenes (
+                            FlowId,
+                            SceneId,
+                            CreatedByUserId,
+                            CreatedAtUtc)
+                        SELECT
+                            @FlowId,
+                            @SceneId,
+                            @CreatedByUserId,
+                            @CreatedAtUtc
+                        WHERE EXISTS (
+                            SELECT 1
+                            FROM Flows f
+                            WHERE f.Id = @FlowId
+                              AND f.WorkspaceId = @WorkspaceId
+                        )
+                          AND EXISTS (
+                            SELECT 1
+                            FROM Scenes s
+                            WHERE s.Id = @SceneId
+                              AND s.WorkspaceId = @WorkspaceId
+                        );
+                        """,
+                        new
+                        {
+                            FlowId = flowId,
+                            SceneId = sceneId,
+                            CreatedByUserId = createdByUserId,
+                            CreatedAtUtc = createdAtUtc,
+                            WorkspaceId = workspaceId
+                        },
+                        transaction: transaction,
+                        cancellationToken: cancellationToken));
+            }
+
+            transaction.Commit();
         }
 
         public async Task<List<int>> GetFlowGroupIdsAsync(int workspaceId, int flowId, CancellationToken cancellationToken)

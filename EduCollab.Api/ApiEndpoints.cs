@@ -106,6 +106,8 @@
 
             public const string Invite = $"{Base}/invitations";
 
+            public const string PermissionPresets = $"{Base}/permission-presets";
+
             public const string Thumbnail = $"{Base}/thumbnail";
 
             public const string RequestCreation = $"{Base}/creation-requests";
@@ -257,42 +259,6 @@
             public const string Update = $"{Base}/{{flowId}}";
 
             public const string Delete = $"{Base}/{{flowId}}";
-
-        }
-
-
-
-        public static class FlowScenes
-
-        {
-
-            private const string Base = $"{ApiCurrentWorkspaceBase}/flow-scenes";
-
-            public const string GetAll = Base;
-
-            public const string Create = Base;
-
-            public const string Delete = Base;
-
-            public const string Content = $"{Base}/content";
-
-        }
-
-
-
-        public static class SceneAssets
-
-        {
-
-            private const string Base = $"{ApiCurrentWorkspaceBase}/scene-assets";
-
-            public const string GetAll = Base;
-
-            public const string Create = Base;
-
-            public const string Delete = Base;
-
-            public const string Content = $"{Base}/content";
 
         }
 

@@ -111,48 +111,6 @@ namespace EduCollab.Api.Query
                 };
         }
 
-        public static class SceneAsset
-        {
-            public static readonly IReadOnlyCollection<string> AllowedFields =
-                ["name", "assetId"];
-
-            public static readonly SortSpecification Default =
-                new() { Field = "name", Direction = SortDirection.Asc };
-
-            public static List<SceneAssetContextItem> Apply(
-                IEnumerable<SceneAssetContextItem> items,
-                SortSpecification sort) =>
-                SortApplier.Apply(items, sort, Selectors, static x => x.AssetId);
-
-            private static readonly Dictionary<string, Func<SceneAssetContextItem, object>> Selectors =
-                new(StringComparer.Ordinal)
-                {
-                    ["name"] = static x => x.Name,
-                    ["assetId"] = static x => x.AssetId,
-                };
-        }
-
-        public static class FlowScene
-        {
-            public static readonly IReadOnlyCollection<string> AllowedFields =
-                ["name", "sceneId"];
-
-            public static readonly SortSpecification Default =
-                new() { Field = "name", Direction = SortDirection.Asc };
-
-            public static List<FlowSceneContextItem> Apply(
-                IEnumerable<FlowSceneContextItem> items,
-                SortSpecification sort) =>
-                SortApplier.Apply(items, sort, Selectors, static x => x.SceneId);
-
-            private static readonly Dictionary<string, Func<FlowSceneContextItem, object>> Selectors =
-                new(StringComparer.Ordinal)
-                {
-                    ["name"] = static x => x.Name,
-                    ["sceneId"] = static x => x.SceneId,
-                };
-        }
-
         public static class WorkspaceCreationRequest
         {
             public static readonly IReadOnlyCollection<string> AllowedFields =

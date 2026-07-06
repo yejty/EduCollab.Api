@@ -17,7 +17,7 @@ public sealed class FlowsControllerEndpointTests
                 Id = 20,
                 WorkspaceId = 1,
                 OwnerUserId = 54,
-                GroupId = 1,
+                GroupIds = [1],
                 Name = "Intro flow",
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow,

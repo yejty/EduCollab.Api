@@ -2,13 +2,10 @@ namespace EduCollab.Application.Services.Content
 {
     public static class ResourceGroupPlacement
     {
-        public static IReadOnlyList<int> ResolveGroupIds(int groupId, IReadOnlyList<int>? groupIds)
+        public static IReadOnlyList<int> ResolveGroupIds(IReadOnlyList<int>? groupIds)
         {
             if (groupIds is { Count: > 0 })
                 return groupIds.Where(id => id > 0).Distinct().ToList();
-
-            if (groupId > 0)
-                return new List<int> { groupId };
 
             return Array.Empty<int>();
         }

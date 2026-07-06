@@ -29,6 +29,20 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
+        /// Lists workspace permission presets and their granted functions.
+        /// </summary>
+        /// <response code="200">Preset catalog returned.</response>
+        /// <response code="401">User is unauthorized.</response>
+        [Authorize]
+        [HttpGet(ApiEndpoints.Workspace.PermissionPresets)]
+        [ProducesResponseType(typeof(WorkspacePermissionPresetsResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        public IActionResult GetPermissionPresets()
+        {
+            return Ok(WorkspacePermissionPresets.AllPresets.MapToResponse());
+        }
+
+        /// <summary>
         /// Invite a new user.
         /// </summary>
         /// <param name="inviteUserRequest">Invitation payload.</param>
@@ -45,9 +59,11 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            if (!WorkspaceRoleExtensions.TryFromPersisted(inviteUserRequest.Role, out var role))
+            if (!WorkspacePermissionPresets.TryToWorkspaceRole(inviteUserRequest.Preset, out var role))
             {
-                return ApiBadRequest("invalid_role", "Role must be one of: Owner, Manager, Creator, Viewer.");
+                return ApiBadRequest(
+                    "invalid_preset",
+                    "Preset must be one of: owner, manager, creator, viewer.");
             }
 
             await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, role, cancellationToken);
@@ -455,7 +471,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Update a workspace member role.
+        /// Update a workspace member preset.
         /// </summary>
         /// <param name="userId">Member user identifier.</param>
         /// <param name="request">Workspace member update payload.</param>
@@ -474,6 +490,13 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<WorkspaceMemberResponse>> UpdateWorkspaceMember(int userId, [FromBody] UpdateWorkspaceMemberRequest request, CancellationToken cancellationToken)
         {
+            if (!WorkspacePermissionPresets.TryToWorkspaceRole(request.Preset, out _))
+            {
+                return ApiBadRequest(
+                    "invalid_preset",
+                    "Preset must be one of: owner, manager, creator, viewer.");
+            }
+
             var member = request.MapToWorkspaceMember(0, userId);
             var updatedMember = await _workspaceService.UpdateCurrentWorkspaceMemberAsync(userId, member, cancellationToken);
             if (updatedMember is null)

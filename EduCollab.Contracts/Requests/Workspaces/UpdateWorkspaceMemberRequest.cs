@@ -5,6 +5,6 @@ namespace EduCollab.Contracts.Requests.Workspaces
     public class UpdateWorkspaceMemberRequest
     {
         [Required]
-        public string Role { get; set; } = string.Empty;
+        public string Preset { get; set; } = string.Empty;
     }
 }

@@ -5,7 +5,9 @@ namespace EduCollab.Contracts.Responses.Workspaces
     {
         public int UserId { get; set; }
 
-        public string Role { get; set; } = string.Empty;
+        public string Preset { get; set; } = string.Empty;
+
+        public bool IsRole { get; set; }
 
         public DateTimeOffset? JoinedAt { get; set; }
     }

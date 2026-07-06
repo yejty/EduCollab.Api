@@ -82,7 +82,7 @@ namespace EduCollab.Api.Controllers
 
 
 
-            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupId, request.GroupIds);
+            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupIds);
 
             var asset = new EduCollab.Application.Models.Asset
             {
@@ -252,7 +252,7 @@ namespace EduCollab.Api.Controllers
         /// Update asset metadata and group placement.
         /// </summary>
         /// <param name="assetId">Asset identifier.</param>
-        /// <param name="request">Asset update payload. Include <c>groupId</c> to move the asset.</param>
+        /// <param name="request">Asset update payload. Include <c>groupIds</c> to move the asset.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Asset was updated.</response>
         /// <response code="401">Caller is not authenticated.</response>
@@ -271,8 +271,6 @@ namespace EduCollab.Api.Controllers
             var asset = request.MapToAsset(assetId);
 
             var groupIdsToApply = request.GroupIds;
-            if (groupIdsToApply is null && request.GroupId > 0)
-                groupIdsToApply = new List<int> { request.GroupId };
 
             var updated = await _assetService.UpdateAssetAsync(asset, groupIdsToApply, cancellationToken);
 

@@ -45,6 +45,13 @@ namespace EduCollab.Api.ExceptionHandlers
                     .ToArray();
             }
 
+            if (exception is InvalidSceneReferenceException invalidSceneReference)
+            {
+                problem.Extensions["invalidSceneReferences"] = invalidSceneReference.References
+                    .Select(reference => new { sceneId = reference.SceneId, reason = reference.Reason })
+                    .ToArray();
+            }
+
             await ApiProblemDetailsWriter.WriteAsync(httpContext, problem, cancellationToken);
             return true;
         }
@@ -80,6 +87,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status400BadRequest,
                     "invalid_asset_reference",
                     "One or more asset references in the scene JSON are invalid."),
+                InvalidSceneReferenceException => (
+                    StatusCodes.Status400BadRequest,
+                    "invalid_scene_reference",
+                    "One or more scene references are invalid."),
                 PreconditionFailedException preconditionFailed => (
                     StatusCodes.Status412PreconditionFailed,
                     "precondition_failed",

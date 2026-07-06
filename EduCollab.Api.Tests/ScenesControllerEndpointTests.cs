@@ -30,7 +30,7 @@ public sealed class ScenesControllerEndpointTests
         var response = await client.PutAsJsonAsync("/api/workspace/scenes/10", new UpdateSceneRequest
         {
             Name = "Updated scene",
-            GroupId = 1,
+            GroupIds = [1],
             JsonContent = "{\"nodes\":[]}",
         });
 
@@ -50,7 +50,7 @@ public sealed class ScenesControllerEndpointTests
                 Id = 10,
                 WorkspaceId = 1,
                 OwnerUserId = 54,
-                GroupId = 1,
+                GroupIds = [1],
                 Name = "Scene",
                 JsonContent = string.Empty,
                 CreatedAtUtc = DateTime.UtcNow,
@@ -80,7 +80,7 @@ public sealed class ScenesControllerEndpointTests
                 Id = 10,
                 WorkspaceId = 1,
                 OwnerUserId = 54,
-                GroupId = 1,
+                GroupIds = [1],
                 Name = "Scene",
                 JsonContent = string.Empty,
                 CreatedAtUtc = DateTime.UtcNow,
@@ -108,7 +108,7 @@ public sealed class ScenesControllerEndpointTests
             Id = 10,
             WorkspaceId = 1,
             OwnerUserId = 54,
-            GroupId = 1,
+            GroupIds = [1],
             Name = "Scene",
             JsonContent = "{}",
             CreatedAtUtc = DateTime.UtcNow,

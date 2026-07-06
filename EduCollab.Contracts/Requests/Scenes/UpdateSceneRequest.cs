@@ -4,7 +4,6 @@ namespace EduCollab.Contracts.Requests.Scenes
     {
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public int GroupId { get; set; }
         public List<int>? GroupIds { get; set; }
 
         /// <summary>

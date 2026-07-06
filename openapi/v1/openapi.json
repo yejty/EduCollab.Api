@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: tree browse with optional `parentId`. Root browse (`parentId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentId={groupId}`. `GET /api/workspace/groups/flat` returns all accessible groups in one list (group pickers, search, admin tables). Adding a user to a group also adds them to all subgroups.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has group placement via `groupId` / `groupIds`; change placement with `PUT /api/workspace/assets/{assetId}`. Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: union of all accessible scenes. Optional filter: `owner=me`. CRUD by id at `/api/workspace/scenes/{sceneId}`. Create/update send inline `jsonContent` as JSON or upload a `.json` file via `multipart/form-data` (`jsonFile` part).\n- **Flows** `GET /api/workspace/flows`: union of all accessible flows. Optional filter: `owner=me`. CRUD by id at `/api/workspace/flows/{flowId}`.\n- **Scene assets** `GET /api/workspace/scene-assets`: required `sceneId` (authoritative manifest of assets required to render the scene). Attach via `POST /api/workspace/scene-assets`; detach via `DELETE /api/workspace/scene-assets?sceneId=&assetId=`. Download ZIP content in scene context via `GET /api/workspace/scene-assets/content?sceneId=&assetId=` (required when `canViewDirectly` is false).\n- **Flow scenes** `GET /api/workspace/flow-scenes`: required `flowId` (authoritative manifest of scenes in the flow). Attach via `POST /api/workspace/flow-scenes`; detach via `DELETE /api/workspace/flow-scenes?flowId=&sceneId=`. Load scene JSON in flow context via `GET /api/workspace/flow-scenes/content?flowId=&sceneId=` (required when `canViewDirectly` is false).\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. `GET /api/workspace/scenes/{sceneId}` — load `jsonContent` (object graph; objects use `assetId` to point at workspace assets).\n2. `GET /api/workspace/scene-assets?sceneId=` — server-resolved manifest with `usableInScene` and `canViewDirectly` flags.\n3. Download each required asset ZIP:\n   - When `canViewDirectly` is true: `GET /api/workspace/assets/{assetId}/content`.\n   - When `canViewDirectly` is false but `usableInScene` is true: `GET /api/workspace/scene-assets/content?sceneId=&assetId=` (scene-context only).\n4. Cross-check every `assetId` parsed from `jsonContent` against the manifest; ids missing from the manifest are broken or inaccessible references.\n\nScene-context access allows runtime use of assets referenced by a visible scene without granting standalone asset library access.\n\n## Flow runtime scene loading\nClients running a flow should:\n1. `GET /api/workspace/flows/{flowId}` — load flow metadata.\n2. `GET /api/workspace/flow-scenes?flowId=` — server-resolved manifest with `usableInFlow` and `canViewDirectly` flags.\n3. Load each attached scene JSON:\n   - When `canViewDirectly` is true: `GET /api/workspace/scenes/{sceneId}`.\n   - When `canViewDirectly` is false but `usableInFlow` is true: `GET /api/workspace/flow-scenes/content?flowId=&sceneId=` (flow-context only).\n\nFlow-context access allows runtime use of scenes attached to a visible flow without granting standalone scene library access.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nInvalid scene asset references on create/update use `error: invalid_asset_reference` with an `invalidAssetReferences` array of `{ assetId, reason }`.\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
+    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: tree browse with optional `parentId`. Root browse (`parentId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentId={groupId}`. `GET /api/workspace/groups/flat` returns all accessible groups in one list (group pickers, search, admin tables). Adding a user to a group also adds them to all subgroups.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has group placement via `groupId` / `groupIds`; change placement with `PUT /api/workspace/assets/{assetId}`. Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: union of all accessible scenes. Optional filter: `owner=me`. CRUD by id at `/api/workspace/scenes/{sceneId}`. Create/update send inline `jsonContent` as JSON or upload a `.json` file via `multipart/form-data` (`jsonFile` part). Scene JSON may reference workspace assets via `assetId` properties anywhere in the tree.\n- **Flows** `GET /api/workspace/flows`: union of all accessible flows. Optional filter: `owner=me`. CRUD by id at `/api/workspace/flows/{flowId}`. Create/update accept optional `sceneIds` to attach scenes to the flow.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. `GET /api/workspace/scenes/{sceneId}` — load `jsonContent` when the scene itself is visible.\n2. Parse `jsonContent` client-side for `assetId` properties.\n3. Download each required asset ZIP via `GET /api/workspace/assets/{assetId}/content`. Assets the caller cannot access directly return `404`.\n\n## Flow runtime scene loading\nClients running a flow should:\n1. `GET /api/workspace/flows/{flowId}` — load flow metadata and `sceneIds` when the flow itself is visible.\n2. `GET /api/workspace/scenes/{sceneId}` for each `sceneId` (scenes the caller cannot access return `404`).\n3. Parse each scene's `jsonContent` for `assetId` values and download assets via `GET /api/workspace/assets/{assetId}/content`.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nInvalid scene asset references on create/update use `error: invalid_asset_reference` with an `invalidAssetReferences` array of `{ assetId, reason }`.\nInvalid flow scene references on create/update use `error: invalid_scene_reference` with an `invalidSceneReferences` array of `{ sceneId, reason }`.\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
     "version": "1.0"
   },
   "paths": {
@@ -1017,10 +1017,6 @@
                   "Name": {
                     "type": "string"
                   },
-                  "GroupId": {
-                    "type": "integer",
-                    "format": "int32"
-                  },
                   "GroupIds": {
                     "type": "array",
                     "items": {
@@ -1039,9 +1035,6 @@
               },
               "encoding": {
                 "Name": {
-                  "style": "form"
-                },
-                "GroupId": {
                   "style": "form"
                 },
                 "GroupIds": {
@@ -1251,7 +1244,7 @@
           }
         ],
         "requestBody": {
-          "description": "Asset update payload. Include `groupId` to move the asset.",
+          "description": "Asset update payload. Include `groupIds` to move the asset.",
           "content": {
             "application/json": {
               "schema": {
@@ -1942,532 +1935,6 @@
           },
           "404": {
             "description": "Flow was not found."
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
-    "/api/workspace/flow-scenes": {
-      "get": {
-        "tags": [
-          "FlowScenes"
-        ],
-        "summary": "List scenes attached to a flow.",
-        "description": "Authoritative manifest for running a flow. Each entry includes `usableInFlow` and\r\n`canViewDirectly` flags for scene access in flow context. Use M:EduCollab.Api.Controllers.FlowScenesController.GetFlowSceneContent(System.Int32,System.Int32,System.Threading.CancellationToken)\r\nto load scene JSON when `canViewDirectly` is false.",
-        "parameters": [
-          {
-            "name": "flowId",
-            "in": "query",
-            "description": "Flow identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "description": "Sort field. Prefix with `-` for descending (e.g. `-createdAt`). Allowed fields vary by resource; see API description. Invalid fields return `invalid_sort`.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "1-based page index. Default: 1. Invalid values return `invalid_pagination`.",
-            "schema": {
-              "minimum": 1,
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "description": "Page size. Default: 20, maximum: 100. Invalid values return `invalid_pagination`.",
-            "schema": {
-              "maximum": 100,
-              "minimum": 1,
-              "type": "integer",
-              "format": "int32",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paged list of flow scenes.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowScenesResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowScenesResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowScenesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid flow id, sort, or pagination.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot access this flow.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Flow was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "FlowScenes"
-        ],
-        "summary": "Attach a scene to a flow.",
-        "requestBody": {
-          "description": "Flow and scene identifiers.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachFlowSceneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachFlowSceneRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachFlowSceneRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Scene was attached to the flow.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowSceneResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowSceneResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FlowSceneResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid flow or scene id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot modify this flow.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Flow or scene was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "FlowScenes"
-        ],
-        "summary": "Detach a scene from a flow.",
-        "parameters": [
-          {
-            "name": "flowId",
-            "in": "query",
-            "description": "Flow identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "query",
-            "description": "Scene identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Scene was detached from the flow."
-          },
-          "400": {
-            "description": "Invalid flow or scene id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot modify this flow.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Flow-scene link was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
-    "/api/workspace/flow-scenes/content": {
-      "get": {
-        "tags": [
-          "FlowScenes"
-        ],
-        "summary": "Load scene JSON in flow context.",
-        "description": "Use when the manifest lists a scene with `usableInFlow: true` and `canViewDirectly: false`.\r\nStandalone `GET /scenes/{sceneId}` remains direct-access only.",
-        "parameters": [
-          {
-            "name": "flowId",
-            "in": "query",
-            "description": "Flow identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "sceneId",
-            "in": "query",
-            "description": "Scene identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Scene JSON content."
-          },
-          "400": {
-            "description": "Invalid flow or scene id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot access this flow.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Flow, scene, or content was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
           }
         },
         "security": [
@@ -3419,532 +2886,6 @@
         ]
       }
     },
-    "/api/workspace/scene-assets": {
-      "get": {
-        "tags": [
-          "SceneAssets"
-        ],
-        "summary": "List assets attached to a scene.",
-        "description": "Authoritative manifest for rendering a scene. Merges assets referenced by `assetId` in scene JSON\r\nwith explicit scene attachments. Use M:EduCollab.Api.Controllers.SceneAssetsController.GetSceneAssetContent(System.Int32,System.Int32,System.Threading.CancellationToken) to download ZIP content when\r\n`canViewDirectly` is false.",
-        "parameters": [
-          {
-            "name": "sceneId",
-            "in": "query",
-            "description": "Scene identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "description": "Sort field. Prefix with `-` for descending (e.g. `-createdAt`). Allowed fields vary by resource; see API description. Invalid fields return `invalid_sort`.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "description": "1-based page index. Default: 1. Invalid values return `invalid_pagination`.",
-            "schema": {
-              "minimum": 1,
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "description": "Page size. Default: 20, maximum: 100. Invalid values return `invalid_pagination`.",
-            "schema": {
-              "maximum": 100,
-              "minimum": 1,
-              "type": "integer",
-              "format": "int32",
-              "default": 20
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paged list of scene assets.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetsResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetsResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid scene id, sort, or pagination.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot access this scene.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scene was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "SceneAssets"
-        ],
-        "summary": "Attach an asset to a scene.",
-        "requestBody": {
-          "description": "Scene and asset identifiers.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachSceneAssetRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachSceneAssetRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttachSceneAssetRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Asset was attached to the scene.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetResponse"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetResponse"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SceneAssetResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid scene or asset id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot modify this scene.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scene or asset was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "SceneAssets"
-        ],
-        "summary": "Detach an asset from a scene.",
-        "parameters": [
-          {
-            "name": "sceneId",
-            "in": "query",
-            "description": "Scene identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "assetId",
-            "in": "query",
-            "description": "Asset identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Asset was detached from the scene."
-          },
-          "400": {
-            "description": "Invalid scene or asset id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot modify this scene.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scene-asset link was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
-    "/api/workspace/scene-assets/content": {
-      "get": {
-        "tags": [
-          "SceneAssets"
-        ],
-        "summary": "Download asset ZIP content in scene context.",
-        "description": "Use when the manifest lists an asset with `usableInScene: true` and `canViewDirectly: false`.\r\nStandalone `GET /assets/{assetId}/content` remains direct-access only.",
-        "parameters": [
-          {
-            "name": "sceneId",
-            "in": "query",
-            "description": "Scene identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "assetId",
-            "in": "query",
-            "description": "Asset identifier (required).",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Asset ZIP content."
-          },
-          "400": {
-            "description": "Invalid scene or asset id.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Caller is not authenticated.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Caller cannot access this scene.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Scene, asset, or content was not found.",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "Bearer": [ ]
-          }
-        ]
-      }
-    },
     "/api/workspace/scene-groups": {
       "get": {
         "tags": [
@@ -4146,7 +3087,7 @@
         "summary": "Create a new scene in the specified group.",
         "description": "Send `jsonContent` inline in the JSON body. Scene objects reference workspace assets via an `assetId`\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a `.json` file instead.",
         "requestBody": {
-          "description": "Scene creation payload including target `groupId` and inline `jsonContent`.",
+          "description": "Scene creation payload including target `groupIds` and inline `jsonContent`.",
           "content": {
             "application/json": {
               "schema": {
@@ -5862,6 +4803,61 @@
             "description": "HTML success or error page."
           }
         }
+      }
+    },
+    "/api/workspace/permission-presets": {
+      "get": {
+        "tags": [
+          "Workspaces"
+        ],
+        "summary": "Lists workspace permission presets and their granted functions.",
+        "responses": {
+          "200": {
+            "description": "Preset catalog returned.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePermissionPresetsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePermissionPresetsResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacePermissionPresetsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "User is unauthorized.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": [ ]
+          }
+        ]
       }
     },
     "/api/workspace/invitations": {
@@ -7596,10 +6592,6 @@
             "type": "integer",
             "format": "int32"
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
             "type": "array",
             "items": {
@@ -7689,34 +6681,6 @@
             "format": "int32"
           },
           "groupId": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AttachFlowSceneRequest": {
-        "type": "object",
-        "properties": {
-          "flowId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "sceneId": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AttachSceneAssetRequest": {
-        "type": "object",
-        "properties": {
-          "sceneId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "assetId": {
             "type": "integer",
             "format": "int32"
           }
@@ -7840,11 +6804,15 @@
             "type": "string",
             "nullable": true
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "sceneIds": {
             "type": "array",
             "items": {
               "type": "integer",
@@ -7909,10 +6877,6 @@
           "jsonContent": {
             "$ref": "#/components/schemas/JsonNode"
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
             "type": "array",
             "items": {
@@ -7972,10 +6936,6 @@
             "type": "integer",
             "format": "int32"
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
             "type": "array",
             "items": {
@@ -8002,67 +6962,14 @@
           },
           "canManage": {
             "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
-      "FlowSceneResponse": {
-        "type": "object",
-        "properties": {
-          "sceneId": {
-            "type": "integer",
-            "format": "int32"
           },
-          "flowId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "workspaceId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "usableInFlow": {
-            "type": "boolean"
-          },
-          "canViewDirectly": {
-            "type": "boolean"
-          },
-          "resolvedFrom": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "FlowScenesResponse": {
-        "type": "object",
-        "properties": {
-          "scenes": {
+          "sceneIds": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/FlowSceneResponse"
+              "type": "integer",
+              "format": "int32"
             },
             "nullable": true
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -8209,7 +7116,7 @@
       "InviteUserRequest": {
         "required": [
           "email",
-          "role"
+          "preset"
         ],
         "type": "object",
         "properties": {
@@ -8219,7 +7126,7 @@
             "type": "string",
             "format": "email"
           },
-          "role": {
+          "preset": {
             "minLength": 1,
             "type": "string"
           }
@@ -8431,67 +7338,6 @@
         },
         "additionalProperties": false
       },
-      "SceneAssetResponse": {
-        "type": "object",
-        "properties": {
-          "assetId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "sceneId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "workspaceId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "name": {
-            "type": "string",
-            "nullable": true
-          },
-          "assetType": {
-            "type": "string",
-            "nullable": true
-          },
-          "usableInScene": {
-            "type": "boolean"
-          },
-          "canViewDirectly": {
-            "type": "boolean"
-          },
-          "resolvedFrom": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "SceneAssetsResponse": {
-        "type": "object",
-        "properties": {
-          "assets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SceneAssetResponse"
-            },
-            "nullable": true
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
       "SceneResponse": {
         "type": "object",
         "properties": {
@@ -8504,10 +7350,6 @@
             "format": "int32"
           },
           "ownerUserId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "groupId": {
             "type": "integer",
             "format": "int32"
           },
@@ -8621,10 +7463,6 @@
             "type": "string",
             "nullable": true
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
             "type": "array",
             "items": {
@@ -8651,11 +7489,15 @@
             "type": "string",
             "nullable": true
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "sceneIds": {
             "type": "array",
             "items": {
               "type": "integer",
@@ -8696,10 +7538,6 @@
             "type": "string",
             "nullable": true
           },
-          "groupId": {
-            "type": "integer",
-            "format": "int32"
-          },
           "groupIds": {
             "type": "array",
             "items": {
@@ -8734,11 +7572,11 @@
       },
       "UpdateWorkspaceMemberRequest": {
         "required": [
-          "role"
+          "preset"
         ],
         "type": "object",
         "properties": {
-          "role": {
+          "preset": {
             "minLength": 1,
             "type": "string"
           }
@@ -8891,9 +7729,12 @@
             "type": "integer",
             "format": "int32"
           },
-          "role": {
+          "preset": {
             "type": "string",
             "nullable": true
+          },
+          "isRole": {
+            "type": "boolean"
           },
           "joinedAt": {
             "type": "string",
@@ -8922,6 +7763,56 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WorkspaceMemberResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkspacePermissionItemResponse": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "granted": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkspacePermissionPresetResponse": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "isRole": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePermissionItemResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkspacePermissionPresetsResponse": {
+        "type": "object",
+        "properties": {
+          "presets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePermissionPresetResponse"
             },
             "nullable": true
           }

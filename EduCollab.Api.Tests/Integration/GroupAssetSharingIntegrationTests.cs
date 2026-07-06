@@ -43,7 +43,7 @@ public sealed class GroupAssetSharingIntegrationTests
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Role = "Viewer",
+                Preset = "viewer",
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 

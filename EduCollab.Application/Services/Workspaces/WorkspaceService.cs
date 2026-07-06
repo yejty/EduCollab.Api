@@ -241,7 +241,7 @@ namespace EduCollab.Application.Services.Workspaces
             if (!WorkspaceRolePermissions.CanInviteUsers(inviterMember.Role))
                 throw new UnauthorizedAccessException("Only workspace owners and managers can send invitations.");
 
-            EnsureInviterCanAssignRole(inviterMember.Role, role);
+            EnsureInviterCanAssignPreset(inviterMember.Role, role);
 
             var existingCred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
             if (existingCred is not null
@@ -318,16 +318,18 @@ namespace EduCollab.Application.Services.Workspaces
             await InviteUserToWorkspaceAsync(workspaceId, email, role, cancellationToken);
         }
 
-        private static void EnsureInviterCanAssignRole(WorkspaceRole inviterRole, WorkspaceRole assignedRole)
+        private static void EnsureInviterCanAssignPreset(WorkspaceRole inviterRole, WorkspaceRole assignedRole)
         {
+            var assignedPreset = WorkspacePermissionPresets.ToPresetKey(assignedRole);
+
             if (assignedRole == WorkspaceRole.Owner && inviterRole != WorkspaceRole.Owner)
             {
-                throw new AccessDeniedException("Only the workspace owner can assign the Owner role.");
+                throw new AccessDeniedException("Only the workspace owner can assign the owner preset.");
             }
 
             if (inviterRole == WorkspaceRole.Manager && assignedRole is WorkspaceRole.Owner or WorkspaceRole.Manager)
             {
-                throw new AccessDeniedException("Managers can only invite users with Creator or Viewer roles.");
+                throw new AccessDeniedException($"Managers can only invite users with the creator or viewer preset, not '{assignedPreset}'.");
             }
         }
 

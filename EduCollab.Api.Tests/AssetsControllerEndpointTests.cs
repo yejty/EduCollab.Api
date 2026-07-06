@@ -28,7 +28,7 @@ public sealed class AssetsControllerEndpointTests
 
         using var form = new MultipartFormDataContent();
         form.Add(new StringContent("Chair"), "name");
-        form.Add(new StringContent("1"), "groupId");
+        form.Add(new StringContent("1"), "groupIds");
 
         var textFile = new ByteArrayContent("not a zip"u8.ToArray());
         textFile.Headers.ContentType = new MediaTypeHeaderValue("text/plain");

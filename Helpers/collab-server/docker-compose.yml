@@ -1,0 +1,27 @@
+services:
+  collab-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "2567:2567"
+    environment:
+      COLLAB_PORT: "2567"
+      COLLAB_BIND_ADDR: "0.0.0.0"
+      COLLAB_ALLOWED_ORIGINS: "https://alphacollab-admin.vercel.app,http://localhost:5173"
+      # Point this at the AlphaCollab JSON API. Leave blank to skip remote validation.
+      COLLAB_ALPHACOLLAB_API_BASE: "https://assetstore.alphacollab.online"
+      COLLAB_VALIDATE_PATH: "/me"
+      COLLAB_VALIDATE_VIA_API: "0"
+      COLLAB_AUTH_CACHE_SECONDS: "60"
+      COLLAB_DB_PATH: "/var/collab-data/collab.sqlite"
+      COLLAB_LOG_LEVEL: "info"
+      # Set a strong password to enable the /colyseus monitor; leave blank to disable.
+      COLLAB_MONITOR_USER: "admin"
+      COLLAB_MONITOR_PASSWORD: ""
+    volumes:
+      - collab-data:/var/collab-data
+
+volumes:
+  collab-data:

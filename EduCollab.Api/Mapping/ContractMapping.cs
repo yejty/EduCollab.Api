@@ -119,7 +119,6 @@ namespace EduCollab.Api.Mapping
             {
                 Name = request.Name,
                 Description = request.Description,
-                GroupId = request.GroupId,
                 AssetType = request.AssetType,
             };
         }
@@ -131,7 +130,6 @@ namespace EduCollab.Api.Mapping
                 Id = assetId,
                 Name = request.Name,
                 Description = request.Description,
-                GroupId = request.GroupId,
                 AssetType = request.AssetType,
             };
         }
@@ -153,7 +151,6 @@ namespace EduCollab.Api.Mapping
                 Id = sceneId,
                 Name = request.Name,
                 Description = request.Description,
-                GroupId = request.GroupId,
                 JsonContent = RequireJsonContent(request.JsonContent, nameof(request.JsonContent))
             };
         }
@@ -164,7 +161,7 @@ namespace EduCollab.Api.Mapping
             {
                 Name = request.Name,
                 Description = request.Description,
-                GroupId = request.GroupId,
+                SceneIds = request.SceneIds?.ToList() ?? [],
             };
         }
 
@@ -175,7 +172,6 @@ namespace EduCollab.Api.Mapping
                 Id = flowId,
                 Name = request.Name,
                 Description = request.Description,
-                GroupId = request.GroupId,
             };
         }
 
@@ -246,12 +242,39 @@ namespace EduCollab.Api.Mapping
             };
         }
 
+        public static WorkspacePermissionPresetsResponse MapToResponse(this IEnumerable<WorkspacePermissionPreset> presets)
+        {
+            return new WorkspacePermissionPresetsResponse
+            {
+                Presets = presets.Select(p => p.MapToResponse()).ToList(),
+            };
+        }
+
+        public static WorkspacePermissionPresetResponse MapToResponse(this WorkspacePermissionPreset preset)
+        {
+            return new WorkspacePermissionPresetResponse
+            {
+                Key = preset.Key,
+                IsRole = preset.IsRole,
+                Permissions = WorkspacePermissionPresets.AllPermissions
+                    .Select(permission => new WorkspacePermissionItemResponse
+                    {
+                        Key = permission.Key,
+                        Label = permission.Label,
+                        Granted = preset.GrantedPermissionKeys.Contains(permission.Key),
+                    })
+                    .ToList(),
+            };
+        }
+
         public static WorkspaceMemberResponse MapToResponse(this WorkspaceMember workspaceMember)
         {
+            var preset = WorkspacePermissionPresets.FromWorkspaceRole(workspaceMember.Role);
             return new WorkspaceMemberResponse
             {
                 UserId = workspaceMember.UserId,
-                Role = workspaceMember.Role.ToString(),
+                Preset = preset.Key,
+                IsRole = preset.IsRole,
                 JoinedAt = workspaceMember.JoinedAtUtc
             };
         }
@@ -288,9 +311,9 @@ namespace EduCollab.Api.Mapping
 
         public static WorkspaceMember MapToWorkspaceMember(this UpdateWorkspaceMemberRequest request, int id, int userId)
         {
-            if (!WorkspaceRoleExtensions.TryFromPersisted(request.Role, out var role))
+            if (!WorkspacePermissionPresets.TryToWorkspaceRole(request.Preset, out var role))
             {
-                throw new ArgumentException($"Invalid workspace role '{request.Role}'.");
+                throw new ArgumentException($"Invalid workspace preset '{request.Preset}'.");
             }
 
             return new WorkspaceMember
@@ -353,7 +376,6 @@ namespace EduCollab.Api.Mapping
             {
                 Id = asset.Id,
                 WorkspaceId = asset.WorkspaceId,
-                GroupId = asset.GroupId,
                 GroupIds = asset.GroupIds.Count > 0
                     ? asset.GroupIds.ToList()
                     : ResourceGroupPlacement.EffectiveGroupIds(asset.GroupIds, asset.GroupId).ToList(),
@@ -382,7 +404,6 @@ namespace EduCollab.Api.Mapping
                 Id = scene.Id,
                 WorkspaceId = scene.WorkspaceId,
                 OwnerUserId = scene.OwnerUserId,
-                GroupId = scene.GroupId,
                 GroupIds = scene.GroupIds.Count > 0
                     ? scene.GroupIds.ToList()
                     : ResourceGroupPlacement.EffectiveGroupIds(scene.GroupIds, scene.GroupId).ToList(),
@@ -401,14 +422,14 @@ namespace EduCollab.Api.Mapping
                 Id = flow.Id,
                 WorkspaceId = flow.WorkspaceId,
                 OwnerUserId = flow.OwnerUserId,
-                GroupId = flow.GroupId,
                 GroupIds = flow.GroupIds.Count > 0
                     ? flow.GroupIds.ToList()
                     : ResourceGroupPlacement.EffectiveGroupIds(flow.GroupIds, flow.GroupId).ToList(),
                 Name = flow.Name,
                 Description = flow.Description,
                 CreatedAt = flow.CreatedAtUtc,
-                UpdatedAt = flow.UpdatedAtUtc
+                UpdatedAt = flow.UpdatedAtUtc,
+                SceneIds = flow.SceneIds.ToList(),
             };
         }
 
@@ -420,25 +441,6 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static FlowSceneResponse MapToResponse(this FlowSceneContextItem item) =>
-            new()
-            {
-                SceneId = item.SceneId,
-                FlowId = item.FlowId,
-                WorkspaceId = item.WorkspaceId,
-                Name = item.Name,
-                GroupId = item.GroupId,
-                UsableInFlow = item.UsableInFlow,
-                CanViewDirectly = item.CanViewDirectly,
-                ResolvedFrom = item.ResolvedFrom.ToString(),
-            };
-
-        public static FlowScenesResponse MapToResponse(this IEnumerable<FlowSceneContextItem> flowScenes) =>
-            new()
-            {
-                Scenes = flowScenes.Select(static item => item.MapToResponse()).ToList()
-            };
-
         public static ScenesResponse MapToResponse(this IEnumerable<Scene> scenes)
         {
             return new ScenesResponse
@@ -446,25 +448,6 @@ namespace EduCollab.Api.Mapping
                 Scenes = scenes.Select(s => s.MapToResponse()).ToList()
             };
         }
-
-        public static SceneAssetResponse MapToResponse(this SceneAssetContextItem item) =>
-            new()
-            {
-                AssetId = item.AssetId,
-                SceneId = item.SceneId,
-                WorkspaceId = item.WorkspaceId,
-                Name = item.Name,
-                AssetType = item.AssetType,
-                UsableInScene = item.UsableInScene,
-                CanViewDirectly = item.CanViewDirectly,
-                ResolvedFrom = item.ResolvedFrom.ToString(),
-            };
-
-        public static SceneAssetsResponse MapToResponse(this IEnumerable<SceneAssetContextItem> items) =>
-            new()
-            {
-                Assets = items.Select(static item => item.MapToResponse()).ToList(),
-            };
 
         public static GroupsResponse MapToResponse(this List<Group> groups)
         {

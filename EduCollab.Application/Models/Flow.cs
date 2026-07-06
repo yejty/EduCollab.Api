@@ -11,5 +11,6 @@ namespace EduCollab.Application.Models
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public List<int> GroupIds { get; set; } = new();
+        public List<int> SceneIds { get; set; } = new();
     }
 }

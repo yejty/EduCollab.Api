@@ -34,7 +34,7 @@ internal static class AssetTestHelpers
     {
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(name), "name");
-        form.Add(new StringContent(groupId.ToString()), "groupId");
+        form.Add(new StringContent(groupId.ToString()), "groupIds");
 
         if (!string.IsNullOrWhiteSpace(description))
             form.Add(new StringContent(description), "description");

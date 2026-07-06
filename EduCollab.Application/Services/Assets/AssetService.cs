@@ -285,7 +285,7 @@ namespace EduCollab.Application.Services.Assets
             EnsureCanCreateAsset(membership);
             var userId = RequireCurrentUserId();
 
-            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(asset.GroupId, groupIds.ToList());
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
             await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                 _groupRepository,
                 _groupAccessResolver,
@@ -478,7 +478,7 @@ namespace EduCollab.Application.Services.Assets
 
             if (groupIds is not null)
             {
-                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(asset.GroupId, groupIds.ToList());
+                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
                 await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                     _groupRepository,
                     _groupAccessResolver,
@@ -730,7 +730,7 @@ namespace EduCollab.Application.Services.Assets
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
 
-            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(0, groupIds.ToList());
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
             await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                 _groupRepository,
                 _groupAccessResolver,

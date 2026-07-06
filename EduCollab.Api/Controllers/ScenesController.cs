@@ -62,7 +62,7 @@ namespace EduCollab.Api.Controllers
         /// Send <c>jsonContent</c> inline in the JSON body. Scene objects reference workspace assets via an <c>assetId</c>
         /// property anywhere in the JSON tree. Use <see cref="CreateSceneFromForm"/> to upload a <c>.json</c> file instead.
         /// </remarks>
-        /// <param name="request">Scene creation payload including target <c>groupId</c> and inline <c>jsonContent</c>.</param>
+        /// <param name="request">Scene creation payload including target <c>groupIds</c> and inline <c>jsonContent</c>.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="201">Scene was created.</response>
         /// <response code="400">Scene could not be created or references an invalid asset.</response>
@@ -82,7 +82,7 @@ namespace EduCollab.Api.Controllers
 
             var scene = request.MapToScene();
 
-            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupId, request.GroupIds);
+            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupIds);
 
             var created = await _sceneService.CreateSceneAsync(scene, groupIds, cancellationToken);
 
@@ -159,8 +159,6 @@ namespace EduCollab.Api.Controllers
                 Name = request.Name.Trim(),
 
                 Description = request.Description,
-
-                GroupId = request.GroupId,
 
                 GroupIds = request.GroupIds,
 
@@ -337,8 +335,6 @@ namespace EduCollab.Api.Controllers
             var scene = request.MapToScene(sceneId);
 
             var groupIdsToApply = request.GroupIds;
-            if (groupIdsToApply is null && request.GroupId > 0)
-                groupIdsToApply = new List<int> { request.GroupId };
 
             var updated = await _sceneService.UpdateSceneAsync(scene, groupIdsToApply, cancellationToken);
 
@@ -414,7 +410,7 @@ namespace EduCollab.Api.Controllers
 
                 Description = request.Description,
 
-                GroupId = request.GroupId,
+                GroupIds = request.GroupIds,
 
                 JsonContent = SceneFormContentResolver.ParseJsonContent(jsonContent),
 

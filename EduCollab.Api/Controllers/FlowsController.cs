@@ -35,8 +35,9 @@ namespace EduCollab.Api.Controllers
         public async Task<IActionResult> CreateFlow([FromBody] CreateFlowRequest request, CancellationToken cancellationToken)
         {
             var flow = request.MapToFlow();
-            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupId, request.GroupIds);
-            var created = await _flowService.CreateFlowAsync(flow, groupIds, cancellationToken);
+            var groupIds = ResourceGroupPlacement.ResolveGroupIds(request.GroupIds);
+            var sceneIds = request.SceneIds;
+            var created = await _flowService.CreateFlowAsync(flow, groupIds, sceneIds, cancellationToken);
             if (!created)
                 return ApiBadRequest("creation_failed", "Flow could not be created.");
 
@@ -137,10 +138,9 @@ namespace EduCollab.Api.Controllers
         {
             var flow = request.MapToFlow(flowId);
             var groupIdsToApply = request.GroupIds;
-            if (groupIdsToApply is null && request.GroupId > 0)
-                groupIdsToApply = new List<int> { request.GroupId };
+            var sceneIdsToApply = request.SceneIds;
 
-            var updated = await _flowService.UpdateFlowAsync(flow, groupIdsToApply, cancellationToken);
+            var updated = await _flowService.UpdateFlowAsync(flow, groupIdsToApply, sceneIdsToApply, cancellationToken);
             if (updated is null)
                 return ApiNotFound("update_failed", "Flow was not found.");
 

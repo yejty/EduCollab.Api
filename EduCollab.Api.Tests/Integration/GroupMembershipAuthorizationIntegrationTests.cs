@@ -36,7 +36,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Role = "Manager",
+            Preset = "manager",
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -95,17 +95,17 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             "Group Membership Auth Workspace",
             "Group membership authorization test");
 
-        foreach (var (email, role, client, first, last) in new[]
+        foreach (var (email, preset, client, first, last) in new[]
         {
-            (managerEmail, "Manager", managerClient, "Workspace", "Manager"),
-            (viewerEmail, "Viewer", viewerClient, "Workspace", "Viewer"),
+            (managerEmail, "manager", managerClient, "Workspace", "Manager"),
+            (viewerEmail, "viewer", viewerClient, "Workspace", "Viewer"),
         })
         {
             factory.EmailSender.Clear();
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Role = role,
+                Preset = preset,
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -174,7 +174,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Role = "Manager",
+            Preset = "manager",
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 

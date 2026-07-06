@@ -10,17 +10,13 @@ namespace EduCollab.Application.Services.Flows
 {
     public interface IFlowService
     {
-        Task<bool> CreateFlowAsync(Flow flow, IReadOnlyList<int> groupIds, CancellationToken cancellationToken);
+        Task<bool> CreateFlowAsync(Flow flow, IReadOnlyList<int> groupIds, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken);
         Task<List<Flow>> GetAllFlowsAsync(CancellationToken cancellationToken);
         Task<List<Flow>> GetMyFlowsAsync(CancellationToken cancellationToken);
         Task<List<Flow>> GetFlowsInGroupAsync(int groupId, CancellationToken cancellationToken);
         Task<Flow?> GetFlowByIdAsync(int flowId, CancellationToken cancellationToken);
-        Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken);
+        Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? groupIds, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken);
         Task<bool> DeleteFlowAsync(int flowId, CancellationToken cancellationToken);
-        Task<List<FlowSceneContextItem>> GetFlowScenesAsync(int flowId, CancellationToken cancellationToken);
-        Task<FlowSceneContextItem?> AttachFlowSceneAsync(int flowId, int sceneId, CancellationToken cancellationToken);
-        Task<bool> DetachFlowSceneAsync(int flowId, int sceneId, CancellationToken cancellationToken);
-        Task<string?> GetFlowSceneContentAsync(int flowId, int sceneId, CancellationToken cancellationToken);
         Task<bool> CanCurrentUserManageFlowAsync(int ownerUserId, CancellationToken cancellationToken);
         Task<List<int>> GetFlowGroupIdsAsync(int flowId, CancellationToken cancellationToken);
         Task<List<int>?> SetFlowGroupIdsAsync(int flowId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken);
@@ -30,11 +26,8 @@ namespace EduCollab.Application.Services.Flows
 
     public class FlowService : IFlowService
     {
-        private const string EmptySceneJson = "{}";
-
         private readonly IFlowRepository _flowRepository;
         private readonly ISceneRepository _sceneRepository;
-        private readonly ISceneContentStore _sceneContentStore;
         private readonly IGroupRepository _groupRepository;
         private readonly IGroupAccessResolver _groupAccessResolver;
         private readonly IWorkspaceRepository _workspaceRepository;
@@ -44,7 +37,6 @@ namespace EduCollab.Application.Services.Flows
         public FlowService(
             IFlowRepository flowRepository,
             ISceneRepository sceneRepository,
-            ISceneContentStore sceneContentStore,
             IGroupRepository groupRepository,
             IGroupAccessResolver groupAccessResolver,
             IWorkspaceRepository workspaceRepository,
@@ -53,39 +45,11 @@ namespace EduCollab.Application.Services.Flows
         {
             _flowRepository = flowRepository;
             _sceneRepository = sceneRepository;
-            _sceneContentStore = sceneContentStore;
             _groupRepository = groupRepository;
             _groupAccessResolver = groupAccessResolver;
             _workspaceRepository = workspaceRepository;
             _userRepository = userRepository;
             _currentUser = currentUser;
-        }
-
-        private async Task<string?> LoadSceneContentAsync(
-            int workspaceId,
-            int sceneId,
-            string? legacyJsonContent,
-            CancellationToken cancellationToken)
-        {
-            var storedContent = await _sceneContentStore.GetAsync(workspaceId, sceneId, cancellationToken);
-            if (storedContent is not null)
-                return storedContent;
-
-            if (string.IsNullOrWhiteSpace(legacyJsonContent) || legacyJsonContent == EmptySceneJson)
-                return null;
-
-            await _sceneContentStore.SaveAsync(workspaceId, sceneId, legacyJsonContent, cancellationToken);
-            return legacyJsonContent;
-        }
-
-        private async Task<bool> IsSceneAttachedToFlowAsync(
-            int workspaceId,
-            int flowId,
-            int sceneId,
-            CancellationToken cancellationToken)
-        {
-            var links = await _flowRepository.GetFlowSceneLinksAsync(workspaceId, flowId, cancellationToken);
-            return links.Any(link => link.SceneId == sceneId);
         }
 
         private int RequireCurrentUserId()
@@ -161,7 +125,33 @@ namespace EduCollab.Application.Services.Flows
             throw new AccessDeniedException("You do not have permission to manage this flow.");
         }
 
-        public async Task<bool> CreateFlowAsync(Flow flow, IReadOnlyList<int> groupIds, CancellationToken cancellationToken)
+        private async Task PopulateFlowSceneIdsAsync(int workspaceId, Flow flow, CancellationToken cancellationToken)
+        {
+            var links = await _flowRepository.GetFlowSceneLinksAsync(workspaceId, flow.Id, cancellationToken);
+            flow.SceneIds = links.Select(link => link.SceneId).ToList();
+        }
+
+        private async Task EnsureValidFlowSceneReferencesAsync(
+            int workspaceId,
+            IReadOnlyList<int> sceneIds,
+            CancellationToken cancellationToken)
+        {
+            if (sceneIds.Count == 0)
+                return;
+
+            var invalidReferences = new List<InvalidSceneReference>();
+            foreach (var sceneId in sceneIds.Distinct())
+            {
+                var scene = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
+                if (scene is null)
+                    invalidReferences.Add(new InvalidSceneReference(sceneId, "Scene was not found in this workspace."));
+            }
+
+            if (invalidReferences.Count > 0)
+                throw new InvalidSceneReferenceException(invalidReferences);
+        }
+
+        public async Task<bool> CreateFlowAsync(Flow flow, IReadOnlyList<int> groupIds, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(flow);
 
@@ -170,7 +160,7 @@ namespace EduCollab.Application.Services.Flows
                 throw new AccessDeniedException("Viewers have read-only access to flows.");
 
             var userId = RequireCurrentUserId();
-            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(flow.GroupId, groupIds.ToList());
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
             await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                 _groupRepository,
                 _groupAccessResolver,
@@ -179,6 +169,9 @@ namespace EduCollab.Application.Services.Flows
                 membership,
                 userId,
                 cancellationToken);
+
+            var resolvedSceneIds = sceneIds?.ToList() ?? [];
+            await EnsureValidFlowSceneReferencesAsync(workspaceId, resolvedSceneIds, cancellationToken);
 
             flow.WorkspaceId = workspaceId;
             flow.GroupId = ResourceGroupPlacement.PrimaryGroupId(resolvedGroupIds);
@@ -200,6 +193,10 @@ namespace EduCollab.Application.Services.Flows
                 await _flowRepository.SyncFlowPrimaryGroupIdAsync(workspaceId, id, cancellationToken);
             }
 
+            if (resolvedSceneIds.Count > 0)
+                await _flowRepository.ReplaceFlowSceneLinksAsync(workspaceId, id, resolvedSceneIds, userId, cancellationToken);
+
+            flow.SceneIds = resolvedSceneIds;
             return true;
         }
 
@@ -258,12 +255,14 @@ namespace EduCollab.Application.Services.Flows
 
             var userId = RequireCurrentUserId();
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            return WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds)
-                ? flow
-                : null;
+            if (!WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+                return null;
+
+            await PopulateFlowSceneIdsAsync(workspaceId, flow, cancellationToken);
+            return flow;
         }
 
-        public async Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken)
+        public async Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? groupIds, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(flow);
             if (flow.Id <= 0)
@@ -276,19 +275,28 @@ namespace EduCollab.Application.Services.Flows
 
             await EnsureCanManageFlowAsync(existing.OwnerUserId, cancellationToken);
 
+            var userId = RequireCurrentUserId();
+
             if (groupIds is not null)
             {
-                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(flow.GroupId, groupIds.ToList());
+                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
                 await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                     _groupRepository,
                     _groupAccessResolver,
                     workspaceId,
                     resolvedGroupIds,
                     membership,
-                    RequireCurrentUserId(),
+                    userId,
                     cancellationToken);
                 await _flowRepository.ReplaceFlowGroupSharesAsync(workspaceId, flow.Id, resolvedGroupIds, cancellationToken);
                 await _flowRepository.SyncFlowPrimaryGroupIdAsync(workspaceId, flow.Id, cancellationToken);
+            }
+
+            if (sceneIds is not null)
+            {
+                var resolvedSceneIds = sceneIds.ToList();
+                await EnsureValidFlowSceneReferencesAsync(workspaceId, resolvedSceneIds, cancellationToken);
+                await _flowRepository.ReplaceFlowSceneLinksAsync(workspaceId, flow.Id, resolvedSceneIds, userId, cancellationToken);
             }
 
             existing.Name = RequireTrimmed(flow.Name, nameof(flow.Name));
@@ -299,6 +307,7 @@ namespace EduCollab.Application.Services.Flows
                 return null;
 
             await ContentGroupShareOperations.PopulateFlowGroupIdsAsync(_flowRepository, workspaceId, updated, cancellationToken);
+            await PopulateFlowSceneIdsAsync(workspaceId, updated, cancellationToken);
             return updated;
         }
 
@@ -315,142 +324,6 @@ namespace EduCollab.Application.Services.Flows
             await EnsureCanManageFlowAsync(existing.OwnerUserId, cancellationToken);
             return await _flowRepository.DeleteFlowAsync(workspaceId, flowId, cancellationToken);
         }
-
-        public async Task<List<FlowSceneContextItem>> GetFlowScenesAsync(int flowId, CancellationToken cancellationToken)
-        {
-            if (flowId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(flowId));
-
-            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var userId = RequireCurrentUserId();
-            var flow = await GetFlowByIdAsync(flowId, cancellationToken);
-            if (flow is null)
-                throw new KeyNotFoundException("Flow not found.");
-
-            var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            var canSeeAll = WorkspaceRolePermissions.CanSeeAllContent(membership.Role);
-            var links = await _flowRepository.GetFlowSceneLinksAsync(workspaceId, flowId, cancellationToken);
-
-            var items = new List<FlowSceneContextItem>();
-            foreach (var link in links)
-            {
-                var scene = await _sceneRepository.GetSceneByIdAsync(workspaceId, link.SceneId, cancellationToken);
-                if (scene is null)
-                    continue;
-
-                await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scene, cancellationToken);
-                items.Add(BuildFlowSceneContextItem(flowId, workspaceId, scene, userId, canSeeAll, accessibleGroupIds));
-            }
-
-            return items
-                .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(item => item.SceneId)
-                .ToList();
-        }
-
-        public async Task<FlowSceneContextItem?> AttachFlowSceneAsync(int flowId, int sceneId, CancellationToken cancellationToken)
-        {
-            if (flowId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(flowId));
-            if (sceneId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(sceneId));
-
-            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var userId = RequireCurrentUserId();
-            var flow = await _flowRepository.GetFlowByIdAsync(workspaceId, flowId, cancellationToken);
-            if (flow is null)
-                return null;
-
-            await EnsureCanManageFlowAsync(flow.OwnerUserId, cancellationToken);
-
-            var scene = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
-            if (scene is null)
-                return null;
-
-            await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scene, cancellationToken);
-
-            var link = new FlowSceneLink
-            {
-                FlowId = flowId,
-                SceneId = sceneId,
-                CreatedByUserId = userId,
-                CreatedAtUtc = DateTime.UtcNow
-            };
-
-            var created = await _flowRepository.CreateFlowSceneLinkAsync(workspaceId, link, cancellationToken);
-            if (created is null)
-            {
-                var existingLinks = await _flowRepository.GetFlowSceneLinksAsync(workspaceId, flowId, cancellationToken);
-                if (!existingLinks.Any(existing => existing.SceneId == sceneId))
-                    return null;
-            }
-
-            var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            return BuildFlowSceneContextItem(
-                flowId,
-                workspaceId,
-                scene,
-                userId,
-                WorkspaceRolePermissions.CanSeeAllContent(membership.Role),
-                accessibleGroupIds);
-        }
-
-        public async Task<bool> DetachFlowSceneAsync(int flowId, int sceneId, CancellationToken cancellationToken)
-        {
-            if (flowId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(flowId));
-            if (sceneId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(sceneId));
-
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            var flow = await _flowRepository.GetFlowByIdAsync(workspaceId, flowId, cancellationToken);
-            if (flow is null)
-                return false;
-
-            await EnsureCanManageFlowAsync(flow.OwnerUserId, cancellationToken);
-            return await _flowRepository.DeleteFlowSceneLinkAsync(workspaceId, flowId, sceneId, cancellationToken);
-        }
-
-        public async Task<string?> GetFlowSceneContentAsync(int flowId, int sceneId, CancellationToken cancellationToken)
-        {
-            if (flowId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(flowId));
-            if (sceneId <= 0)
-                throw new ArgumentOutOfRangeException(nameof(sceneId));
-
-            var flow = await GetFlowByIdAsync(flowId, cancellationToken);
-            if (flow is null)
-                return null;
-
-            if (!await IsSceneAttachedToFlowAsync(flow.WorkspaceId, flowId, sceneId, cancellationToken))
-                return null;
-
-            var scene = await _sceneRepository.GetSceneByIdAsync(flow.WorkspaceId, sceneId, cancellationToken);
-            if (scene is null)
-                return null;
-
-            return await LoadSceneContentAsync(flow.WorkspaceId, sceneId, scene.JsonContent, cancellationToken)
-                ?? EmptySceneJson;
-        }
-
-        private static FlowSceneContextItem BuildFlowSceneContextItem(
-            int flowId,
-            int workspaceId,
-            Scene scene,
-            int userId,
-            bool canSeeAll,
-            IReadOnlySet<int> accessibleGroupIds) =>
-            new()
-            {
-                SceneId = scene.Id,
-                FlowId = flowId,
-                WorkspaceId = workspaceId,
-                Name = scene.Name,
-                GroupId = scene.GroupId,
-                UsableInFlow = true,
-                CanViewDirectly = WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, canSeeAll, accessibleGroupIds),
-                ResolvedFrom = FlowSceneResolvedFrom.FlowAttachment
-            };
 
         public async Task<bool> CanCurrentUserManageFlowAsync(int ownerUserId, CancellationToken cancellationToken)
         {
@@ -491,7 +364,7 @@ namespace EduCollab.Application.Services.Flows
 
             await EnsureCanManageFlowAsync(existing.OwnerUserId, cancellationToken);
 
-            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(0, groupIds.ToList());
+            var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
             await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
                 _groupRepository,
                 _groupAccessResolver,

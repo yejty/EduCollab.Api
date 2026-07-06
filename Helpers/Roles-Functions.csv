@@ -1,0 +1,20 @@
+;owner;manager;creator;viewer
+edit workspace;TRUE;FALSE;FALSE;FALSE
+see groups tab;TRUE;TRUE;FALSE;FALSE
+add groups;TRUE;TRUE;FALSE;FALSE
+see users tab;TRUE;TRUE;FALSE;FALSE
+invite users;TRUE;TRUE;FALSE;FALSE
+add assets;TRUE;TRUE;TRUE;FALSE
+add scenes;TRUE;TRUE;TRUE;FALSE
+add flows;TRUE;TRUE;TRUE;FALSE
+create sessions;TRUE;TRUE;TRUE;FALSE
+load assets;TRUE;TRUE;TRUE;FALSE
+load scenes;TRUE;TRUE;TRUE;TRUE
+editor / outliner panel;TRUE;TRUE;TRUE;FALSE
+editor / sequencer panel;TRUE;TRUE;TRUE;FALSE
+editor / actions panel;TRUE;TRUE;TRUE;FALSE
+editor / details panel;TRUE;TRUE;TRUE;FALSE
+editor / console panel;TRUE;TRUE;TRUE;FALSE
+editor / catalog panel;TRUE;TRUE;TRUE;FALSE
+editor / UI editor;TRUE;TRUE;TRUE;FALSE
+editor / transform tools;TRUE;TRUE;TRUE;FALSE
