@@ -6,6 +6,6 @@
         public int WorkspaceId { get; set; }
         public WorkspaceRole Role { get; set; }
         public DateTime JoinedAtUtc { get; set; }
+        public IReadOnlySet<string> Presets { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 }
-

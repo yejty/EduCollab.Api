@@ -28,11 +28,12 @@ namespace EduCollab.Application.Repositories
 
         Task RevokePendingWorkspaceInvitationsAsync(int workspaceId, string email, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken);
 
-        Task InsertWorkspaceInvitationAsync(
+        Task<long> InsertWorkspaceInvitationAsync(
             int workspaceId,
             string email,
             string tokenHashSha256Hex,
             WorkspaceRole role,
+            IReadOnlySet<string> presets,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,

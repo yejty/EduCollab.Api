@@ -218,7 +218,7 @@ namespace EduCollab.Application.Services.Workspaces
                 cancellationToken);
         }
 
-        public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, WorkspaceRole role, CancellationToken cancellationToken)
+        public async Task InviteUserToWorkspaceAsync(int workspaceId, string email, IReadOnlySet<string> presets, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(email))
                 throw new ArgumentException($"'{nameof(email)}' cannot be null or empty.", nameof(email));
@@ -229,6 +229,7 @@ namespace EduCollab.Application.Services.Workspaces
             var inviterUserId = RequireCurrentUserId();
 
             var normalizedEmail = email.Trim();
+            var assignedRole = WorkspacePermissionPresets.DeriveRole(presets);
 
             var workspace = await _workspaceRepository.GetWorkspaceByIdAsync(workspaceId, cancellationToken);
             if (workspace is null)
@@ -238,10 +239,10 @@ namespace EduCollab.Application.Services.Workspaces
             if (inviterMember is null)
                 throw new UnauthorizedAccessException("You are not a member of this workspace.");
 
-            if (!WorkspaceRolePermissions.CanInviteUsers(inviterMember.Role))
+            if (!WorkspacePresetPermissions.CanInviteUsers(inviterMember))
                 throw new UnauthorizedAccessException("Only workspace owners and managers can send invitations.");
 
-            EnsureInviterCanAssignPreset(inviterMember.Role, role);
+            EnsureInviterCanAssignPresets(inviterMember, presets, assignedRole);
 
             var existingCred = await _userRepository.GetCredentialByEmailAsync(normalizedEmail, cancellationToken);
             if (existingCred is not null
@@ -266,7 +267,8 @@ namespace EduCollab.Application.Services.Workspaces
                 workspaceId,
                 normalizedEmail,
                 tokenHash,
-                role,
+                assignedRole,
+                presets,
                 expiresAt,
                 now,
                 inviterUserId,
@@ -307,29 +309,46 @@ namespace EduCollab.Application.Services.Workspaces
             }
         }
 
-        public async Task InviteUserToCurrentWorkspaceAsync(string email, WorkspaceRole role, CancellationToken cancellationToken)
+        public async Task InviteUserToCurrentWorkspaceAsync(string email, IReadOnlySet<string> presets, CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspaceRolePermissions.CanInviteUsers(membership.Role))
+            if (!WorkspacePresetPermissions.CanInviteUsers(membership))
             {
                 throw new AccessDeniedException("Only workspace owners and managers can send invitations.");
             }
 
-            await InviteUserToWorkspaceAsync(workspaceId, email, role, cancellationToken);
+            await InviteUserToWorkspaceAsync(workspaceId, email, presets, cancellationToken);
+        }
+
+        private static void EnsureInviterCanAssignPresets(
+            WorkspaceMember inviterMember,
+            IReadOnlySet<string> assignedPresets,
+            WorkspaceRole assignedRole)
+        {
+            EnsureInviterCanAssignPreset(inviterMember.Role, assignedRole);
+
+            var inviterPresets = WorkspacePermissionPresets.ResolveMemberPresetKeys(inviterMember);
+            foreach (var presetKey in assignedPresets)
+            {
+                if (!inviterPresets.Contains(presetKey))
+                {
+                    throw new AccessDeniedException($"You cannot assign the '{presetKey}' preset because you do not have it.");
+                }
+            }
         }
 
         private static void EnsureInviterCanAssignPreset(WorkspaceRole inviterRole, WorkspaceRole assignedRole)
         {
-            var assignedPreset = WorkspacePermissionPresets.ToPresetKey(assignedRole);
+            var assignedRoleKey = WorkspacePermissionPresets.ToRoleKey(assignedRole);
 
             if (assignedRole == WorkspaceRole.Owner && inviterRole != WorkspaceRole.Owner)
             {
-                throw new AccessDeniedException("Only the workspace owner can assign the owner preset.");
+                throw new AccessDeniedException("Only the workspace owner can assign presets that resolve to the owner role.");
             }
 
             if (inviterRole == WorkspaceRole.Manager && assignedRole is WorkspaceRole.Owner or WorkspaceRole.Manager)
             {
-                throw new AccessDeniedException($"Managers can only invite users with the creator or viewer preset, not '{assignedPreset}'.");
+                throw new AccessDeniedException($"Managers can only assign presets that resolve to creator, viewer, or custom roles, not '{assignedRoleKey}'.");
             }
         }
 
@@ -398,7 +417,7 @@ namespace EduCollab.Application.Services.Workspaces
                 return false;
             }
 
-            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
+            if (!WorkspacePresetPermissions.CanManageWorkspace(membership))
             {
                 throw new AccessDeniedException("Only the workspace owner can update the workspace.");
             }
@@ -462,7 +481,7 @@ namespace EduCollab.Application.Services.Workspaces
             if (membership is null)
                 return false;
 
-            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
+            if (!WorkspacePresetPermissions.CanManageWorkspace(membership))
                 throw new AccessDeniedException("Only the workspace owner can delete the workspace.");
 
             return await _workspaceRepository.SoftDeleteWorkspaceAsync(workspaceId, userId, DateTimeOffset.UtcNow, cancellationToken);
@@ -509,7 +528,7 @@ namespace EduCollab.Application.Services.Workspaces
                 return;
             }
 
-            if (actorMember.Role == WorkspaceRole.Viewer || actorMember.Role == WorkspaceRole.Creator)
+            if (!WorkspacePresetPermissions.CanInviteUsers(actorMember))
                 throw new AccessDeniedException("Only workspace owners and managers can remove other members.");
 
             if (targetMember.Role == WorkspaceRole.Owner)
@@ -553,10 +572,12 @@ namespace EduCollab.Application.Services.Workspaces
                 throw new AccessDeniedException("You are not a member of this workspace.");
             }
 
-            if (actorMember.Role is WorkspaceRole.Viewer or WorkspaceRole.Creator)
+            if (!WorkspacePresetPermissions.CanInviteUsers(actorMember))
             {
-                throw new AccessDeniedException("Only workspace owners and managers can change member roles.");
+                throw new AccessDeniedException("Only workspace owners and managers can change member presets.");
             }
+
+            EnsureInviterCanAssignPresets(actorMember, member.Presets, member.Role);
 
             if (member.Role == WorkspaceRole.Owner && actorMember.Role != WorkspaceRole.Owner)
             {

@@ -3373,7 +3373,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022preset\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022presets\u0022: [\r\n    \u0022string\u0022\r\n  ]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3480,7 +3480,7 @@
           }
         },
         {
-          "name": "Lists workspace permission presets and their granted functions.",
+          "name": "Lists all workspace permission preset keys and role shortcuts.",
           "request": {
             "method": "GET",
             "header": [
@@ -3690,7 +3690,7 @@
           }
         },
         {
-          "name": "Update a workspace member role.",
+          "name": "Update a workspace member preset.",
           "request": {
             "method": "PUT",
             "header": [
@@ -3717,7 +3717,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022preset\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\r\n  \u0022presets\u0022: [\r\n    \u0022string\u0022\r\n  ]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"

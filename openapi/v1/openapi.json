@@ -4810,7 +4810,7 @@
         "tags": [
           "Workspaces"
         ],
-        "summary": "Lists workspace permission presets and their granted functions.",
+        "summary": "Lists all workspace permission preset keys and role shortcuts.",
         "responses": {
           "200": {
             "description": "Preset catalog returned.",
@@ -5403,7 +5403,7 @@
         "tags": [
           "Workspaces"
         ],
-        "summary": "Update a workspace member role.",
+        "summary": "Update a workspace member preset.",
         "parameters": [
           {
             "name": "userId",
@@ -7116,7 +7116,7 @@
       "InviteUserRequest": {
         "required": [
           "email",
-          "preset"
+          "presets"
         ],
         "type": "object",
         "properties": {
@@ -7126,9 +7126,12 @@
             "type": "string",
             "format": "email"
           },
-          "preset": {
-            "minLength": 1,
-            "type": "string"
+          "presets": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -7572,13 +7575,16 @@
       },
       "UpdateWorkspaceMemberRequest": {
         "required": [
-          "preset"
+          "presets"
         ],
         "type": "object",
         "properties": {
-          "preset": {
-            "minLength": 1,
-            "type": "string"
+          "presets": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -7729,12 +7735,16 @@
             "type": "integer",
             "format": "int32"
           },
-          "preset": {
-            "type": "string",
+          "presets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           },
-          "isRole": {
-            "type": "boolean"
+          "role": {
+            "type": "string",
+            "nullable": true
           },
           "joinedAt": {
             "type": "string",
@@ -7769,7 +7779,7 @@
         },
         "additionalProperties": false
       },
-      "WorkspacePermissionItemResponse": {
+      "WorkspacePermissionPresetResponse": {
         "type": "object",
         "properties": {
           "key": {
@@ -7778,29 +7788,6 @@
           },
           "label": {
             "type": "string",
-            "nullable": true
-          },
-          "granted": {
-            "type": "boolean"
-          }
-        },
-        "additionalProperties": false
-      },
-      "WorkspacePermissionPresetResponse": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "nullable": true
-          },
-          "isRole": {
-            "type": "boolean"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkspacePermissionItemResponse"
-            },
             "nullable": true
           }
         },
@@ -7813,6 +7800,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WorkspacePermissionPresetResponse"
+            },
+            "nullable": true
+          },
+          "roleShortcuts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceRoleShortcutResponse"
             },
             "nullable": true
           }
@@ -7852,6 +7846,23 @@
           },
           "isArchived": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkspaceRoleShortcutResponse": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "presets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

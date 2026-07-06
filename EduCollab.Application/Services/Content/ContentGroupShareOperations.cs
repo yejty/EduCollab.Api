@@ -123,7 +123,7 @@ namespace EduCollab.Application.Services.Content
                 if (group is null)
                     throw new KeyNotFoundException("Group not found.");
 
-                if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                if (WorkspacePresetPermissions.CanSeeAllContent(membership))
                     continue;
 
                 if (await groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
@@ -141,7 +141,7 @@ namespace EduCollab.Application.Services.Content
             int legacyGroupId,
             IReadOnlySet<int> accessibleGroupIds)
         {
-            if (membership.Role != WorkspaceRole.Manager)
+            if (!WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership))
                 return false;
 
             if (ownerUserId == userId)

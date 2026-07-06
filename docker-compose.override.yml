@@ -19,8 +19,8 @@ services:
       Email__Password: ""
       Email__FromAddress: noreply@educollab.local
       Email__FromDisplayName: EduCollab (dev)
-      WorkspaceInvitation__FrontendAcceptUrl: http://localhost:3000/workspace/join
-      EmailConfirmation__FrontendConfirmUrl: http://localhost:3000/auth/confirm-email
+      WorkspaceInvitation__FrontendAcceptUrl: http://localhost:8080/workspace/join
+      EmailConfirmation__FrontendConfirmUrl: http://localhost:8080/auth/confirm-email
       WorkspaceCreationApproval__AdminReviewUrlBase: http://localhost:8080/api/workspace-creation-review
     ports:
       - "8080:8080"

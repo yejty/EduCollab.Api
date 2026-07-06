@@ -242,7 +242,28 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static WorkspacePermissionPresetsResponse MapToResponse(this IEnumerable<WorkspacePermissionPreset> presets)
+        public static WorkspacePermissionPresetsResponse MapCatalogToResponse()
+        {
+            return new WorkspacePermissionPresetsResponse
+            {
+                Presets = WorkspacePermissionPresets.Catalog.Select(p => p.MapToResponse()).ToList(),
+                RoleShortcuts = WorkspacePermissionPresets.RoleShortcutKeys
+                    .Select(shortcutKey =>
+                    {
+                        var role = Enum.Parse<WorkspaceRole>(shortcutKey, ignoreCase: true);
+                        return new WorkspaceRoleShortcutResponse
+                        {
+                            Key = shortcutKey,
+                            Presets = WorkspacePermissionPresets.GetPresetKeysForRole(role)
+                                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                                .ToList(),
+                        };
+                    })
+                    .ToList(),
+            };
+        }
+
+        public static WorkspacePermissionPresetsResponse MapToResponse(this IEnumerable<WorkspacePermissionDefinition> presets)
         {
             return new WorkspacePermissionPresetsResponse
             {
@@ -250,31 +271,26 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static WorkspacePermissionPresetResponse MapToResponse(this WorkspacePermissionPreset preset)
+        public static WorkspacePermissionPresetResponse MapToResponse(this WorkspacePermissionDefinition preset)
         {
             return new WorkspacePermissionPresetResponse
             {
                 Key = preset.Key,
-                IsRole = preset.IsRole,
-                Permissions = WorkspacePermissionPresets.AllPermissions
-                    .Select(permission => new WorkspacePermissionItemResponse
-                    {
-                        Key = permission.Key,
-                        Label = permission.Label,
-                        Granted = preset.GrantedPermissionKeys.Contains(permission.Key),
-                    })
-                    .ToList(),
+                Label = preset.Label,
             };
         }
 
         public static WorkspaceMemberResponse MapToResponse(this WorkspaceMember workspaceMember)
         {
-            var preset = WorkspacePermissionPresets.FromWorkspaceRole(workspaceMember.Role);
+            var presets = WorkspacePermissionPresets.ResolveMemberPresetKeys(workspaceMember)
+                .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             return new WorkspaceMemberResponse
             {
                 UserId = workspaceMember.UserId,
-                Preset = preset.Key,
-                IsRole = preset.IsRole,
+                Presets = presets,
+                Role = WorkspacePermissionPresets.ToRoleKey(WorkspacePermissionPresets.ResolveMemberRole(workspaceMember)),
                 JoinedAt = workspaceMember.JoinedAtUtc
             };
         }
@@ -311,16 +327,17 @@ namespace EduCollab.Api.Mapping
 
         public static WorkspaceMember MapToWorkspaceMember(this UpdateWorkspaceMemberRequest request, int id, int userId)
         {
-            if (!WorkspacePermissionPresets.TryToWorkspaceRole(request.Preset, out var role))
+            if (!WorkspacePermissionPresets.TryNormalizeKeys(request.Presets, out var presets, out var error))
             {
-                throw new ArgumentException($"Invalid workspace preset '{request.Preset}'.");
+                throw new ArgumentException(error ?? "Invalid workspace presets.");
             }
 
             return new WorkspaceMember
             {
                 UserId = userId,
                 WorkspaceId = id,
-                Role = role
+                Presets = presets,
+                Role = WorkspacePermissionPresets.DeriveRole(presets),
             };
         }
 

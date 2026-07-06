@@ -1,4 +1,5 @@
 using Dapper;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -332,6 +333,26 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkspaceInvitations_TokenHash ON WorkspaceInvitations (TokenHash);");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_Email ON WorkspaceInvitations (Email);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceMemberPresets (
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    PresetKey VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (WorkspaceId, UserId, PresetKey)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceMemberPresets_WorkspaceUser ON WorkspaceMemberPresets (WorkspaceId, UserId);");
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS WorkspaceInvitationPresets (
+                    InvitationId BIGINT NOT NULL REFERENCES WorkspaceInvitations(Id) ON DELETE CASCADE,
+                    PresetKey VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (InvitationId, PresetKey)
+                );
+                """);
+            await BackfillWorkspaceMemberPresetsAsync(connection);
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS EmailConfirmedAtUtc TIMESTAMPTZ NULL;");
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS IsPlatformAdmin BOOLEAN NOT NULL DEFAULT FALSE;");
             await connection.ExecuteAsync(
@@ -723,6 +744,31 @@ namespace EduCollab.Infrastructure.Database
                 ALTER TABLE Flows
                 ALTER COLUMN GroupId DROP NOT NULL;
                 """);
+        }
+
+        private static async Task BackfillWorkspaceMemberPresetsAsync(System.Data.IDbConnection connection)
+        {
+            foreach (var role in new[] { WorkspaceRole.Owner, WorkspaceRole.Manager, WorkspaceRole.Creator, WorkspaceRole.Viewer })
+            {
+                var roleName = role.ToString();
+                foreach (var presetKey in WorkspacePermissionPresets.GetPresetKeysForRole(role))
+                {
+                    await connection.ExecuteAsync(
+                        """
+                        INSERT INTO WorkspaceMemberPresets (WorkspaceId, UserId, PresetKey)
+                        SELECT wm.WorkspaceId, wm.UserId, @PresetKey
+                        FROM WorkspaceMembers wm
+                        WHERE wm.Role = @Role
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM WorkspaceMemberPresets wmp
+                              WHERE wmp.WorkspaceId = wm.WorkspaceId
+                                AND wmp.UserId = wm.UserId)
+                        ON CONFLICT DO NOTHING;
+                        """,
+                        new { Role = roleName, PresetKey = presetKey });
+                }
+            }
         }
 
         private async Task SeedPlatformAdminUserAsync(System.Data.IDbConnection connection)

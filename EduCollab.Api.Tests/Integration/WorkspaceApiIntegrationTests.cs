@@ -1,4 +1,5 @@
 using System.Net;
+using EduCollab.Application.Models;
 using System.Net.Http.Json;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
@@ -51,7 +52,7 @@ public sealed class WorkspaceApiIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
 
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
@@ -68,8 +69,8 @@ public sealed class WorkspaceApiIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
         var membership = await acceptResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("manager", membership.Preset);
-        Assert.True(membership.IsRole);
+        Assert.Equal("manager", membership.Role);
+        Assert.Contains("inviteUsers", membership.Presets);
 
         var memberTokens = await memberClient.LoginAsync(memberEmail, memberPassword);
         memberClient.SetBearerToken(memberTokens.AccessToken);
@@ -84,13 +85,13 @@ public sealed class WorkspaceApiIntegrationTests
 
         var promoteResponse = await ownerClient.PutAsJsonAsync($"/api/workspace/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
         {
-            Preset = "creator",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Creator),
         });
 
         promoteResponse.EnsureSuccessStatusCode();
         var promoted = await promoteResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("creator", promoted.Preset);
-        Assert.True(promoted.IsRole);
+        Assert.Equal("creator", promoted.Role);
+        Assert.Contains("addAssets", promoted.Presets);
 
         var memberWorkspaceResponse = await memberClient.GetAsync("/api/workspace");
         memberWorkspaceResponse.EnsureSuccessStatusCode();
@@ -137,7 +138,7 @@ public sealed class WorkspaceApiIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -148,8 +149,8 @@ public sealed class WorkspaceApiIntegrationTests
         var joinResponse = await existingUserClient.PostAsync($"/api/workspace-invitations/{invitationToken}/join", null);
         joinResponse.EnsureSuccessStatusCode();
         var membership = await joinResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("manager", membership.Preset);
-        Assert.True(membership.IsRole);
+        Assert.Equal("manager", membership.Role);
+        Assert.Contains("inviteUsers", membership.Presets);
 
         var workspaceResponse = await existingUserClient.GetAsync("/api/workspace");
         workspaceResponse.EnsureSuccessStatusCode();
@@ -183,7 +184,7 @@ public sealed class WorkspaceApiIntegrationTests
         var firstInviteResponse = await firstOwnerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "viewer",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
         });
         firstInviteResponse.EnsureSuccessStatusCode();
 
@@ -216,7 +217,7 @@ public sealed class WorkspaceApiIntegrationTests
         var secondInviteResponse = await secondOwnerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "creator",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Creator),
         });
         secondInviteResponse.EnsureSuccessStatusCode();
 
@@ -224,8 +225,8 @@ public sealed class WorkspaceApiIntegrationTests
         var joinSecondResponse = await memberClient.PostAsync($"/api/workspace-invitations/{secondInvitationToken}/join", null);
         joinSecondResponse.EnsureSuccessStatusCode();
         var secondMembership = await joinSecondResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("creator", secondMembership.Preset);
-        Assert.True(secondMembership.IsRole);
+        Assert.Equal("creator", secondMembership.Role);
+        Assert.Contains("addAssets", secondMembership.Presets);
 
         var workspacesResponse = await memberClient.GetAsync("/api/users/me/workspaces");
         workspacesResponse.EnsureSuccessStatusCode();

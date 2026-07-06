@@ -213,8 +213,8 @@ public sealed class GroupServiceMembershipAuthorizationTests
         public Task RevokePendingWorkspaceInvitationsAsync(int workspaceId, string email, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
-        public Task InsertWorkspaceInvitationAsync(int workspaceId, string email, string tokenHashSha256Hex, WorkspaceRole role, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, int invitedByUserId, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+        public Task<long> InsertWorkspaceInvitationAsync(int workspaceId, string email, string tokenHashSha256Hex, WorkspaceRole role, IReadOnlySet<string> presets, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, int invitedByUserId, CancellationToken cancellationToken) =>
+            Task.FromResult(1L);
 
         public Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(string tokenHashSha256Hex, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
             throw new NotImplementedException();

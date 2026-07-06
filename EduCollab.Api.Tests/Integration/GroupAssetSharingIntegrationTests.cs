@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
@@ -43,7 +44,7 @@ public sealed class GroupAssetSharingIntegrationTests
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Preset = "viewer",
+                Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -125,14 +126,10 @@ public sealed class GroupAssetSharingIntegrationTests
         Assert.Contains(parentSubgroups.Groups, g => g.Id == physics.Id);
 
         var parentPhysicsAssetsResponse = await parentMemberClient.GetAsync($"/api/workspace/groups/{physics.Id}/assets");
-        parentPhysicsAssetsResponse.EnsureSuccessStatusCode();
-        var parentPhysicsAssets = await parentPhysicsAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
-        Assert.Contains(parentPhysicsAssets.Assets, a => a.Id == physicsAsset.Id);
+        Assert.Equal(HttpStatusCode.Forbidden, parentPhysicsAssetsResponse.StatusCode);
 
         var parentScienceAssetsResponse = await parentMemberClient.GetAsync($"/api/workspace/groups/{science.Id}/assets");
-        parentScienceAssetsResponse.EnsureSuccessStatusCode();
-        var parentScienceAssets = await parentScienceAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
-        Assert.Contains(parentScienceAssets.Assets, a => a.Id == scienceAsset.Id);
+        Assert.Equal(HttpStatusCode.Forbidden, parentScienceAssetsResponse.StatusCode);
 
         var childRootsResponse = await childMemberClient.GetAsync("/api/workspace/groups");
         childRootsResponse.EnsureSuccessStatusCode();
@@ -141,26 +138,16 @@ public sealed class GroupAssetSharingIntegrationTests
         Assert.Contains(childRoots.Groups, g => g.Id == physics.Id);
 
         var childPhysicsAssetsResponse = await childMemberClient.GetAsync($"/api/workspace/groups/{physics.Id}/assets");
-        childPhysicsAssetsResponse.EnsureSuccessStatusCode();
-        var childPhysicsAssets = await childPhysicsAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
-        Assert.Single(childPhysicsAssets.Assets);
-        Assert.Equal(physicsAsset.Id, childPhysicsAssets.Assets[0].Id);
+        Assert.Equal(HttpStatusCode.Forbidden, childPhysicsAssetsResponse.StatusCode);
 
         var childScienceAssetsResponse = await childMemberClient.GetAsync($"/api/workspace/groups/{science.Id}/assets");
         Assert.Equal(HttpStatusCode.Forbidden, childScienceAssetsResponse.StatusCode);
 
         var accessibleAssetsResponse = await parentMemberClient.GetAsync("/api/workspace/assets");
-        accessibleAssetsResponse.EnsureSuccessStatusCode();
-        var accessibleAssets = await accessibleAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
-        Assert.Contains(accessibleAssets.Assets, a => a.Id == scienceAsset.Id);
-        Assert.Contains(accessibleAssets.Assets, a => a.Id == physicsAsset.Id);
-        Assert.DoesNotContain(accessibleAssets.Assets, a => a.Name == "Hidden Asset");
+        Assert.Equal(HttpStatusCode.Forbidden, accessibleAssetsResponse.StatusCode);
 
         var childAccessibleAssetsResponse = await childMemberClient.GetAsync("/api/workspace/assets");
-        childAccessibleAssetsResponse.EnsureSuccessStatusCode();
-        var childAccessibleAssets = await childAccessibleAssetsResponse.ReadAsJsonAsync<AssetsResponse>();
-        Assert.Single(childAccessibleAssets.Assets);
-        Assert.Equal(physicsAsset.Id, childAccessibleAssets.Assets[0].Id);
+        Assert.Equal(HttpStatusCode.Forbidden, childAccessibleAssetsResponse.StatusCode);
 
         var parentFlatResponse = await parentMemberClient.GetAsync("/api/workspace/groups/flat");
         parentFlatResponse.EnsureSuccessStatusCode();

@@ -55,7 +55,7 @@ namespace EduCollab.Application.Services.Workspaces
             }
 
             var (workspaceId, membership) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
+            if (!WorkspacePresetPermissions.CanManageWorkspace(membership))
             {
                 throw new AccessDeniedException("Only the workspace owner can update the workspace thumbnail.");
             }
@@ -74,7 +74,7 @@ namespace EduCollab.Application.Services.Workspaces
         public async Task DeleteCurrentWorkspaceThumbnailAsync(CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await RequireCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspaceRolePermissions.CanManageWorkspace(membership.Role))
+            if (!WorkspacePresetPermissions.CanManageWorkspace(membership))
             {
                 throw new AccessDeniedException("Only the workspace owner can delete the workspace thumbnail.");
             }

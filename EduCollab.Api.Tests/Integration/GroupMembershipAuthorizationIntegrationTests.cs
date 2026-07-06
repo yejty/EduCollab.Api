@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
@@ -36,7 +37,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -95,17 +96,17 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             "Group Membership Auth Workspace",
             "Group membership authorization test");
 
-        foreach (var (email, preset, client, first, last) in new[]
+        foreach (var (email, role, client, first, last) in new[]
         {
-            (managerEmail, "manager", managerClient, "Workspace", "Manager"),
-            (viewerEmail, "viewer", viewerClient, "Workspace", "Viewer"),
+            (managerEmail, WorkspaceRole.Manager, managerClient, "Workspace", "Manager"),
+            (viewerEmail, WorkspaceRole.Viewer, viewerClient, "Workspace", "Viewer"),
         })
         {
             factory.EmailSender.Clear();
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Preset = preset,
+                Presets = WorkspacePresetTestHelpers.PresetsForRole(role),
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
@@ -174,7 +175,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 

@@ -67,7 +67,7 @@ namespace EduCollab.Infrastructure.Repositories
         public async Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QuerySingleOrDefaultAsync<WorkspaceMember>(
+            var member = await connection.QuerySingleOrDefaultAsync<WorkspaceMember>(
                 new CommandDefinition(
                     """
                     SELECT
@@ -82,6 +82,14 @@ namespace EduCollab.Infrastructure.Repositories
                     """,
                     new { UserId = userId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
+
+            if (member is null)
+            {
+                return null;
+            }
+
+            await PopulateMemberPresetsAsync(connection, [member], cancellationToken);
+            return member;
         }
 
         public async Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int workspaceId, CancellationToken cancellationToken)
@@ -102,7 +110,9 @@ namespace EduCollab.Infrastructure.Repositories
                     new { WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
-            return members.AsList();
+            var list = members.AsList();
+            await PopulateMemberPresetsAsync(connection, list, cancellationToken);
+            return list;
         }
 
         public async Task<int> CreateWorkspaceWithOwnerAsync(Workspace workspace, int ownerUserId, DateTimeOffset now, CancellationToken cancellationToken)
@@ -144,6 +154,14 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
+            await InsertMemberPresetsAsync(
+                connection,
+                workspaceId,
+                ownerUserId,
+                WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Owner),
+                tx,
+                cancellationToken);
+
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     "UPDATE Users SET WorkspaceId = @WorkspaceId WHERE Id = @UserId;",
@@ -170,7 +188,37 @@ namespace EduCollab.Infrastructure.Repositories
                     new { UserId = userId },
                     cancellationToken: cancellationToken));
 
-            return members.AsList();
+            var list = members.AsList();
+            if (list.Count == 0)
+            {
+                return list;
+            }
+
+            var rows = await connection.QueryAsync<WorkspaceMemberPresetRow>(
+                new CommandDefinition(
+                    """
+                    SELECT WorkspaceId, UserId, PresetKey
+                    FROM WorkspaceMemberPresets
+                    WHERE UserId = @UserId;
+                    """,
+                    new { UserId = userId },
+                    cancellationToken: cancellationToken));
+
+            var presetsByWorkspace = rows
+                .GroupBy(row => row.WorkspaceId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(row => row.PresetKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+            foreach (var member in list)
+            {
+                member.Presets = presetsByWorkspace.TryGetValue(member.WorkspaceId, out var presets)
+                    ? presets
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                member.Role = WorkspacePermissionPresets.ResolveMemberRole(member);
+            }
+
+            return list;
         }
 
         public async Task<List<Workspace>> GetWorkspacesForUserAsync(int userId, CancellationToken cancellationToken)
@@ -243,25 +291,32 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(sql, new { WorkspaceId = workspaceId, Email = email, UsedAt = revokedAtUtc }, cancellationToken: cancellationToken));
         }
 
-        public async Task InsertWorkspaceInvitationAsync(
+        public async Task<long> InsertWorkspaceInvitationAsync(
             int workspaceId,
             string email,
             string tokenHashSha256Hex,
             WorkspaceRole role,
+            IReadOnlySet<string> presets,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,
             CancellationToken cancellationToken)
         {
-            const string sql = """
-                INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, Role, ExpiresAt, CreatedAt, InvitedByUserId)
-                VALUES (@WorkspaceId, @Email, @TokenHash, @Role, @ExpiresAt, @CreatedAt, @InvitedByUserId);
-                """;
-
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            await connection.ExecuteAsync(
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var invitationId = await connection.QuerySingleAsync<long>(
                 new CommandDefinition(
-                    sql,
+                    """
+                    INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, Role, ExpiresAt, CreatedAt, InvitedByUserId)
+                    VALUES (@WorkspaceId, @Email, @TokenHash, @Role, @ExpiresAt, @CreatedAt, @InvitedByUserId)
+                    RETURNING Id;
+                    """,
                     new
                     {
                         WorkspaceId = workspaceId,
@@ -272,7 +327,13 @@ namespace EduCollab.Infrastructure.Repositories
                         CreatedAt = createdAtUtc,
                         InvitedByUserId = invitedByUserId
                     },
+                    transaction: tx,
                     cancellationToken: cancellationToken));
+
+            await InsertInvitationPresetsAsync(connection, invitationId, presets, tx, cancellationToken);
+
+            await tx.CommitAsync(cancellationToken);
+            return invitationId;
         }
 
         public async Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(
@@ -281,7 +342,7 @@ namespace EduCollab.Infrastructure.Repositories
             CancellationToken cancellationToken)
         {
             const string sql = """
-                SELECT WorkspaceId, Email, Role
+                SELECT Id, WorkspaceId, Email, Role
                 FROM WorkspaceInvitations
                 WHERE TokenHash = @TokenHash
                   AND UsedAt IS NULL
@@ -299,11 +360,15 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
+            var presets = await LoadInvitationPresetsAsync(connection, row.Id, cancellationToken);
+
             return new WorkspaceInvitationDetails
             {
+                InvitationId = row.Id,
                 WorkspaceId = row.WorkspaceId,
                 Email = row.Email,
                 Role = WorkspaceRoleExtensions.FromPersistedOrViewer(row.Role),
+                Presets = presets,
             };
         }
 
@@ -396,7 +461,10 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            var invitedRole = WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
+            var invitationPresets = await LoadInvitationPresetsAsync(connection, invitationRow.Id, cancellationToken, tx);
+            var invitedRole = invitationPresets.Count > 0
+                ? WorkspacePermissionPresets.DeriveRole(invitationPresets)
+                : WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
 
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -407,6 +475,16 @@ namespace EduCollab.Infrastructure.Repositories
                     new { WorkspaceId = workspaceId, UserId = userId, Role = invitedRole, JoinedAtUtc = utcNow },
                     transaction: tx,
                     cancellationToken: cancellationToken));
+
+            await InsertMemberPresetsAsync(
+                connection,
+                workspaceId,
+                userId,
+                invitationPresets.Count > 0
+                    ? invitationPresets
+                    : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole),
+                tx,
+                cancellationToken);
 
             if (invitedRole == WorkspaceRole.Owner)
             {
@@ -511,7 +589,10 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            var invitedRole = WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
+            var invitationPresets = await LoadInvitationPresetsAsync(connection, invitationRow.Id, cancellationToken, tx);
+            var invitedRole = invitationPresets.Count > 0
+                ? WorkspacePermissionPresets.DeriveRole(invitationPresets)
+                : WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
 
             var member = await connection.QuerySingleAsync<WorkspaceMember>(
                 new CommandDefinition(
@@ -523,6 +604,20 @@ namespace EduCollab.Infrastructure.Repositories
                     new { WorkspaceId = workspaceId, UserId = userId, Role = invitedRole, JoinedAtUtc = utcNow },
                     transaction: tx,
                     cancellationToken: cancellationToken));
+
+            await InsertMemberPresetsAsync(
+                connection,
+                workspaceId,
+                userId,
+                invitationPresets.Count > 0
+                    ? invitationPresets
+                    : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole),
+                tx,
+                cancellationToken);
+
+            member.Presets = invitationPresets.Count > 0
+                ? invitationPresets
+                : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole);
 
             if (invitedRole == WorkspaceRole.Owner)
             {
@@ -746,7 +841,14 @@ namespace EduCollab.Infrastructure.Repositories
             ArgumentNullException.ThrowIfNull(member);
 
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            return await connection.QueryFirstOrDefaultAsync<WorkspaceMember>(
+            if (connection is not DbConnection dbConnection)
+            {
+                throw new InvalidOperationException("Database connection must support transactions.");
+            }
+
+            await using var tx = await dbConnection.BeginTransactionAsync(cancellationToken);
+
+            var updated = await connection.QueryFirstOrDefaultAsync<WorkspaceMember>(
                 new CommandDefinition(
                     """
                     UPDATE WorkspaceMembers
@@ -756,7 +858,21 @@ namespace EduCollab.Infrastructure.Repositories
                     RETURNING WorkspaceId, UserId, Role, JoinedAtUtc;
                     """,
                     new { WorkspaceId = id, UserId = userId, member.Role },
+                    transaction: tx,
                     cancellationToken: cancellationToken));
+
+            if (updated is null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            await ReplaceMemberPresetsAsync(connection, id, userId, member.Presets, tx, cancellationToken);
+            updated.Presets = member.Presets;
+            updated.Role = WorkspacePermissionPresets.ResolveMemberRole(updated);
+
+            await tx.CommitAsync(cancellationToken);
+            return updated;
         }
 
         public async Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken)
@@ -781,6 +897,131 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
         }
 
+        private static async Task PopulateMemberPresetsAsync(
+            System.Data.IDbConnection connection,
+            IList<WorkspaceMember> members,
+            CancellationToken cancellationToken)
+        {
+            if (members.Count == 0)
+            {
+                return;
+            }
+
+            var workspaceId = members[0].WorkspaceId;
+            var userIds = members.Select(member => member.UserId).Distinct().ToArray();
+            var rows = await connection.QueryAsync<MemberPresetRow>(
+                new CommandDefinition(
+                    """
+                    SELECT UserId, PresetKey
+                    FROM WorkspaceMemberPresets
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND UserId = ANY(@UserIds);
+                    """,
+                    new { WorkspaceId = workspaceId, UserIds = userIds },
+                    cancellationToken: cancellationToken));
+
+            var presetsByUser = rows
+                .GroupBy(row => row.UserId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(row => row.PresetKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+            foreach (var member in members)
+            {
+                member.Presets = presetsByUser.TryGetValue(member.UserId, out var presets)
+                    ? presets
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                member.Role = WorkspacePermissionPresets.ResolveMemberRole(member);
+            }
+        }
+
+        private static async Task<IReadOnlySet<string>> LoadInvitationPresetsAsync(
+            System.Data.IDbConnection connection,
+            long invitationId,
+            CancellationToken cancellationToken,
+            DbTransaction? transaction = null)
+        {
+            var keys = await connection.QueryAsync<string>(
+                new CommandDefinition(
+                    """
+                    SELECT PresetKey
+                    FROM WorkspaceInvitationPresets
+                    WHERE InvitationId = @InvitationId;
+                    """,
+                    new { InvitationId = invitationId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            return keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static async Task InsertInvitationPresetsAsync(
+            System.Data.IDbConnection connection,
+            long invitationId,
+            IReadOnlySet<string> presets,
+            DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            foreach (var presetKey in presets)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO WorkspaceInvitationPresets (InvitationId, PresetKey)
+                        VALUES (@InvitationId, @PresetKey)
+                        ON CONFLICT DO NOTHING;
+                        """,
+                        new { InvitationId = invitationId, PresetKey = presetKey },
+                        transaction: transaction,
+                        cancellationToken: cancellationToken));
+            }
+        }
+
+        private static async Task InsertMemberPresetsAsync(
+            System.Data.IDbConnection connection,
+            int workspaceId,
+            int userId,
+            IReadOnlySet<string> presets,
+            DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            foreach (var presetKey in presets)
+            {
+                await connection.ExecuteAsync(
+                    new CommandDefinition(
+                        """
+                        INSERT INTO WorkspaceMemberPresets (WorkspaceId, UserId, PresetKey)
+                        VALUES (@WorkspaceId, @UserId, @PresetKey)
+                        ON CONFLICT DO NOTHING;
+                        """,
+                        new { WorkspaceId = workspaceId, UserId = userId, PresetKey = presetKey },
+                        transaction: transaction,
+                        cancellationToken: cancellationToken));
+            }
+        }
+
+        private static async Task ReplaceMemberPresetsAsync(
+            System.Data.IDbConnection connection,
+            int workspaceId,
+            int userId,
+            IReadOnlySet<string> presets,
+            DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM WorkspaceMemberPresets
+                    WHERE WorkspaceId = @WorkspaceId
+                      AND UserId = @UserId;
+                    """,
+                    new { WorkspaceId = workspaceId, UserId = userId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            await InsertMemberPresetsAsync(connection, workspaceId, userId, presets, transaction, cancellationToken);
+        }
+
         private sealed class LockedInvitationRow
         {
             public long Id { get; set; }
@@ -790,9 +1031,23 @@ namespace EduCollab.Infrastructure.Repositories
 
         private sealed class ActiveInvitationRow
         {
+            public long Id { get; set; }
             public int WorkspaceId { get; set; }
             public string Email { get; set; } = "";
             public string Role { get; set; } = "";
+        }
+
+        private sealed class MemberPresetRow
+        {
+            public int UserId { get; set; }
+            public string PresetKey { get; set; } = "";
+        }
+
+        private sealed class WorkspaceMemberPresetRow
+        {
+            public int WorkspaceId { get; set; }
+            public int UserId { get; set; }
+            public string PresetKey { get; set; } = "";
         }
     }
 }

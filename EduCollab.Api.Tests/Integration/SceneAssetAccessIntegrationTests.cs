@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
+using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Flows;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Scenes;
@@ -42,7 +43,7 @@ public sealed class SceneAssetAccessIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "viewer",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -115,14 +116,14 @@ public sealed class SceneAssetAccessIntegrationTests
         Assert.NotNull(memberScene.JsonContent);
 
         var memberSharedAssetResponse = await memberClient.GetAsync($"/api/workspace/assets/{sharedAsset.Id}");
-        memberSharedAssetResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, memberSharedAssetResponse.StatusCode);
 
         var memberHiddenAssetResponse = await memberClient.GetAsync($"/api/workspace/assets/{hiddenAsset.Id}");
-        Assert.Equal(HttpStatusCode.NotFound, memberHiddenAssetResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberHiddenAssetResponse.StatusCode);
 
         var memberHiddenContentResponse = await memberClient.GetAsync(
             $"/api/workspace/assets/{hiddenAsset.Id}/content");
-        Assert.Equal(HttpStatusCode.NotFound, memberHiddenContentResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberHiddenContentResponse.StatusCode);
     }
 
     [Fact]
@@ -151,7 +152,7 @@ public sealed class SceneAssetAccessIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "viewer",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -253,7 +254,7 @@ public sealed class SceneAssetAccessIntegrationTests
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Preset = "viewer",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
         });
         inviteResponse.EnsureSuccessStatusCode();
 

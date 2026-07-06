@@ -8,42 +8,46 @@ public sealed class WorkspacePermissionPresetsTests
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, bool>> CsvMatrix = LoadCsvMatrix();
 
     [Fact]
-    public void AllPresets_MatchRolesFunctionsCsv()
+    public void RoleTemplates_MatchRolesFunctionsCsv()
     {
         var csvPresetKeys = CsvMatrix.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var registryPresetKeys = WorkspacePermissionPresets.AllPresets
-            .Select(p => p.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var templateRoleKeys = new[] { "owner", "manager", "creator", "viewer" };
+        Assert.Equal(csvPresetKeys, templateRoleKeys.ToHashSet(StringComparer.OrdinalIgnoreCase));
 
-        Assert.Equal(csvPresetKeys, registryPresetKeys);
-
-        foreach (var preset in WorkspacePermissionPresets.AllPresets)
+        foreach (var roleKey in templateRoleKeys)
         {
-            Assert.True(preset.IsRole);
+            var role = Enum.Parse<WorkspaceRole>(roleKey, ignoreCase: true);
+            var template = WorkspacePermissionPresets.GetPresetKeysForRole(role);
+            var csvRow = CsvMatrix[roleKey];
 
-            var csvRow = CsvMatrix[preset.Key];
-            foreach (var permission in WorkspacePermissionPresets.AllPermissions)
+            foreach (var definition in WorkspacePermissionPresets.Catalog)
             {
-                var expected = csvRow[permission.Key];
-                var actual = preset.GrantedPermissionKeys.Contains(permission.Key);
-                Assert.Equal(expected, actual);
+                Assert.Equal(csvRow[definition.Key], template.Contains(definition.Key));
             }
         }
     }
 
     [Fact]
-    public void AllPermissions_AreDefinedInRegistry()
+    public void Catalog_ContainsAllCsvPermissionRows()
     {
         var permissionKeysFromCsv = CsvMatrix.Values
             .SelectMany(row => row.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var registryKeys = WorkspacePermissionPresets.AllPermissions
+        var catalogKeys = WorkspacePermissionPresets.Catalog
             .Select(p => p.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Equal(permissionKeysFromCsv, registryKeys);
+        Assert.Equal(permissionKeysFromCsv, catalogKeys);
+    }
+
+    [Fact]
+    public void DeriveRole_ReturnsCustom_WhenPresetCombinationDoesNotMatchTemplate()
+    {
+        var customPresets = new[] { "addAssets", "loadScenes" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(customPresets));
     }
 
     [Theory]
@@ -51,21 +55,56 @@ public sealed class WorkspacePermissionPresetsTests
     [InlineData("manager", WorkspaceRole.Manager)]
     [InlineData("creator", WorkspaceRole.Creator)]
     [InlineData("viewer", WorkspaceRole.Viewer)]
-    public void TryToWorkspaceRole_MapsPresetToRole(string presetKey, WorkspaceRole expectedRole)
+    public void DeriveRole_MatchesRoleTemplates(string roleKey, WorkspaceRole expectedRole)
     {
-        Assert.True(WorkspacePermissionPresets.TryToWorkspaceRole(presetKey, out var role));
-        Assert.Equal(expectedRole, role);
+        var role = Enum.Parse<WorkspaceRole>(roleKey, ignoreCase: true);
+        var presets = WorkspacePermissionPresets.GetPresetKeysForRole(role);
+
+        Assert.Equal(expectedRole, WorkspacePermissionPresets.DeriveRole(presets));
+    }
+
+    [Theory]
+    [InlineData("manager", WorkspaceRole.Manager)]
+    [InlineData("owner", WorkspaceRole.Owner)]
+    [InlineData("creator", WorkspaceRole.Creator)]
+    [InlineData("viewer", WorkspaceRole.Viewer)]
+    public void TryNormalizeKeys_ExpandsRoleShortcut(string roleShortcut, WorkspaceRole expectedRole)
+    {
+        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys([roleShortcut], out var normalized, out var error), error);
+        Assert.Equal(expectedRole, WorkspacePermissionPresets.DeriveRole(normalized));
+        Assert.Equal(
+            WorkspacePermissionPresets.GetPresetKeysForRole(expectedRole),
+            normalized);
     }
 
     [Fact]
-    public void FromWorkspaceRole_RoundTripsPresetKey()
+    public void TryNormalizeKeys_MergesRoleShortcutWithIndividualPresets()
     {
-        foreach (var role in new[] { WorkspaceRole.Owner, WorkspaceRole.Manager, WorkspaceRole.Creator, WorkspaceRole.Viewer })
+        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["viewer", "addAssets"], out var normalized, out _));
+
+        Assert.Contains("loadScenes", normalized);
+        Assert.Contains("addAssets", normalized);
+        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(normalized));
+    }
+
+    [Fact]
+    public void ResolveMemberRole_ReturnsViewer_WhenOnlyLoadScenesPresetIsAssigned()
+    {
+        var member = new WorkspaceMember
         {
-            var preset = WorkspacePermissionPresets.FromWorkspaceRole(role);
-            Assert.Equal(role, preset.Role);
-            Assert.Equal(preset.Key, WorkspacePermissionPresets.ToPresetKey(role));
-        }
+            Role = WorkspaceRole.Custom,
+            Presets = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadScenes" },
+        };
+
+        Assert.Equal(WorkspaceRole.Viewer, WorkspacePermissionPresets.ResolveMemberRole(member));
+        Assert.Equal("viewer", WorkspacePermissionPresets.ToRoleKey(WorkspacePermissionPresets.ResolveMemberRole(member)));
+    }
+
+    [Fact]
+    public void TryNormalizeKeys_RejectsUnknownPreset()
+    {
+        Assert.False(WorkspacePermissionPresets.TryNormalizeKeys(["addAssets", "unknown"], out _, out var error));
+        Assert.Contains("unknown", error, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, bool>> LoadCsvMatrix()
@@ -84,10 +123,11 @@ public sealed class WorkspacePermissionPresetsTests
             var content = reader.ReadToEnd();
             lines = content.Split(["\r\n", "\n"], StringSplitOptions.None);
         }
+
         var header = lines[0].Split(';');
         var presetColumns = header.Skip(1).ToArray();
 
-        var permissionKeyByCsvLabel = WorkspacePermissionPresets.AllPermissions
+        var permissionKeyByCsvLabel = WorkspacePermissionPresets.Catalog
             .ToDictionary(p => NormalizeLabel(p.Label), p => p.Key, StringComparer.OrdinalIgnoreCase);
 
         var matrix = new Dictionary<string, Dictionary<string, bool>>(StringComparer.OrdinalIgnoreCase);

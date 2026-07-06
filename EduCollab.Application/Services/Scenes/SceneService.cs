@@ -88,9 +88,15 @@ namespace EduCollab.Application.Services.Scenes
                 cancellationToken);
         }
 
+        private static void EnsureCanLoadScenes(WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.CanLoadScenes(membership))
+                throw new AccessDeniedException("You do not have permission to load scenes.");
+        }
+
         private async Task<HashSet<int>> GetAccessibleGroupIdsAsync(int workspaceId, WorkspaceMember membership, int userId, CancellationToken cancellationToken)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
             {
                 var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
                 return allGroups.Select(g => g.Id).ToHashSet();
@@ -111,7 +117,7 @@ namespace EduCollab.Application.Services.Scenes
 
         private async Task EnsureCanPlaceInGroupAsync(int workspaceId, int groupId, WorkspaceMember membership, int userId, CancellationToken cancellationToken)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
                 return;
 
             if (await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
@@ -122,10 +128,10 @@ namespace EduCollab.Application.Services.Scenes
 
         private static bool CanManageScene(WorkspaceMember membership, int ownerUserId, int userId)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
                 return true;
 
-            if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+            if (!WorkspacePresetPermissions.CanCreateScenes(membership))
                 return false;
 
             return ownerUserId == userId;
@@ -143,7 +149,7 @@ namespace EduCollab.Application.Services.Scenes
         }
 
         private static bool CanCreateScene(WorkspaceMember membership) =>
-            !WorkspaceRolePermissions.IsReadOnly(membership.Role);
+            WorkspacePresetPermissions.CanCreateScenes(membership);
 
         public async Task<bool> CreateSceneAsync(Scene scene, IReadOnlyList<int> groupIds, CancellationToken cancellationToken)
         {
@@ -196,18 +202,20 @@ namespace EduCollab.Application.Services.Scenes
         public async Task<List<Scene>> GetAllScenesAsync(CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
             var scenes = await _sceneRepository.GetAllScenesAsync(workspaceId, cancellationToken);
             await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scenes, cancellationToken);
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
             return scenes
-                .Where(scene => WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+                .Where(scene => WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 .ToList();
         }
 
         public async Task<List<Scene>> GetMyScenesAsync(CancellationToken cancellationToken)
         {
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
             var scenes = await _sceneRepository.GetScenesByOwnerAsync(workspaceId, userId, cancellationToken);
             await ContentGroupShareOperations.PopulateSceneGroupIdsAsync(_sceneRepository, workspaceId, scenes, cancellationToken);
@@ -220,9 +228,10 @@ namespace EduCollab.Application.Services.Scenes
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
 
-            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
+            if (!WorkspacePresetPermissions.CanSeeAllContent(membership)
                 && !await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
             {
                 throw new AccessDeniedException("You do not have access to this group.");
@@ -240,6 +249,7 @@ namespace EduCollab.Application.Services.Scenes
                 throw new ArgumentOutOfRangeException(nameof(sceneId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var scene = await _sceneRepository.GetSceneByIdAsync(workspaceId, sceneId, cancellationToken);
             if (scene is null)
                 return null;
@@ -248,7 +258,7 @@ namespace EduCollab.Application.Services.Scenes
 
             var userId = RequireCurrentUserId();
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            if (!WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+            if (!WorkspaceContentVisibility.IsSceneVisibleToUser(scene, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 return null;
 
             scene.JsonContent = await LoadSceneContentAsync(workspaceId, sceneId, scene.JsonContent, cancellationToken)

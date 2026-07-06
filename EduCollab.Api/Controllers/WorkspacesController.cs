@@ -29,7 +29,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Lists workspace permission presets and their granted functions.
+        /// Lists all workspace permission preset keys and role shortcuts.
         /// </summary>
         /// <response code="200">Preset catalog returned.</response>
         /// <response code="401">User is unauthorized.</response>
@@ -39,7 +39,7 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
         public IActionResult GetPermissionPresets()
         {
-            return Ok(WorkspacePermissionPresets.AllPresets.MapToResponse());
+            return Ok(ContractMapping.MapCatalogToResponse());
         }
 
         /// <summary>
@@ -59,14 +59,12 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            if (!WorkspacePermissionPresets.TryToWorkspaceRole(inviteUserRequest.Preset, out var role))
+            if (!WorkspacePermissionPresets.TryNormalizeKeys(inviteUserRequest.Presets, out var presets, out var error))
             {
-                return ApiBadRequest(
-                    "invalid_preset",
-                    "Preset must be one of: owner, manager, creator, viewer.");
+                return ApiBadRequest("invalid_preset", error ?? "Invalid preset keys.");
             }
 
-            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, role, cancellationToken);
+            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, presets, cancellationToken);
             return Ok();
         }
 
@@ -490,11 +488,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<WorkspaceMemberResponse>> UpdateWorkspaceMember(int userId, [FromBody] UpdateWorkspaceMemberRequest request, CancellationToken cancellationToken)
         {
-            if (!WorkspacePermissionPresets.TryToWorkspaceRole(request.Preset, out _))
+            if (!WorkspacePermissionPresets.TryNormalizeKeys(request.Presets, out _, out var error))
             {
-                return ApiBadRequest(
-                    "invalid_preset",
-                    "Preset must be one of: owner, manager, creator, viewer.");
+                return ApiBadRequest("invalid_preset", error ?? "Invalid preset keys.");
             }
 
             var member = request.MapToWorkspaceMember(0, userId);

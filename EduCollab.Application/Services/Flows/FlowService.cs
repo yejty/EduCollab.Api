@@ -76,9 +76,15 @@ namespace EduCollab.Application.Services.Flows
                 cancellationToken);
         }
 
+        private static void EnsureCanLoadScenes(WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.CanLoadScenes(membership))
+                throw new AccessDeniedException("You do not have permission to load scenes.");
+        }
+
         private async Task<HashSet<int>> GetAccessibleGroupIdsAsync(int workspaceId, WorkspaceMember membership, int userId, CancellationToken cancellationToken)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
             {
                 var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
                 return allGroups.Select(g => g.Id).ToHashSet();
@@ -96,7 +102,7 @@ namespace EduCollab.Application.Services.Flows
 
         private async Task EnsureCanPlaceInGroupAsync(int workspaceId, int groupId, WorkspaceMember membership, int userId, CancellationToken cancellationToken)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
                 return;
 
             if (await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
@@ -107,10 +113,10 @@ namespace EduCollab.Application.Services.Flows
 
         private static bool CanManageFlow(WorkspaceMember membership, int ownerUserId, int userId)
         {
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
                 return true;
 
-            if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+            if (!WorkspacePresetPermissions.CanCreateFlows(membership))
                 return false;
 
             return ownerUserId == userId;
@@ -156,7 +162,7 @@ namespace EduCollab.Application.Services.Flows
             ArgumentNullException.ThrowIfNull(flow);
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+            if (!WorkspacePresetPermissions.CanCreateFlows(membership))
                 throw new AccessDeniedException("Viewers have read-only access to flows.");
 
             var userId = RequireCurrentUserId();
@@ -203,18 +209,20 @@ namespace EduCollab.Application.Services.Flows
         public async Task<List<Flow>> GetAllFlowsAsync(CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
             var flows = await _flowRepository.GetAllFlowsAsync(workspaceId, cancellationToken);
             await ContentGroupShareOperations.PopulateFlowGroupIdsAsync(_flowRepository, workspaceId, flows, cancellationToken);
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
             return flows
-                .Where(flow => WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+                .Where(flow => WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 .ToList();
         }
 
         public async Task<List<Flow>> GetMyFlowsAsync(CancellationToken cancellationToken)
         {
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
             var flows = await _flowRepository.GetFlowsByOwnerAsync(workspaceId, userId, cancellationToken);
             await ContentGroupShareOperations.PopulateFlowGroupIdsAsync(_flowRepository, workspaceId, flows, cancellationToken);
@@ -227,9 +235,10 @@ namespace EduCollab.Application.Services.Flows
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var userId = RequireCurrentUserId();
 
-            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
+            if (!WorkspacePresetPermissions.CanSeeAllContent(membership)
                 && !await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
             {
                 throw new AccessDeniedException("You do not have access to this group.");
@@ -247,6 +256,7 @@ namespace EduCollab.Application.Services.Flows
                 throw new ArgumentOutOfRangeException(nameof(flowId));
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanLoadScenes(membership);
             var flow = await _flowRepository.GetFlowByIdAsync(workspaceId, flowId, cancellationToken);
             if (flow is null)
                 return null;
@@ -255,7 +265,7 @@ namespace EduCollab.Application.Services.Flows
 
             var userId = RequireCurrentUserId();
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
-            if (!WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+            if (!WorkspaceContentVisibility.IsFlowVisibleToUser(flow, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 return null;
 
             await PopulateFlowSceneIdsAsync(workspaceId, flow, cancellationToken);

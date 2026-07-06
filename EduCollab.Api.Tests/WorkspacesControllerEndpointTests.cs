@@ -23,12 +23,26 @@ public sealed class WorkspacesControllerEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspacePermissionPresetsResponse>();
-        Assert.Equal(4, body.Presets.Count);
-        Assert.Contains(body.Presets, p => p.Key == "creator" && p.IsRole);
-        var creator = body.Presets.Single(p => p.Key == "creator");
-        Assert.Equal(WorkspacePermissionPresets.AllPermissions.Count, creator.Permissions.Count);
-        Assert.True(creator.Permissions.Single(p => p.Key == "addAssets").Granted);
-        Assert.False(creator.Permissions.Single(p => p.Key == "inviteUsers").Granted);
+        Assert.Equal(WorkspacePermissionPresets.Catalog.Count, body.Presets.Count);
+        Assert.Contains(body.Presets, p => p.Key == "addAssets" && p.Label == "Add assets");
+        Assert.Equal(4, body.RoleShortcuts.Count);
+        var managerShortcut = body.RoleShortcuts.Single(s => s.Key == "manager");
+        Assert.Contains("inviteUsers", managerShortcut.Presets);
+    }
+
+    [Fact]
+    public async Task InviteToWorkspace_ReturnsOk_WhenRoleShortcutIsUsed()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient(userId: 31);
+
+        var response = await client.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = "invitee@example.com",
+            Presets = ["manager"],
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -40,7 +54,7 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = "invitee@example.com",
-            Preset = "superadmin",
+            Presets = ["superadmin"],
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -57,7 +71,7 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = "invitee@example.com",
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -74,7 +88,7 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = "invitee@example.com",
-            Preset = "viewer",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -97,6 +111,7 @@ public sealed class WorkspacesControllerEndpointTests
             UserId = userId,
             WorkspaceId = 5,
             Role = WorkspaceRole.Viewer,
+            Presets = WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Viewer),
             JoinedAtUtc = new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc),
         });
 
@@ -113,8 +128,8 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(41, body.UserId);
-        Assert.Equal("viewer", body.Preset);
-        Assert.True(body.IsRole);
+        Assert.Equal("viewer", body.Role);
+        Assert.Contains("loadScenes", body.Presets);
     }
 
     [Fact]
@@ -126,6 +141,7 @@ public sealed class WorkspacesControllerEndpointTests
             UserId = 42,
             WorkspaceId = 5,
             Role = WorkspaceRole.Manager,
+            Presets = WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Manager),
             JoinedAtUtc = new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc),
         });
 
@@ -136,8 +152,8 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(42, body.UserId);
-        Assert.Equal("manager", body.Preset);
-        Assert.True(body.IsRole);
+        Assert.Equal("manager", body.Role);
+        Assert.Contains("inviteUsers", body.Presets);
     }
 
     [Fact]
@@ -353,6 +369,32 @@ public sealed class WorkspacesControllerEndpointTests
     }
 
     [Fact]
+    public async Task UpdateWorkspaceMember_ReturnsViewerRole_WhenOnlyLoadScenesPresetAssigned()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.WorkspaceService.UpdateCurrentWorkspaceMemberAsyncHandler = (_, member, _) => Task.FromResult<WorkspaceMember?>(new WorkspaceMember
+        {
+            UserId = member.UserId,
+            WorkspaceId = member.WorkspaceId,
+            Role = member.Role,
+            Presets = member.Presets,
+            JoinedAtUtc = new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc),
+        });
+
+        using var client = factory.CreateClient(userId: 37);
+
+        var response = await client.PutAsJsonAsync("/api/workspace/users/77", new UpdateWorkspaceMemberRequest
+        {
+            Presets = ["loadScenes"],
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
+        Assert.Equal("viewer", body.Role);
+        Assert.Equal(["loadScenes"], body.Presets);
+    }
+
+    [Fact]
     public async Task UpdateWorkspaceMember_ReturnsUpdatedMember_WhenServiceReturnsMember()
     {
         await using var factory = new ApiWebApplicationFactory();
@@ -361,6 +403,7 @@ public sealed class WorkspacesControllerEndpointTests
             UserId = member.UserId,
             WorkspaceId = member.WorkspaceId,
             Role = member.Role,
+            Presets = member.Presets,
             JoinedAtUtc = new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc),
         });
 
@@ -368,14 +411,14 @@ public sealed class WorkspacesControllerEndpointTests
 
         var response = await client.PutAsJsonAsync("/api/workspace/users/77", new UpdateWorkspaceMemberRequest
         {
-            Preset = "manager",
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(77, body.UserId);
-        Assert.Equal("manager", body.Preset);
-        Assert.True(body.IsRole);
+        Assert.Equal("manager", body.Role);
+        Assert.Contains("inviteUsers", body.Presets);
     }
 
     [Fact]

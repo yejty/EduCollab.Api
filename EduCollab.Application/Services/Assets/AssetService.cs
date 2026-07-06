@@ -131,13 +131,15 @@ namespace EduCollab.Application.Services.Assets
 
 
         private static void EnsureCanCreateAsset(WorkspaceMember membership)
-
         {
-
-            if (!WorkspaceRolePermissions.CanCrudAssets(membership.Role))
-
+            if (!WorkspacePresetPermissions.CanCreateAssets(membership))
                 throw new AccessDeniedException("You do not have permission to create assets.");
+        }
 
+        private static void EnsureCanLoadAssets(WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.CanLoadAssets(membership))
+                throw new AccessDeniedException("You do not have permission to load assets.");
         }
 
 
@@ -146,7 +148,7 @@ namespace EduCollab.Application.Services.Assets
 
         {
 
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
 
             {
 
@@ -174,19 +176,21 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
 
                 return;
 
 
 
-            if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+            if (!WorkspacePresetPermissions.CanCreateAssets(membership))
 
                 throw new AccessDeniedException("Viewers have read-only access to assets.");
 
 
 
-            if (membership.Role == WorkspaceRole.Creator)
+            if (WorkspacePresetPermissions.CanCreateAssets(membership)
+                && !WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
+                && !WorkspacePresetPermissions.CanSeeAllContent(membership))
 
                 return;
 
@@ -202,7 +206,7 @@ namespace EduCollab.Application.Services.Assets
 
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, asset, cancellationToken);
 
-            if (membership.Role == WorkspaceRole.Manager
+            if (WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
                 && ContentGroupShareOperations.ManagerCanManageViaGroups(
                     membership,
                     asset.OwnerUserId,
@@ -244,7 +248,7 @@ namespace EduCollab.Application.Services.Assets
 
         {
 
-            if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
 
                 return;
 
@@ -343,6 +347,8 @@ namespace EduCollab.Application.Services.Assets
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
+            EnsureCanLoadAssets(membership);
+
             var userId = RequireCurrentUserId();
 
             var assets = await _assetRepository.GetAllAssetsAsync(workspaceId, cancellationToken);
@@ -353,7 +359,7 @@ namespace EduCollab.Application.Services.Assets
 
             return assets
 
-                .Where(asset => WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds))
+                .Where(asset => WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
 
                 .ToList();
 
@@ -373,11 +379,13 @@ namespace EduCollab.Application.Services.Assets
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
+            EnsureCanLoadAssets(membership);
+
             var userId = RequireCurrentUserId();
 
 
 
-            if (!WorkspaceRolePermissions.CanSeeAllContent(membership.Role)
+            if (!WorkspacePresetPermissions.CanSeeAllContent(membership)
 
                 && !await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
 
@@ -403,7 +411,9 @@ namespace EduCollab.Application.Services.Assets
 
         {
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+
+            EnsureCanLoadAssets(membership);
 
             var userId = RequireCurrentUserId();
 
@@ -427,6 +437,8 @@ namespace EduCollab.Application.Services.Assets
 
             var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
+            EnsureCanLoadAssets(membership);
+
             var asset = await _assetRepository.GetAssetByIdAsync(workspaceId, assetId, cancellationToken);
 
             if (asset is null)
@@ -441,7 +453,7 @@ namespace EduCollab.Application.Services.Assets
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
-            return WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspaceRolePermissions.CanSeeAllContent(membership.Role), accessibleGroupIds)
+            return WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds)
 
                 ? asset
 
@@ -639,19 +651,21 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-                if (WorkspaceRolePermissions.CanSeeAllContent(membership.Role))
+                if (WorkspacePresetPermissions.CanSeeAllContent(membership))
 
                     return true;
 
 
 
-                if (WorkspaceRolePermissions.IsReadOnly(membership.Role))
+                if (!WorkspacePresetPermissions.CanCreateAssets(membership))
 
                     return false;
 
 
 
-                if (membership.Role == WorkspaceRole.Creator)
+                if (WorkspacePresetPermissions.CanCreateAssets(membership)
+                    && !WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
+                    && !WorkspacePresetPermissions.CanSeeAllContent(membership))
 
                     return true;
 
@@ -663,7 +677,7 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-                return membership.Role == WorkspaceRole.Manager;
+                return WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership);
 
             }
 
