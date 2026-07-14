@@ -6,6 +6,10 @@ namespace EduCollab.Api.Requests.Scenes
 
         public string? Description { get; set; }
 
+        /// <summary>
+        /// Groups that receive access to this scene when it is created.
+        /// Omit to keep the scene in your personal space.
+        /// </summary>
         public List<int>? GroupIds { get; set; }
 
         /// <summary>

@@ -12,7 +12,7 @@ namespace EduCollab.Contracts.Responses.Users
 
         public string Email { get; set; } = string.Empty;
 
-        /// <summary>Active workspace id for current-workspace routes, or null when none is selected.</summary>
-        public int? WorkspaceId { get; set; }
+        /// <summary>All workspace ids the user belongs to.</summary>
+        public List<int> WorkspaceIds { get; set; } = [];
     }
 }

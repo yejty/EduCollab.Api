@@ -1,3 +1,4 @@
+using EduCollab.Api.Swagger;
 using EduCollab.Application.Services.Assets;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Responses.Groups;
@@ -20,6 +21,7 @@ namespace EduCollab.Api.Controllers
         /// List groups an asset is shared with.
         /// </summary>
         [Authorize]
+        [RequiresWorkspacePreset("addAssets", Notes = "Also requires effective access to the asset.")]
         [HttpGet(ApiEndpoints.AssetGroups.GetAll)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> GetAssetGroups(
@@ -44,6 +46,7 @@ namespace EduCollab.Api.Controllers
         /// Share an asset with a group.
         /// </summary>
         [Authorize]
+        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpPost(ApiEndpoints.AssetGroups.Create)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status201Created)]
         public async Task<ActionResult<ResourceGroupsResponse>> AddAssetGroup(
@@ -68,6 +71,7 @@ namespace EduCollab.Api.Controllers
         /// Replace all group shares for an asset.
         /// </summary>
         [Authorize]
+        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpPut(ApiEndpoints.AssetGroups.Update)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> SetAssetGroups(
@@ -78,17 +82,25 @@ namespace EduCollab.Api.Controllers
             if (assetId <= 0)
                 return ApiBadRequest("invalid_asset_id", "assetId is required and must be a positive integer.");
 
-            var groupIds = await _assetService.SetAssetGroupIdsAsync(assetId, request.GroupIds, cancellationToken);
-            if (groupIds is null)
-                return ApiNotFound("update_failed", "Asset was not found.");
+            try
+            {
+                var groupIds = await _assetService.SetAssetGroupIdsAsync(assetId, request.GroupIds, cancellationToken);
+                if (groupIds is null)
+                    return ApiNotFound("update_failed", "Asset was not found.");
 
-            return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+                return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+            }
+            catch (ArgumentException ex) when (ex.ParamName == "groupIds")
+            {
+                return ApiBadRequest("invalid_group_id", ex.Message);
+            }
         }
 
         /// <summary>
         /// Remove an asset from a group.
         /// </summary>
         [Authorize]
+        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpDelete(ApiEndpoints.AssetGroups.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> RemoveAssetGroup(

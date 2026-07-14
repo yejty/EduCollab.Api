@@ -357,11 +357,11 @@ namespace EduCollab.Application.Services.Assets
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
-            return assets
-
+            var visibleAssets = assets
                 .Where(asset => WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
-
                 .ToList();
+            ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(visibleAssets, membership);
+            return visibleAssets;
 
         }
 
@@ -401,6 +401,7 @@ namespace EduCollab.Application.Services.Assets
 
             var assets = await _assetRepository.GetAssetsByGroupAsync(workspaceId, groupId, cancellationToken);
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, assets, cancellationToken);
+            ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(assets, membership);
             return assets;
 
         }
@@ -419,6 +420,7 @@ namespace EduCollab.Application.Services.Assets
 
             var assets = await _assetRepository.GetAssetsByOwnerAsync(workspaceId, userId, cancellationToken);
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, assets, cancellationToken);
+            ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(assets, membership);
             return assets;
 
         }
@@ -453,17 +455,17 @@ namespace EduCollab.Application.Services.Assets
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
-            return WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds)
+            if (!WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
+                return null;
 
-                ? asset
-
-                : null;
+            ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(asset, membership);
+            return asset;
 
         }
 
 
 
-        public async Task<Asset?> UpdateAssetAsync(Asset asset, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken)
+        public async Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken)
 
         {
 
@@ -475,7 +477,7 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
 
             var existing = await _assetRepository.GetAssetByIdAsync(workspaceId, asset.Id, cancellationToken);
 
@@ -487,23 +489,6 @@ namespace EduCollab.Application.Services.Assets
 
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, existing, cancellationToken);
             await EnsureCanManageAssetAsync(workspaceId, existing, cancellationToken);
-
-            if (groupIds is not null)
-            {
-                var resolvedGroupIds = ResourceGroupPlacement.ResolveGroupIds(groupIds);
-                await ContentGroupShareOperations.EnsureCanPlaceInGroupsAsync(
-                    _groupRepository,
-                    _groupAccessResolver,
-                    workspaceId,
-                    resolvedGroupIds,
-                    membership,
-                    RequireCurrentUserId(),
-                    cancellationToken);
-                await _assetRepository.ReplaceAssetGroupSharesAsync(workspaceId, asset.Id, resolvedGroupIds, cancellationToken);
-                await _assetRepository.SyncAssetPrimaryGroupIdAsync(workspaceId, asset.Id, cancellationToken);
-            }
-
-
 
             existing.Name = RequireTrimmed(asset.Name, nameof(asset.Name));
 
@@ -723,6 +708,10 @@ namespace EduCollab.Application.Services.Assets
         {
             if (assetId <= 0)
                 throw new ArgumentOutOfRangeException(nameof(assetId));
+
+            var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            if (!WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+                throw new AccessDeniedException("You do not have permission to view asset group shares.");
 
             var asset = await GetAssetByIdAsync(assetId, cancellationToken);
             if (asset is null)

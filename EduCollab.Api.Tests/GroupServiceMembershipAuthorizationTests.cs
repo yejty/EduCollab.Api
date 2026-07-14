@@ -16,6 +16,95 @@ public sealed class GroupServiceMembershipAuthorizationTests
     private const int OtherUserId = 3;
 
     [Fact]
+    public async Task CreateGroupMemberAsync_WhenAddGroupsOnlyNotInGroup_ThrowsAccessDenied()
+    {
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Custom,
+            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            groupMembers: []);
+
+        var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            service.CreateGroupMemberAsync(
+                GroupId,
+                new GroupMember { UserId = OtherUserId },
+                CancellationToken.None));
+
+        Assert.Contains("member of this group", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateGroupMemberAsync_WhenAddGroupsOnlyInGroup_AllowsAddingOtherUsers()
+    {
+        var repository = new StubGroupRepository
+        {
+            GroupMembers =
+            [
+                new GroupMember { GroupId = GroupId, UserId = ManagerUserId },
+            ],
+        };
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Custom,
+            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            repository: repository,
+            additionalWorkspaceMemberIds: OtherUserId);
+
+        var created = await service.CreateGroupMemberAsync(
+            GroupId,
+            new GroupMember { UserId = OtherUserId },
+            CancellationToken.None);
+
+        Assert.NotNull(created);
+        Assert.Equal(OtherUserId, created.UserId);
+    }
+
+    [Fact]
+    public async Task GetAllGroupMembersAsync_WhenAddGroupsOnlyAndDirectMember_AllowsViewing()
+    {
+        var repository = new StubGroupRepository
+        {
+            GroupMembers =
+            [
+                new GroupMember { GroupId = GroupId, UserId = ManagerUserId },
+                new GroupMember { GroupId = GroupId, UserId = OwnerUserId },
+            ],
+            GetAllGroupMembersResult =
+            [
+                new GroupMember { GroupId = GroupId, UserId = ManagerUserId },
+                new GroupMember { GroupId = GroupId, UserId = OwnerUserId },
+            ],
+        };
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Custom,
+            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            repository: repository);
+
+        var members = await service.GetAllGroupMembersAsync(GroupId, CancellationToken.None);
+
+        Assert.Equal(2, members.Count);
+    }
+
+    [Fact]
+    public async Task GetAllGroupMembersAsync_WhenAddGroupsOnlyNotInGroup_ThrowsAccessDenied()
+    {
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Custom,
+            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            groupMembers:
+            [
+                new GroupMember { GroupId = GroupId, UserId = OwnerUserId },
+            ]);
+
+        var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            service.GetAllGroupMembersAsync(GroupId, CancellationToken.None));
+
+        Assert.Contains("member of this group", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task CreateGroupMemberAsync_WhenManagerNotInGroup_ThrowsAccessDenied()
     {
         var service = CreateService(
@@ -29,7 +118,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
                 new GroupMember { UserId = ManagerUserId },
                 CancellationToken.None));
 
-        Assert.Contains("members of this group", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("member of this group", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -75,11 +164,99 @@ public sealed class GroupServiceMembershipAuthorizationTests
         Assert.Equal(ManagerUserId, created.UserId);
     }
 
+    [Fact]
+    public async Task CreateGroupAsync_WhenManagerNotInParentGroup_ThrowsAccessDenied()
+    {
+        const int ParentGroupId = 20;
+        var repository = new StubGroupRepository
+        {
+            Groups =
+            [
+                new Group { Id = ParentGroupId, Name = "Arts" },
+            ],
+        };
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Manager,
+            repository: repository);
+
+        var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            service.CreateGroupAsync(
+                new Group { Name = "Blocked", ParentGroupId = ParentGroupId },
+                CancellationToken.None));
+
+        Assert.Contains("member of this group", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateGroupAsync_WhenManagerInParentGroup_Succeeds()
+    {
+        var repository = new StubGroupRepository
+        {
+            Groups =
+            [
+                new Group { Id = GroupId, Name = "Science" },
+            ],
+            GroupMembers =
+            [
+                new GroupMember { GroupId = GroupId, UserId = ManagerUserId },
+            ],
+        };
+        var service = CreateService(
+            currentUserId: ManagerUserId,
+            workspaceRole: WorkspaceRole.Manager,
+            repository: repository);
+
+        var created = await service.CreateGroupAsync(
+            new Group { Name = "Physics", ParentGroupId = GroupId },
+            CancellationToken.None);
+
+        Assert.True(created);
+        Assert.True(repository.CreatedGroups.Count > 0);
+        Assert.Equal(GroupId, repository.CreatedGroups[0].ParentGroupId);
+    }
+
+    [Fact]
+    public async Task GetAllGroupMembersAsync_WhenMemberLacksSeeUsersTab_ThrowsAccessDenied()
+    {
+        var service = CreateService(
+            currentUserId: OtherUserId,
+            workspaceRole: WorkspaceRole.Viewer,
+            groupMembers:
+            [
+                new GroupMember { GroupId = GroupId, UserId = OtherUserId },
+                new GroupMember { GroupId = GroupId, UserId = OwnerUserId },
+            ]);
+
+        var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            service.GetAllGroupMembersAsync(GroupId, CancellationToken.None));
+
+        Assert.Contains("group members", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetAllGroupMembersAsync_WhenCreatorLacksSeeUsersTab_ThrowsAccessDenied()
+    {
+        var service = CreateService(
+            currentUserId: OtherUserId,
+            workspaceRole: WorkspaceRole.Creator,
+            groupMembers:
+            [
+                new GroupMember { GroupId = GroupId, UserId = OtherUserId },
+            ]);
+
+        var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
+            service.GetAllGroupMembersAsync(GroupId, CancellationToken.None));
+
+        Assert.Contains("group members", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static GroupService CreateService(
         int currentUserId,
         WorkspaceRole workspaceRole,
         List<GroupMember>? groupMembers = null,
         StubGroupRepository? repository = null,
+        IReadOnlySet<string>? presets = null,
         params int[] additionalWorkspaceMemberIds)
     {
         repository ??= new StubGroupRepository { GroupMembers = groupMembers ?? [] };
@@ -89,6 +266,9 @@ public sealed class GroupServiceMembershipAuthorizationTests
             WorkspaceId = WorkspaceId,
             UserId = currentUserId,
             Role = workspaceRole,
+            Presets = presets is null
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(presets, StringComparer.OrdinalIgnoreCase),
         };
 
         var workspaceMemberIds = new HashSet<int>(additionalWorkspaceMemberIds) { currentUserId };
@@ -238,11 +418,14 @@ public sealed class GroupServiceMembershipAuthorizationTests
     private sealed class StubGroupRepository : IGroupRepository
     {
         public List<GroupMember> GroupMembers { get; init; } = [];
+        public List<Group> Groups { get; init; } = [new Group { Id = GroupId, Name = "Test Group" }];
+        public List<Group> CreatedGroups { get; } = [];
+        public List<GroupMember> GetAllGroupMembersResult { get; init; } = [];
 
         public Task<Group?> GetGroupByIdAsync(int workspaceId, int groupId, CancellationToken cancellationToken) =>
             Task.FromResult<Group?>(
-                workspaceId == WorkspaceId && groupId == GroupId
-                    ? new Group { Id = GroupId, Name = "Test Group" }
+                workspaceId == WorkspaceId
+                    ? Groups.FirstOrDefault(g => g.Id == groupId)
                     : null);
 
         public Task<GroupMember?> GetGroupMemberAsync(int workspaceId, int groupId, int userId, CancellationToken cancellationToken) =>
@@ -259,8 +442,12 @@ public sealed class GroupServiceMembershipAuthorizationTests
         public Task<List<int>> GetUserGroupIdsAsync(int workspaceId, int userId, CancellationToken cancellationToken) =>
             Task.FromResult(GroupMembers.Where(m => m.UserId == userId).Select(m => m.GroupId).ToList());
 
-        public Task<int> CreateGroupAsync(int workspaceId, Group group, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+        public Task<int> CreateGroupAsync(int workspaceId, Group group, CancellationToken cancellationToken)
+        {
+            group.Id = Groups.Count + CreatedGroups.Count + 100;
+            CreatedGroups.Add(group);
+            return Task.FromResult(group.Id);
+        }
 
         public Task<bool> DeleteGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
@@ -278,7 +465,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
             throw new NotImplementedException();
 
         public Task<List<GroupMember>> GetAllGroupMembersAsync(int workspaceId, int groupId, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
+            Task.FromResult(GetAllGroupMembersResult.Where(m => m.GroupId == groupId).ToList());
 
         public Task<bool> DeleteGroupMemberAsync(int workspaceId, int groupId, int userId, CancellationToken cancellationToken) =>
             throw new NotImplementedException();

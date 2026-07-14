@@ -364,7 +364,7 @@ namespace EduCollab.Api.Controllers
             {
                 return ApiNotFound();
             }
-            var response = user.MapToResponse();    
+            var response = user.MapToResponse();
             return Ok(response);
         }
 

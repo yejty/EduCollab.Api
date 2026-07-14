@@ -233,4 +233,93 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var forbiddenBody = await moveUnderInaccessibleParentResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
         Assert.Contains("member of this group", forbiddenBody.Detail, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task CreateGroup_RejectsParentGroupIdWhenManagerHasNoAccess()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var managerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Group Parent Access Workspace",
+            "Group parent access authorization test");
+
+        factory.EmailSender.Clear();
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = managerEmail,
+            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
+        });
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+        var invitationToken = factory.GetInvitationToken(managerEmail);
+        var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
+        {
+            FirstName = "Workspace",
+            LastName = "Manager",
+            Email = managerEmail,
+            Password = password,
+        });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var managerTokens = await managerClient.LoginAsync(managerEmail, password);
+        managerClient.SetBearerToken(managerTokens.AccessToken);
+
+        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Science",
+            Description = "Group the manager can access",
+        });
+        scienceResponse.EnsureSuccessStatusCode();
+        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var artsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Arts",
+            Description = "Group the manager cannot access",
+        });
+        artsResponse.EnsureSuccessStatusCode();
+        var arts = await artsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var managerMeResponse = await managerClient.GetAsync("/api/users/me");
+        managerMeResponse.EnsureSuccessStatusCode();
+        var managerUser = await managerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addManagerResponse = await ownerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)managerUser.Id) });
+        addManagerResponse.EnsureSuccessStatusCode();
+
+        var createUnderInaccessibleParentResponse = await managerClient.PostAsJsonAsync(
+            "/api/workspace/groups",
+            new CreateGroupRequest
+            {
+                Name = "Blocked Subgroup",
+                Description = "Should not be created under Arts",
+                ParentGroupId = arts.Id,
+            });
+        Assert.Equal(HttpStatusCode.Forbidden, createUnderInaccessibleParentResponse.StatusCode);
+        var forbiddenBody = await createUnderInaccessibleParentResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Contains("member of this group", forbiddenBody.Detail, StringComparison.OrdinalIgnoreCase);
+
+        var createUnderAccessibleParentResponse = await managerClient.PostAsJsonAsync(
+            "/api/workspace/groups",
+            new CreateGroupRequest
+            {
+                Name = "Physics",
+                Description = "Allowed subgroup under Science",
+                ParentGroupId = science.Id,
+            });
+        createUnderAccessibleParentResponse.EnsureSuccessStatusCode();
+    }
 }

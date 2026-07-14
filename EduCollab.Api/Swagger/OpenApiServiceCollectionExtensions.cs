@@ -37,6 +37,7 @@ namespace EduCollab.Api.Swagger
                 });
 
                 options.OperationFilter<AuthorizeRequiredOperationFilter>();
+                options.OperationFilter<RequiresWorkspacePresetOperationFilter>();
                 options.OperationFilter<ListQueryParameterOperationFilter>();
                 options.SchemaFilter<PasswordExampleSchemaFilter>();
                 options.DocumentFilter<ProblemDetailsDocumentFilter>();

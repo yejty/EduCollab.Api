@@ -4,10 +4,13 @@ namespace EduCollab.Application.Services.Content
     {
         public static IReadOnlyList<int> ResolveGroupIds(IReadOnlyList<int>? groupIds)
         {
-            if (groupIds is { Count: > 0 })
-                return groupIds.Where(id => id > 0).Distinct().ToList();
+            if (groupIds is not { Count: > 0 })
+                return Array.Empty<int>();
 
-            return Array.Empty<int>();
+            if (groupIds.Any(id => id <= 0))
+                throw new ArgumentException("Each group id must be a positive integer.", nameof(groupIds));
+
+            return groupIds.Distinct().ToList();
         }
 
         public static int PrimaryGroupId(IReadOnlyList<int> groupIds) =>

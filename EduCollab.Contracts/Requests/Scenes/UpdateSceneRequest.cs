@@ -4,7 +4,6 @@ namespace EduCollab.Contracts.Requests.Scenes
     {
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public List<int>? GroupIds { get; set; }
 
         /// <summary>
         /// Inline scene document. Objects that use a workspace asset include an <c>assetId</c> property

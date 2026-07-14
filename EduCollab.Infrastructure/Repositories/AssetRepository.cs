@@ -74,7 +74,7 @@ namespace EduCollab.Infrastructure.Repositories
                     new
                     {
                         WorkspaceId = workspaceId,
-                        asset.GroupId,
+                        GroupId = asset.GroupId > 0 ? asset.GroupId : (int?)null,
                         asset.OwnerUserId,
                         asset.Name,
                         asset.Description,

@@ -10,11 +10,10 @@ namespace EduCollab.Application.Models
             new() { Key = "seeUsersTab", Label = "See users tab" },
             new() { Key = "inviteUsers", Label = "Invite users" },
             new() { Key = "addAssets", Label = "Add assets" },
-            new() { Key = "addScenes", Label = "Add scenes" },
-            new() { Key = "addFlows", Label = "Add flows" },
+            new() { Key = "addScenesAndFlows", Label = "Add scenes and flows" },
             new() { Key = "createSessions", Label = "Create sessions" },
             new() { Key = "loadAssets", Label = "Load assets" },
-            new() { Key = "loadScenes", Label = "Load scenes" },
+            new() { Key = "loadScenesAndFlows", Label = "Load scenes and flows" },
             new() { Key = "editorOutliner", Label = "Editor / outliner panel" },
             new() { Key = "editorSequencer", Label = "Editor / sequencer panel" },
             new() { Key = "editorActions", Label = "Editor / actions panel" },
@@ -34,24 +33,24 @@ namespace EduCollab.Application.Models
                 [WorkspaceRole.Owner] = ToSet(
                 [
                     "editWorkspace", "seeGroupsTab", "addGroups", "seeUsersTab", "inviteUsers",
-                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes",
+                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
                 [WorkspaceRole.Manager] = ToSet(
                 [
                     "seeGroupsTab", "addGroups", "seeUsersTab", "inviteUsers",
-                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes",
+                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
                 [WorkspaceRole.Creator] = ToSet(
                 [
-                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes",
+                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
-                [WorkspaceRole.Viewer] = ToSet(["loadScenes"]),
+                [WorkspaceRole.Viewer] = ToSet(["loadScenesAndFlows"]),
             };
 
         private static readonly IReadOnlyDictionary<string, WorkspaceRole> RoleShortcutByKey =
@@ -104,6 +103,19 @@ namespace EduCollab.Application.Models
                     continue;
                 }
 
+                if (string.Equals(key, "loadScenes", StringComparison.OrdinalIgnoreCase))
+                {
+                    expanded.Add("loadScenesAndFlows");
+                    continue;
+                }
+
+                if (string.Equals(key, "addScenes", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(key, "addFlows", StringComparison.OrdinalIgnoreCase))
+                {
+                    expanded.Add("addScenesAndFlows");
+                    continue;
+                }
+
                 if (!CatalogByKey.ContainsKey(key))
                 {
                     error = $"Unknown preset or role shortcut key '{key}'.";
@@ -144,7 +156,7 @@ namespace EduCollab.Application.Models
         {
             if (member.Presets.Count > 0)
             {
-                return member.Presets;
+                return NormalizeStoredPresetKeys(member.Presets);
             }
 
             if (member.Role == WorkspaceRole.Custom)
@@ -153,6 +165,20 @@ namespace EduCollab.Application.Models
             }
 
             return GetPresetKeysForRole(member.Role);
+        }
+
+        private static IReadOnlySet<string> NormalizeStoredPresetKeys(IReadOnlySet<string> presets)
+        {
+            var normalized = new HashSet<string>(presets, StringComparer.OrdinalIgnoreCase);
+
+            if (normalized.Remove("loadScenes"))
+                normalized.Add("loadScenesAndFlows");
+
+            var hadLegacyAddPreset = normalized.Remove("addScenes") | normalized.Remove("addFlows");
+            if (hadLegacyAddPreset)
+                normalized.Add("addScenesAndFlows");
+
+            return normalized;
         }
 
         public static WorkspaceRole ResolveMemberRole(WorkspaceMember member) =>

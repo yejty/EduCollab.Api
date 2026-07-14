@@ -28,7 +28,7 @@ namespace EduCollab.Application.Services.Assets
 
         Task<Asset?> GetAssetByIdAsync(int assetId, CancellationToken cancellationToken);
 
-        Task<Asset?> UpdateAssetAsync(Asset asset, IReadOnlyList<int>? groupIds, CancellationToken cancellationToken);
+        Task<Asset?> UpdateAssetAsync(Asset asset, CancellationToken cancellationToken);
 
         Task<bool> DeleteAssetAsync(int assetId, CancellationToken cancellationToken);
 

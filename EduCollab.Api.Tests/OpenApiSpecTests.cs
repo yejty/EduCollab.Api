@@ -24,6 +24,29 @@ public sealed class OpenApiSpecTests
     }
 
     [Fact]
+    public async Task WorkspaceOperations_documentRequiredPresets()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        response.EnsureSuccessStatusCode();
+
+        var document = JsonNode.Parse(await response.Content.ReadAsStringAsync());
+        var createAsset = document?["paths"]?["/api/workspace/assets"]?["post"];
+        Assert.NotNull(createAsset);
+        Assert.NotNull(createAsset["x-workspace-presets"]);
+
+        var presets = createAsset["x-workspace-presets"]?["presets"]?.AsArray();
+        Assert.NotNull(presets);
+        Assert.Contains(presets, preset => preset?.GetValue<string>() == "addAssets");
+
+        var description = createAsset["description"]?.GetValue<string>();
+        Assert.NotNull(description);
+        Assert.Contains("Workspace presets", description, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CommittedOpenApiSpec_matchesLiveSwaggerDocument()
     {
         var specPath = ResolveCommittedSpecPath();

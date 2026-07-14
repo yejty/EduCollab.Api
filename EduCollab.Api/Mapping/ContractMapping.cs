@@ -183,7 +183,7 @@ namespace EduCollab.Api.Mapping
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 Email = user.Email,
-                WorkspaceId = user.WorkspaceId,
+                WorkspaceIds = user.MemberWorkspaceIds,
             };
         }
 

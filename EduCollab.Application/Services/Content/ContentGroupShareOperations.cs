@@ -108,6 +108,44 @@ namespace EduCollab.Application.Services.Content
             }
         }
 
+        internal static async Task PopulateFlowSceneIdsAsync(
+            IFlowRepository repository,
+            int workspaceId,
+            Flow flow,
+            CancellationToken cancellationToken)
+        {
+            var sceneIdsByFlowId = await repository.GetFlowSceneIdsByFlowIdsAsync(
+                workspaceId,
+                [flow.Id],
+                cancellationToken);
+
+            flow.SceneIds = sceneIdsByFlowId.TryGetValue(flow.Id, out var sceneIds)
+                ? sceneIds
+                : [];
+        }
+
+        internal static async Task PopulateFlowSceneIdsAsync(
+            IFlowRepository repository,
+            int workspaceId,
+            List<Flow> flows,
+            CancellationToken cancellationToken)
+        {
+            if (flows.Count == 0)
+                return;
+
+            var sceneIdsByFlowId = await repository.GetFlowSceneIdsByFlowIdsAsync(
+                workspaceId,
+                flows.Select(flow => flow.Id).ToArray(),
+                cancellationToken);
+
+            foreach (var flow in flows)
+            {
+                flow.SceneIds = sceneIdsByFlowId.TryGetValue(flow.Id, out var sceneIds)
+                    ? sceneIds
+                    : [];
+            }
+        }
+
         internal static async Task EnsureCanPlaceInGroupsAsync(
             IGroupRepository groupRepository,
             IGroupAccessResolver groupAccessResolver,
@@ -131,6 +169,60 @@ namespace EduCollab.Application.Services.Content
 
                 throw new AccessDeniedException("You do not have access to place resources in this group.");
             }
+        }
+
+        internal static void RedactAssetGroupSharesIfCannotView(Asset asset, WorkspaceMember membership)
+        {
+            if (WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+                return;
+
+            asset.GroupIds = [];
+            asset.GroupId = 0;
+        }
+
+        internal static void RedactAssetGroupSharesIfCannotView(List<Asset> assets, WorkspaceMember membership)
+        {
+            if (WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+                return;
+
+            foreach (var asset in assets)
+                RedactAssetGroupSharesIfCannotView(asset, membership);
+        }
+
+        internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(Scene scene, WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+                return;
+
+            scene.GroupIds = [];
+            scene.GroupId = 0;
+        }
+
+        internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(List<Scene> scenes, WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+                return;
+
+            foreach (var scene in scenes)
+                RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(scene, membership);
+        }
+
+        internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(Flow flow, WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+                return;
+
+            flow.GroupIds = [];
+            flow.GroupId = 0;
+        }
+
+        internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(List<Flow> flows, WorkspaceMember membership)
+        {
+            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+                return;
+
+            foreach (var flow in flows)
+                RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(flow, membership);
         }
 
         internal static bool ManagerCanManageViaGroups(

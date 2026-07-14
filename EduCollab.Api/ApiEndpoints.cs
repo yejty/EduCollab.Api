@@ -10,7 +10,10 @@
 
         private const string ApiCurrentWorkspaceBase = $"{ApiBase}/workspace";
 
-
+        public static class Health
+        {
+            public const string Get = $"{ApiBase}/health";
+        }
 
         public static class Users
 

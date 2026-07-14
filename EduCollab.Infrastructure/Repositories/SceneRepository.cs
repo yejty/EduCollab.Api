@@ -73,7 +73,7 @@ namespace EduCollab.Infrastructure.Repositories
                     {
                         WorkspaceId = workspaceId,
                         scene.OwnerUserId,
-                        scene.GroupId,
+                        GroupId = scene.GroupId > 0 ? scene.GroupId : (int?)null,
                         scene.Name,
                         scene.Description,
                         JsonContent = "{}",

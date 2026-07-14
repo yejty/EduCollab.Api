@@ -67,7 +67,7 @@ namespace EduCollab.Infrastructure.Repositories
                     {
                         WorkspaceId = workspaceId,
                         flow.OwnerUserId,
-                        flow.GroupId,
+                        GroupId = flow.GroupId > 0 ? flow.GroupId : (int?)null,
                         flow.Name,
                         flow.Description,
                         flow.CreatedAtUtc,
@@ -217,6 +217,34 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             return links.AsList();
+        }
+
+        public async Task<Dictionary<int, List<int>>> GetFlowSceneIdsByFlowIdsAsync(
+            int workspaceId,
+            IReadOnlyCollection<int> flowIds,
+            CancellationToken cancellationToken)
+        {
+            if (flowIds.Count == 0)
+                return new Dictionary<int, List<int>>();
+
+            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
+
+            var rows = await connection.QueryAsync<(int FlowId, int SceneId)>(
+                new CommandDefinition(
+                    """
+                    SELECT fs.FlowId, fs.SceneId
+                    FROM FlowScenes fs
+                    INNER JOIN Flows f ON f.Id = fs.FlowId
+                    WHERE f.WorkspaceId = @WorkspaceId
+                      AND fs.FlowId = ANY(@FlowIds)
+                    ORDER BY fs.FlowId, fs.CreatedAtUtc, fs.SceneId;
+                    """,
+                    new { WorkspaceId = workspaceId, FlowIds = flowIds.ToArray() },
+                    cancellationToken: cancellationToken));
+
+            return rows
+                .GroupBy(row => row.FlowId)
+                .ToDictionary(group => group.Key, group => group.Select(row => row.SceneId).ToList());
         }
 
         public async Task ReplaceFlowSceneLinksAsync(

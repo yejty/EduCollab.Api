@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "EduCollab API",
-    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: tree browse with optional `parentId`. Root browse (`parentId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentId={groupId}`. `GET /api/workspace/groups/flat` returns all accessible groups in one list (group pickers, search, admin tables). Adding a user to a group also adds them to all subgroups.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has group placement via `groupId` / `groupIds`; change placement with `PUT /api/workspace/assets/{assetId}`. Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: union of all accessible scenes. Optional filter: `owner=me`. CRUD by id at `/api/workspace/scenes/{sceneId}`. Create/update send inline `jsonContent` as JSON or upload a `.json` file via `multipart/form-data` (`jsonFile` part). Scene JSON may reference workspace assets via `assetId` properties anywhere in the tree.\n- **Flows** `GET /api/workspace/flows`: union of all accessible flows. Optional filter: `owner=me`. CRUD by id at `/api/workspace/flows/{flowId}`. Create/update accept optional `sceneIds` to attach scenes to the flow.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. `GET /api/workspace/scenes/{sceneId}` — load `jsonContent` when the scene itself is visible.\n2. Parse `jsonContent` client-side for `assetId` properties.\n3. Download each required asset ZIP via `GET /api/workspace/assets/{assetId}/content`. Assets the caller cannot access directly return `404`.\n\n## Flow runtime scene loading\nClients running a flow should:\n1. `GET /api/workspace/flows/{flowId}` — load flow metadata and `sceneIds` when the flow itself is visible.\n2. `GET /api/workspace/scenes/{sceneId}` for each `sceneId` (scenes the caller cannot access return `404`).\n3. Parse each scene's `jsonContent` for `assetId` values and download assets via `GET /api/workspace/assets/{assetId}/content`.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nInvalid scene asset references on create/update use `error: invalid_asset_reference` with an `invalidAssetReferences` array of `{ assetId, reason }`.\nInvalid flow scene references on create/update use `error: invalid_scene_reference` with an `invalidSceneReferences` array of `{ sceneId, reason }`.\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
+    "description": "EduCollab workspace collaboration API (v1).\n\n## Base URL and tenancy\n- All routes are under `/api`.\n- Authenticated workspace operations use the **current workspace** scope: `/api/workspace/...`.\n- Users may belong to multiple workspaces; `Users.WorkspaceId` stores the active workspace used by current-workspace routes.\n- List memberships with `GET /api/users/me/workspaces`; switch active workspace with `PUT /api/users/me/active-workspace`.\n- Platform administration uses `/api/admin/...`.\n\n## Authentication\n- Send `Authorization: Bearer {accessToken}` on protected routes.\n- Obtain tokens from `POST /api/users/login`, `POST /api/users/login/confirm-code`, or `POST /api/users/registration-confirm`.\n\n## Health\n- `GET /api/health` returns API and dependency status without authentication.\n- Returns `200` when healthy and `503` when a dependency (e.g. database) is unavailable.\n\n## Workspace permission presets\n- Workspace-scoped routes under `/api/workspace/...` require the caller to be a member of the **active workspace** (`Users.WorkspaceId`).\n- Beyond membership, many routes require one or more **permission presets** assigned to the member.\n- List preset keys, labels, and role shortcuts with `GET /api/workspace/permission-presets`.\n- Each workspace operation documents required presets in its description (**Workspace presets:** …).\n- Preset requirements also appear in the machine-readable `x-workspace-presets` OpenAPI extension.\n- Members with `editWorkspace` (workspace owners) bypass most preset checks and can access all workspace content.\n- Content visibility (assets, scenes, flows, groups) may additionally require group membership or ownership even when load presets are present.\n\n## List query parameters\nCollection list endpoints accept optional query parameters:\n\n| Parameter | Default | Rules |\n|-----------|---------|-------|\n| `page` | 1 | Must be >= 1. Invalid values return `400` with `error: invalid_pagination`. |\n| `pageSize` | 20 | Must be 1–100. Invalid values return `400` with `error: invalid_pagination`. |\n| `sort` | per resource (see below) | Ascending: `sort=name`. Descending: `sort=-createdAt`. Unknown fields return `400` with `error: invalid_sort`. |\n\n### Allowed `sort` fields by resource\n- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).\n- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).\n- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).\n\nPaged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.\n\n### Collection filters (normalized URLs)\n- **Groups** `GET /api/workspace/groups`: tree browse with optional `parentId`. Root browse (`parentId` omitted) returns entry groups the caller may open (direct membership plus subgroups whose parent is not accessible). Drill down with `parentId={groupId}`. `GET /api/workspace/groups/flat` returns all accessible groups in one list (group pickers, search, admin tables). Adding a user to a group also adds them to all subgroups.\n- **Group library** `GET /api/workspace/groups/{groupId}/assets|scenes|flows`: resources placed in that group (requires effective group access).\n- **Assets** `GET /api/workspace/assets`: union of all accessible assets. Optional filter: `owner=me`. Each asset has group placement via `groupId` / `groupIds`; change placement with `PUT /api/workspace/asset-groups?assetId={assetId}`. Binary content is a ZIP file via `PUT /api/workspace/assets/{assetId}/content`.\n- **Scenes** `GET /api/workspace/scenes`: union of all accessible scenes. Optional filter: `owner=me`. CRUD by id at `/api/workspace/scenes/{sceneId}`. Change group placement with `PUT /api/workspace/scene-groups?sceneId={sceneId}`. Create/update send inline `jsonContent` as JSON or upload a `.json` file via `multipart/form-data` (`jsonFile` part); omit `groupIds` to keep the scene in your personal space. Scene JSON may reference workspace assets via `assetId` properties anywhere in the tree.\n- **Flows** `GET /api/workspace/flows`: union of all accessible flows. Optional filter: `owner=me`. CRUD by id at `/api/workspace/flows/{flowId}`. Change group placement with `PUT /api/workspace/flow-groups?flowId={flowId}`. Create/update accept optional `groupIds` (omit for personal space) and optional `sceneIds` to attach scenes to the flow.\n\n## Scene runtime asset loading\nClients rendering a scene should:\n1. `GET /api/workspace/scenes/{sceneId}` — load `jsonContent` when the scene itself is visible.\n2. Parse `jsonContent` client-side for `assetId` properties.\n3. Download each required asset ZIP via `GET /api/workspace/assets/{assetId}/content`. Assets the caller cannot access directly return `404`.\n\n## Flow runtime scene loading\nClients running a flow should:\n1. `GET /api/workspace/flows/{flowId}` — load flow metadata and `sceneIds` when the flow itself is visible.\n2. `GET /api/workspace/scenes/{sceneId}` for each `sceneId` (scenes the caller cannot access return `404`).\n3. Parse each scene's `jsonContent` for `assetId` values and download assets via `GET /api/workspace/assets/{assetId}/content`.\n\n## Errors\nAll `4xx` and `5xx` responses use RFC 9457 Problem Details (`application/problem+json`).\nCommon properties: `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`.\nModel validation failures use `error: validation_failed` and an `errors` object keyed by field name (camelCase).\nInvalid scene asset references on create/update use `error: invalid_asset_reference` with an `invalidAssetReferences` array of `{ assetId, reason }`.\nInvalid flow scene references on create/update use `error: invalid_scene_reference` with an `invalidSceneReferences` array of `{ sceneId, reason }`.\nEvery response includes an `X-Request-Id` header matching `requestId` in error bodies when present.\n\n## Contract source\nThis document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/openapi.json`.\nRegenerate with `scripts/export-openapi.ps1`.",
     "version": "1.0"
   },
   "paths": {
@@ -815,6 +815,7 @@
           "AssetGroups"
         ],
         "summary": "List groups an asset is shared with.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -851,13 +852,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires effective access to the asset."
+        }
       },
       "post": {
         "tags": [
           "AssetGroups"
         ],
         "summary": "Share an asset with a group.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the asset.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -903,13 +914,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires manage access to the asset."
+        }
       },
       "put": {
         "tags": [
           "AssetGroups"
         ],
         "summary": "Replace all group shares for an asset.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -965,13 +986,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires manage access to the asset."
+        }
       },
       "delete": {
         "tags": [
           "AssetGroups"
         ],
         "summary": "Remove an asset from a group.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -999,7 +1030,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires manage access to the asset."
+        }
       }
     },
     "/api/workspace/assets": {
@@ -1007,7 +1047,8 @@
         "tags": [
           "Assets"
         ],
-        "summary": "Create a new asset in the specified group with required ZIP content.",
+        "summary": "Create a new asset with required ZIP content. Omit `groupIds` to keep the asset in your personal space.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -1022,7 +1063,8 @@
                     "items": {
                       "type": "integer",
                       "format": "int32"
-                    }
+                    },
+                    "description": "Groups that receive access to this asset when it is created.\r\nOmit to keep the asset in your personal space."
                   },
                   "Description": {
                     "type": "string"
@@ -1085,13 +1127,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ]
+        }
       },
       "get": {
         "tags": [
           "Assets"
         ],
         "summary": "List accessible assets in the current workspace.",
+        "description": "**Workspace presets:** `loadAssets` (Load assets) or `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to each asset (ownership or group membership).",
         "parameters": [
           {
             "name": "owner",
@@ -1168,7 +1219,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadAssets",
+            "addAssets"
+          ],
+          "notes": "Also requires effective access to each asset (ownership or group membership)."
+        }
       }
     },
     "/api/workspace/assets/{assetId}": {
@@ -1177,6 +1238,7 @@
           "Assets"
         ],
         "summary": "Retrieve an asset by id.",
+        "description": "**Workspace presets:** `loadAssets` (Load assets) or `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the asset (ownership or group membership).",
         "parameters": [
           {
             "name": "assetId",
@@ -1224,13 +1286,24 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadAssets",
+            "addAssets"
+          ],
+          "notes": "Also requires effective access to the asset (ownership or group membership)."
+        }
       },
       "put": {
         "tags": [
           "Assets"
         ],
-        "summary": "Update asset metadata and group placement.",
+        "summary": "Update asset metadata.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -1244,7 +1317,7 @@
           }
         ],
         "requestBody": {
-          "description": "Asset update payload. Include `groupIds` to move the asset.",
+          "description": "Asset update payload.",
           "content": {
             "application/json": {
               "schema": {
@@ -1298,13 +1371,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset."
+        }
       },
       "delete": {
         "tags": [
           "Assets"
         ],
         "summary": "Delete an asset.",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -1335,7 +1418,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset."
+        }
       }
     },
     "/api/workspace/assets/{assetId}/content": {
@@ -1344,6 +1436,7 @@
           "Assets"
         ],
         "summary": "Download asset binary content (ZIP file).",
+        "description": "**Workspace presets:** `loadAssets` (Load assets) or `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the asset (ownership or group membership).",
         "parameters": [
           {
             "name": "assetId",
@@ -1374,13 +1467,24 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadAssets",
+            "addAssets"
+          ],
+          "notes": "Also requires effective access to the asset (ownership or group membership)."
+        }
       },
       "put": {
         "tags": [
           "Assets"
         ],
         "summary": "Upload or replace asset binary content (ZIP file).",
+        "description": "**Workspace presets:** `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.",
         "parameters": [
           {
             "name": "assetId",
@@ -1434,7 +1538,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addAssets"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset."
+        }
       }
     },
     "/api/workspace/flow-groups": {
@@ -1443,6 +1556,7 @@
           "FlowGroups"
         ],
         "summary": "List groups a flow is shared with.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the flow.",
         "parameters": [
           {
             "name": "flowId",
@@ -1479,13 +1593,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the flow."
+        }
       },
       "post": {
         "tags": [
           "FlowGroups"
         ],
         "summary": "Share a flow with a group.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the flow.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1531,13 +1655,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the flow."
+        }
       },
       "put": {
         "tags": [
           "FlowGroups"
         ],
         "summary": "Replace all group shares for a flow.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the flow.",
         "parameters": [
           {
             "name": "flowId",
@@ -1593,13 +1727,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the flow."
+        }
       },
       "delete": {
         "tags": [
           "FlowGroups"
         ],
         "summary": "Remove a flow from a group.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the flow.",
         "parameters": [
           {
             "name": "flowId",
@@ -1627,7 +1771,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the flow."
+        }
       }
     },
     "/api/workspace/flows": {
@@ -1635,9 +1788,10 @@
         "tags": [
           "Flows"
         ],
-        "summary": "Create a new flow in the current workspace.",
+        "summary": "Create a new flow. Omit `groupIds` to keep the flow in your personal space.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "requestBody": {
-          "description": "Flow creation payload including group placement.",
+          "description": "Flow creation payload with optional `groupIds` and `sceneIds`.",
           "content": {
             "application/json": {
               "schema": {
@@ -1691,13 +1845,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ]
+        }
       },
       "get": {
         "tags": [
           "Flows"
         ],
         "summary": "List accessible flows in the current workspace.",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to each flow (ownership or group membership).",
         "parameters": [
           {
             "name": "owner",
@@ -1774,7 +1937,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to each flow (ownership or group membership)."
+        }
       }
     },
     "/api/workspace/flows/{flowId}": {
@@ -1783,6 +1956,7 @@
           "Flows"
         ],
         "summary": "Retrieve a flow by id.",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the flow (ownership or group membership).",
         "parameters": [
           {
             "name": "flowId",
@@ -1830,13 +2004,24 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the flow (ownership or group membership)."
+        }
       },
       "put": {
         "tags": [
           "Flows"
         ],
-        "summary": "Update flow metadata and group placement.",
+        "summary": "Update flow metadata and attached scenes.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.",
         "parameters": [
           {
             "name": "flowId",
@@ -1904,13 +2089,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow."
+        }
       },
       "delete": {
         "tags": [
           "Flows"
         ],
         "summary": "Delete a flow.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.",
         "parameters": [
           {
             "name": "flowId",
@@ -1941,7 +2136,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow."
+        }
       }
     },
     "/api/workspace/groups": {
@@ -1950,6 +2154,7 @@
           "Groups"
         ],
         "summary": "Create a new group in the current workspace.",
+        "description": "**Workspace presets:** `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "requestBody": {
           "description": "Group creation payload.",
           "content": {
@@ -2005,13 +2210,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addGroups"
+          ]
+        }
       },
       "get": {
         "tags": [
           "Groups"
         ],
         "summary": "Browse groups in tree layout at the current level.",
+        "description": "**Workspace presets:** active workspace membership (any member).\n**Notes:** Returns groups the caller can access via editWorkspace or effective group membership.",
         "parameters": [
           {
             "name": "parentId",
@@ -2089,7 +2303,13 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "notes": "Returns groups the caller can access via editWorkspace or effective group membership."
+        }
       }
     },
     "/api/workspace/groups/flat": {
@@ -2098,6 +2318,7 @@
           "Groups"
         ],
         "summary": "List all accessible groups in a flat layout (pickers, search, admin views).",
+        "description": "**Workspace presets:** active workspace membership (any member).\n**Notes:** Returns groups the caller can access via editWorkspace or effective group membership.",
         "parameters": [
           {
             "name": "sort",
@@ -2166,7 +2387,13 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "notes": "Returns groups the caller can access via editWorkspace or effective group membership."
+        }
       }
     },
     "/api/workspace/groups/{groupId}": {
@@ -2175,6 +2402,7 @@
           "Groups"
         ],
         "summary": "Retrieve a group by id.",
+        "description": "**Workspace presets:** active workspace membership (any member).\n**Notes:** Also requires effective access to the group via editWorkspace or group membership.",
         "parameters": [
           {
             "name": "groupId",
@@ -2222,13 +2450,20 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "notes": "Also requires effective access to the group via editWorkspace or group membership."
+        }
       },
       "put": {
         "tags": [
           "Groups"
         ],
         "summary": "Update group metadata.",
+        "description": "**Workspace presets:** `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the group.",
         "parameters": [
           {
             "name": "groupId",
@@ -2296,13 +2531,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addGroups"
+          ],
+          "notes": "Also requires manage access to the group."
+        }
       },
       "delete": {
         "tags": [
           "Groups"
         ],
         "summary": "Delete a group.",
+        "description": "**Workspace presets:** `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the group.",
         "parameters": [
           {
             "name": "groupId",
@@ -2333,7 +2578,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addGroups"
+          ],
+          "notes": "Also requires manage access to the group."
+        }
       }
     },
     "/api/workspace/groups/{groupId}/assets": {
@@ -2342,6 +2596,7 @@
           "Groups"
         ],
         "summary": "List assets placed in a group (group library).",
+        "description": "**Workspace presets:** `loadAssets` (Load assets) or `addAssets` (Add assets).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the group.",
         "parameters": [
           {
             "name": "groupId",
@@ -2423,7 +2678,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadAssets",
+            "addAssets"
+          ],
+          "notes": "Also requires effective access to the group."
+        }
       }
     },
     "/api/workspace/groups/{groupId}/scenes": {
@@ -2432,6 +2697,7 @@
           "Groups"
         ],
         "summary": "List scenes placed in a group (group library).",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the group.",
         "parameters": [
           {
             "name": "groupId",
@@ -2513,7 +2779,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the group."
+        }
       }
     },
     "/api/workspace/groups/{groupId}/flows": {
@@ -2522,6 +2798,7 @@
           "Groups"
         ],
         "summary": "List flows placed in a group (group library).",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the group.",
         "parameters": [
           {
             "name": "groupId",
@@ -2603,7 +2880,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the group."
+        }
       }
     },
     "/api/workspace/groups/{groupId}/users": {
@@ -2612,6 +2899,7 @@
           "Groups"
         ],
         "summary": "List members of a group.",
+        "description": "**Workspace presets:** `seeUsersTab` (See users tab) or `inviteUsers` (Invite users) or `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires group access rules based on the caller's presets.",
         "parameters": [
           {
             "name": "groupId",
@@ -2693,13 +2981,25 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "seeUsersTab",
+            "inviteUsers",
+            "addGroups"
+          ],
+          "notes": "Also requires group access rules based on the caller's presets."
+        }
       },
       "post": {
         "tags": [
           "Groups"
         ],
         "summary": "Add a workspace member to a group.",
+        "description": "**Workspace presets:** `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.",
         "parameters": [
           {
             "name": "groupId",
@@ -2770,7 +3070,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addGroups"
+          ],
+          "notes": "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace."
+        }
       }
     },
     "/api/workspace/groups/{groupId}/users/{userId}": {
@@ -2779,6 +3088,7 @@
           "Groups"
         ],
         "summary": "Retrieve a group member by user id.",
+        "description": "**Workspace presets:** `seeUsersTab` (See users tab) or `inviteUsers` (Invite users) or `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires group access rules based on the caller's presets.",
         "parameters": [
           {
             "name": "groupId",
@@ -2836,13 +3146,25 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "seeUsersTab",
+            "inviteUsers",
+            "addGroups"
+          ],
+          "notes": "Also requires group access rules based on the caller's presets."
+        }
       },
       "delete": {
         "tags": [
           "Groups"
         ],
         "summary": "Remove a member from a group.",
+        "description": "**Workspace presets:** `addGroups` (Add groups).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.",
         "parameters": [
           {
             "name": "groupId",
@@ -2883,7 +3205,66 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addGroups"
+          ],
+          "notes": "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace."
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Returns API and dependency health status. Does not require authentication.",
+        "responses": {
+          "200": {
+            "description": "All health checks passed.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more health checks failed.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/workspace/scene-groups": {
@@ -2892,6 +3273,7 @@
           "SceneGroups"
         ],
         "summary": "List groups a scene is shared with.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the scene.",
         "parameters": [
           {
             "name": "sceneId",
@@ -2928,13 +3310,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the scene."
+        }
       },
       "post": {
         "tags": [
           "SceneGroups"
         ],
         "summary": "Share a scene with a group.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the scene.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2980,13 +3372,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the scene."
+        }
       },
       "put": {
         "tags": [
           "SceneGroups"
         ],
         "summary": "Replace all group shares for a scene.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the scene.",
         "parameters": [
           {
             "name": "sceneId",
@@ -3042,13 +3444,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the scene."
+        }
       },
       "delete": {
         "tags": [
           "SceneGroups"
         ],
         "summary": "Remove a scene from a group.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires manage access to the scene.",
         "parameters": [
           {
             "name": "sceneId",
@@ -3076,7 +3488,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires manage access to the scene."
+        }
       }
     },
     "/api/workspace/scenes": {
@@ -3084,10 +3505,10 @@
         "tags": [
           "Scenes"
         ],
-        "summary": "Create a new scene in the specified group.",
-        "description": "Send `jsonContent` inline in the JSON body. Scene objects reference workspace assets via an `assetId`\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a `.json` file instead.",
+        "summary": "Create a new scene. Omit `groupIds` to keep the scene in your personal space.",
+        "description": "Send `jsonContent` inline in the JSON body. Scene objects reference workspace assets via an `assetId`\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a `.json` file instead.\n\n**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "requestBody": {
-          "description": "Scene creation payload including target `groupIds` and inline `jsonContent`.",
+          "description": "Scene creation payload with inline `jsonContent` and optional `groupIds`.",
           "content": {
             "application/json": {
               "schema": {
@@ -3131,13 +3552,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ]
+        }
       },
       "get": {
         "tags": [
           "Scenes"
         ],
         "summary": "List accessible scenes in the current workspace.",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to each scene (ownership or group membership).",
         "parameters": [
           {
             "name": "owner",
@@ -3214,7 +3644,17 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to each scene (ownership or group membership)."
+        }
       }
     },
     "/api/workspace/scenes/{sceneId}": {
@@ -3223,6 +3663,7 @@
           "Scenes"
         ],
         "summary": "Retrieve a scene by id.",
+        "description": "**Workspace presets:** `loadScenesAndFlows` (Load scenes and flows) or `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires effective access to the scene (ownership or group membership).",
         "parameters": [
           {
             "name": "sceneId",
@@ -3270,13 +3711,24 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "loadScenesAndFlows",
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires effective access to the scene (ownership or group membership)."
+        }
       },
       "put": {
         "tags": [
           "Scenes"
         ],
-        "summary": "Update scene metadata, group placement, and inline JSON content.",
+        "summary": "Update scene metadata and inline JSON content.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.",
         "parameters": [
           {
             "name": "sceneId",
@@ -3337,13 +3789,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene."
+        }
       },
       "delete": {
         "tags": [
           "Scenes"
         ],
         "summary": "Delete a scene.",
+        "description": "**Workspace presets:** `addScenesAndFlows` (Add scenes and flows).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.",
         "parameters": [
           {
             "name": "sceneId",
@@ -3374,7 +3836,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "addScenesAndFlows"
+          ],
+          "notes": "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene."
+        }
       }
     },
     "/api/users/register": {
@@ -4811,6 +5282,7 @@
           "Workspaces"
         ],
         "summary": "Lists all workspace permission preset keys and role shortcuts.",
+        "description": "**Workspace presets:** active workspace membership (any member).",
         "responses": {
           "200": {
             "description": "Preset catalog returned.",
@@ -4857,7 +5329,12 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true
+        }
       }
     },
     "/api/workspace/invitations": {
@@ -4866,6 +5343,7 @@
           "Workspaces"
         ],
         "summary": "Invite a new user.",
+        "description": "**Workspace presets:** `inviteUsers` (Invite users).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "requestBody": {
           "description": "Invitation payload.",
           "content": {
@@ -4955,7 +5433,15 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "inviteUsers"
+          ]
+        }
       }
     },
     "/api/workspace-invitations/{invitationToken}/accept": {
@@ -5190,7 +5676,8 @@
         "tags": [
           "Workspaces"
         ],
-        "summary": "Get one workspace member (membership projection: role, groups, etc.).",
+        "summary": "Get one workspace member (membership projection: role, groups, etc.).\r\nRequires the `seeUsersTab` preset.",
+        "description": "**Workspace presets:** `seeUsersTab` (See users tab) or `inviteUsers` (Invite users).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "parameters": [
           {
             "name": "userId",
@@ -5245,7 +5732,7 @@
             }
           },
           "403": {
-            "description": "Caller cannot access this workspace member.",
+            "description": "Caller lacks the seeUsersTab preset or cannot access this workspace member.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5289,13 +5776,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "seeUsersTab",
+            "inviteUsers"
+          ]
+        }
       },
       "delete": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Removes a member from the workspace, or the caller leaves (when userId is self).",
+        "description": "**Workspace presets:** `inviteUsers` (Invite users).\n**Bypass:** `editWorkspace` grants full workspace access.\n**Notes:** Members may remove themselves without inviteUsers.",
         "parameters": [
           {
             "name": "userId",
@@ -5397,13 +5894,23 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "inviteUsers"
+          ],
+          "notes": "Members may remove themselves without inviteUsers."
+        }
       },
       "put": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Update a workspace member preset.",
+        "description": "**Workspace presets:** `inviteUsers` (Invite users).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "parameters": [
           {
             "name": "userId",
@@ -5542,7 +6049,15 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "inviteUsers"
+          ]
+        }
       }
     },
     "/api/workspace/creation-requests": {
@@ -5814,6 +6329,7 @@
           "Workspaces"
         ],
         "summary": "Retrieve the current user's workspace.",
+        "description": "**Workspace presets:** active workspace membership (any member).",
         "responses": {
           "200": {
             "description": "Returns the active workspace.",
@@ -5880,13 +6396,19 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true
+        }
       },
       "put": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Update workspace metadata.",
+        "description": "**Workspace presets:** `editWorkspace` (Edit workspace).",
         "requestBody": {
           "description": "Workspace update payload.",
           "content": {
@@ -6013,13 +6535,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": false,
+          "presets": [
+            "editWorkspace"
+          ]
+        }
       },
       "delete": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Soft-delete a workspace by archiving it and disconnecting all members from it.",
+        "description": "**Workspace presets:** `editWorkspace` (Edit workspace).",
         "responses": {
           "204": {
             "description": "Workspace was archived successfully."
@@ -6109,7 +6640,15 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": false,
+          "presets": [
+            "editWorkspace"
+          ]
+        }
       }
     },
     "/api/workspace/users": {
@@ -6117,7 +6656,8 @@
         "tags": [
           "Workspaces"
         ],
-        "summary": "List members of the current workspace.",
+        "summary": "List members of the current workspace.\r\nRequires the `seeUsersTab` preset.",
+        "description": "**Workspace presets:** `seeUsersTab` (See users tab) or `inviteUsers` (Invite users).\n**Bypass:** `editWorkspace` grants full workspace access.",
         "parameters": [
           {
             "name": "sort",
@@ -6213,7 +6753,7 @@
             }
           },
           "403": {
-            "description": "Caller cannot access this workspace.",
+            "description": "Caller lacks the seeUsersTab preset or cannot access this workspace.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -6257,7 +6797,16 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": true,
+          "presets": [
+            "seeUsersTab",
+            "inviteUsers"
+          ]
+        }
       }
     },
     "/api/workspace/thumbnail": {
@@ -6266,6 +6815,7 @@
           "Workspaces"
         ],
         "summary": "Retrieve the current workspace thumbnail image.",
+        "description": "**Workspace presets:** active workspace membership (any member).",
         "responses": {
           "200": {
             "description": "Thumbnail image bytes."
@@ -6335,13 +6885,19 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": true,
+          "requireAll": false,
+          "editWorkspaceBypass": true
+        }
       },
       "put": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Upload or replace the current workspace thumbnail image.",
+        "description": "**Workspace presets:** `editWorkspace` (Edit workspace).",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -6431,13 +6987,22 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": false,
+          "presets": [
+            "editWorkspace"
+          ]
+        }
       },
       "delete": {
         "tags": [
           "Workspaces"
         ],
         "summary": "Delete the current workspace thumbnail image.",
+        "description": "**Workspace presets:** `editWorkspace` (Edit workspace).",
         "responses": {
           "204": {
             "description": "Thumbnail was deleted."
@@ -6487,7 +7052,15 @@
           {
             "Bearer": [ ]
           }
-        ]
+        ],
+        "x-workspace-presets": {
+          "membershipOnly": false,
+          "requireAll": false,
+          "editWorkspaceBypass": false,
+          "presets": [
+            "editWorkspace"
+          ]
+        }
       }
     }
   },
@@ -7113,6 +7686,23 @@
         },
         "additionalProperties": false
       },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "InviteUserRequest": {
         "required": [
           "email",
@@ -7466,14 +8056,6 @@
             "type": "string",
             "nullable": true
           },
-          "groupIds": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            },
-            "nullable": true
-          },
           "assetType": {
             "type": "string",
             "nullable": true
@@ -7490,14 +8072,6 @@
           },
           "description": {
             "type": "string",
-            "nullable": true
-          },
-          "groupIds": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            },
             "nullable": true
           },
           "sceneIds": {
@@ -7539,14 +8113,6 @@
           },
           "description": {
             "type": "string",
-            "nullable": true
-          },
-          "groupIds": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "int32"
-            },
             "nullable": true
           },
           "jsonContent": {
@@ -7622,9 +8188,12 @@
             "type": "string",
             "nullable": true
           },
-          "workspaceId": {
-            "type": "integer",
-            "format": "int32",
+          "workspaceIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
             "nullable": true
           }
         },

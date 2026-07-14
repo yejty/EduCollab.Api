@@ -74,6 +74,11 @@ namespace EduCollab.Api.Controllers
         protected ObjectResult ApiBadRequest(string error, string detail) =>
             ApiProblem(StatusCodes.Status400BadRequest, error, detail);
 
+        protected ObjectResult? ValidatePositiveGroupId(int groupId) =>
+            groupId <= 0
+                ? ApiBadRequest("invalid_group_id", "groupId must be a positive integer.")
+                : null;
+
         protected ObjectResult ApiUnauthorized(string error, string detail) =>
             ApiProblem(StatusCodes.Status401Unauthorized, error, detail);
 

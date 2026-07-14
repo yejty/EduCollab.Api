@@ -7,6 +7,7 @@ using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Auth;
 using EduCollab.Application.Services.Notifications;
+using EduCollab.Application.Services.Workspaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace EduCollab.Application.Services.Users
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IWorkspaceRepository _workspaceRepository;
         private readonly IPasswordHasher<PasswordHasherUser> _passwordHasher;
         private readonly ICurrentUser _currentUser;
         private readonly IOptions<PasswordResetSettings> _passwordResetSettings;
@@ -28,6 +30,7 @@ namespace EduCollab.Application.Services.Users
 
         public UserService(
             IUserRepository userRepository,
+            IWorkspaceRepository workspaceRepository,
             IPasswordHasher<PasswordHasherUser> passwordHasher,
             ICurrentUser currentUser,
             IOptions<PasswordResetSettings> passwordResetSettings,
@@ -38,6 +41,7 @@ namespace EduCollab.Application.Services.Users
             ILogger<UserService> logger)
         {
             _userRepository = userRepository;
+            _workspaceRepository = workspaceRepository;
             _passwordHasher = passwordHasher;
             _currentUser = currentUser;
             _passwordResetSettings = passwordResetSettings;
@@ -286,12 +290,24 @@ namespace EduCollab.Application.Services.Users
                 return null;
 
             await NotifyProfileUpdatedAsync(user, cancellationToken);
+            await PopulateMemberWorkspaceIdsAsync(user, cancellationToken);
             return user;
         }
 
         public async Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken)
         {
-            return await _userRepository.GetUserByIdAsync(id, cancellationToken);
+            if (_currentUser.UserId is null)
+                throw new UnauthorizedAccessException("Authentication is required for this operation.");
+
+            if (_currentUser.UserId.Value != id)
+                await EnsureCallerCanViewWorkspaceMemberProfileAsync(id, cancellationToken);
+
+            var user = await _userRepository.GetUserByIdAsync(id, cancellationToken);
+            if (user is null)
+                return null;
+
+            await PopulateMemberWorkspaceIdsAsync(user, cancellationToken);
+            return user;
         }
 
         public async Task<User?> GetCurrentUserAsync(CancellationToken cancellationToken)
@@ -300,7 +316,18 @@ namespace EduCollab.Application.Services.Users
             if (userId is null)
                 return null;
 
-            return await _userRepository.GetUserByIdAsync(userId.Value, cancellationToken);
+            var user = await _userRepository.GetUserByIdAsync(userId.Value, cancellationToken);
+            if (user is null)
+                return null;
+
+            await PopulateMemberWorkspaceIdsAsync(user, cancellationToken);
+            return user;
+        }
+
+        private async Task PopulateMemberWorkspaceIdsAsync(User user, CancellationToken cancellationToken)
+        {
+            var memberships = await _workspaceRepository.GetWorkspaceMembershipsForUserAsync(user.Id, cancellationToken);
+            user.MemberWorkspaceIds = memberships.Select(m => m.WorkspaceId).ToList();
         }
 
         private void EnsureCallerOwnsUser(int userId)
@@ -311,6 +338,32 @@ namespace EduCollab.Application.Services.Users
 
             if (callerId.Value != userId)
                 throw new AccessDeniedException("You can only access or change your own user record.");
+        }
+
+        private async Task EnsureCallerCanViewWorkspaceMemberProfileAsync(int targetUserId, CancellationToken cancellationToken)
+        {
+            var callerId = _currentUser.UserId!.Value;
+            var workspaceId = await CurrentWorkspaceAccess.ResolveActiveWorkspaceIdAsync(
+                _userRepository,
+                _workspaceRepository,
+                callerId,
+                cancellationToken);
+
+            if (workspaceId is null)
+            {
+                throw new AccessDeniedException("You cannot access this user profile.");
+            }
+
+            var callerMember = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, callerId, cancellationToken);
+            if (callerMember is null || !WorkspacePresetPermissions.CanSeeUsersTab(callerMember))
+            {
+                throw new AccessDeniedException("You do not have permission to view user profiles.");
+            }
+
+            if (!await _workspaceRepository.IsUserWorkspaceMemberAsync(workspaceId.Value, targetUserId, cancellationToken))
+            {
+                throw new AccessDeniedException("You cannot access this user profile.");
+            }
         }
 
         private Task NotifyProfileUpdatedAsync(User user, CancellationToken cancellationToken)

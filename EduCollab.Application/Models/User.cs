@@ -25,6 +25,11 @@ namespace EduCollab.Application.Models
         public int? WorkspaceId { get; set; }
 
         /// <summary>
+        /// All workspace ids the user belongs to. Populated when loading user profiles for API responses.
+        /// </summary>
+        public List<int> MemberWorkspaceIds { get; set; } = [];
+
+        /// <summary>
         /// Platform-wide administrator (not a workspace role).
         /// </summary>
         public bool IsPlatformAdmin { get; set; }

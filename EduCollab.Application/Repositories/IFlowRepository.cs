@@ -12,6 +12,7 @@ namespace EduCollab.Application.Repositories
         Task<Flow?> UpdateFlowAsync(int workspaceId, Flow flow, CancellationToken cancellationToken);
         Task<bool> DeleteFlowAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
         Task<List<FlowSceneLink>> GetFlowSceneLinksAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
+        Task<Dictionary<int, List<int>>> GetFlowSceneIdsByFlowIdsAsync(int workspaceId, IReadOnlyCollection<int> flowIds, CancellationToken cancellationToken);
         Task ReplaceFlowSceneLinksAsync(int workspaceId, int flowId, IReadOnlyList<int> sceneIds, int createdByUserId, CancellationToken cancellationToken);
         Task<List<int>> GetFlowGroupIdsAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
         Task<Dictionary<int, List<int>>> GetFlowGroupIdsByFlowIdsAsync(int workspaceId, IReadOnlyCollection<int> flowIds, CancellationToken cancellationToken);

@@ -12,7 +12,7 @@ public sealed class ScenesControllerEndpointTests
     public async Task UpdateScene_ReturnsOk_WhenSceneExists()
     {
         await using var factory = new ApiWebApplicationFactory();
-        factory.SceneService.UpdateSceneAsyncHandler = (scene, _, _) =>
+        factory.SceneService.UpdateSceneAsyncHandler = (scene, _) =>
             Task.FromResult<Scene?>(new Scene
             {
                 Id = scene.Id,
@@ -30,7 +30,6 @@ public sealed class ScenesControllerEndpointTests
         var response = await client.PutAsJsonAsync("/api/workspace/scenes/10", new UpdateSceneRequest
         {
             Name = "Updated scene",
-            GroupIds = [1],
             JsonContent = "{\"nodes\":[]}",
         });
 

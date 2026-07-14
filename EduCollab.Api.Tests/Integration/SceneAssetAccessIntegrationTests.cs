@@ -322,6 +322,15 @@ public sealed class SceneAssetAccessIntegrationTests
         });
         createFlowResponse.EnsureSuccessStatusCode();
         var flow = await createFlowResponse.ReadAsJsonAsync<FlowResponse>();
+        Assert.Contains(sharedScene.Id, flow.SceneIds);
+        Assert.Contains(privateScene.Id, flow.SceneIds);
+
+        var listFlowsResponse = await ownerClient.GetAsync("/api/workspace/flows");
+        listFlowsResponse.EnsureSuccessStatusCode();
+        var listedFlows = await listFlowsResponse.ReadAsJsonAsync<FlowsResponse>();
+        var listedFlow = Assert.Single(listedFlows.Flows, item => item.Id == flow.Id);
+        Assert.Contains(sharedScene.Id, listedFlow.SceneIds);
+        Assert.Contains(privateScene.Id, listedFlow.SceneIds);
 
         var memberFlowResponse = await memberClient.GetAsync($"/api/workspace/flows/{flow.Id}");
         memberFlowResponse.EnsureSuccessStatusCode();

@@ -20,6 +20,7 @@ namespace EduCollab.Contracts.Requests.Scenes
 
         /// <summary>
         /// Groups that receive access to this scene when it is created.
+        /// Omit to keep the scene in your personal space.
         /// </summary>
         public List<int>? GroupIds { get; set; }
     }

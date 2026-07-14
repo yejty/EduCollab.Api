@@ -238,7 +238,7 @@ public sealed class UsersControllerEndpointTests
             FirstName = "Jane",
             LastName = "Doe",
             Email = "jane@example.com",
-            WorkspaceId = 7,
+            MemberWorkspaceIds = [3, 7],
         });
 
         using var client = factory.CreateClient(userId: 21, email: "jane@example.com");
@@ -248,7 +248,30 @@ public sealed class UsersControllerEndpointTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<UserResponse>();
         Assert.Equal(21L, body.Id);
-        Assert.Equal(7, body.WorkspaceId);
+        Assert.Equal([3, 7], body.WorkspaceIds);
+    }
+
+    [Fact]
+    public async Task GetUserById_ReturnsWorkspaceIds_WhenAuthenticated()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.UserService.GetUserByIdAsyncHandler = (_, _) => Task.FromResult<User?>(new User
+        {
+            Id = 42,
+            FirstName = "Alex",
+            LastName = "Member",
+            Email = "alex@example.com",
+            MemberWorkspaceIds = [3, 7, 12],
+        });
+
+        using var client = factory.CreateClient(userId: 21, email: "viewer@example.com");
+
+        var response = await client.GetAsync("/api/users/42");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<UserResponse>();
+        Assert.Equal(42L, body.Id);
+        Assert.Equal([3, 7, 12], body.WorkspaceIds);
     }
 
     [Fact]

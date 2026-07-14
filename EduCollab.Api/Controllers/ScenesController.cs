@@ -4,6 +4,8 @@ using EduCollab.Api.Query;
 
 using EduCollab.Api.Requests.Scenes;
 
+using EduCollab.Api.Swagger;
+
 using EduCollab.Application.Services.Content;
 using EduCollab.Application.Services.Scenes;
 
@@ -56,22 +58,21 @@ namespace EduCollab.Api.Controllers
 
 
         /// <summary>
-        /// Create a new scene in the specified group.
+        /// Create a new scene. Omit <c>groupIds</c> to keep the scene in your personal space.
         /// </summary>
         /// <remarks>
         /// Send <c>jsonContent</c> inline in the JSON body. Scene objects reference workspace assets via an <c>assetId</c>
         /// property anywhere in the JSON tree. Use <see cref="CreateSceneFromForm"/> to upload a <c>.json</c> file instead.
         /// </remarks>
-        /// <param name="request">Scene creation payload including target <c>groupIds</c> and inline <c>jsonContent</c>.</param>
+        /// <param name="request">Scene creation payload with inline <c>jsonContent</c> and optional <c>groupIds</c>.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="201">Scene was created.</response>
         /// <response code="400">Scene could not be created or references an invalid asset.</response>
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create scenes in this group.</response>
         [Authorize]
-
+        [RequiresWorkspacePreset("addScenesAndFlows")]
         [HttpPost(ApiEndpoints.Scenes.Create)]
-
         [Consumes("application/json")]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status201Created)]
@@ -116,6 +117,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create scenes in this group.</response>
         [Authorize]
+        [RequiresWorkspacePreset("addScenesAndFlows")]
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPost(ApiEndpoints.Scenes.Create)]
         [Consumes("multipart/form-data")]
@@ -187,7 +189,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access scenes in this workspace.</response>
         [Authorize]
-
+        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to each scene (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Scenes.GetAll)]
 
         [ProducesResponseType(typeof(ScenesResponse), StatusCodes.Status200OK)]
@@ -282,7 +284,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-
+        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to the scene (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Scenes.Get)]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
@@ -310,7 +312,7 @@ namespace EduCollab.Api.Controllers
 
 
         /// <summary>
-        /// Update scene metadata, group placement, and inline JSON content.
+        /// Update scene metadata and inline JSON content.
         /// </summary>
         /// <param name="sceneId">Scene identifier.</param>
         /// <param name="request">Scene update payload including <c>jsonContent</c>.</param>
@@ -321,9 +323,8 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-
+        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [HttpPut(ApiEndpoints.Scenes.Update)]
-
         [Consumes("application/json")]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
@@ -334,9 +335,7 @@ namespace EduCollab.Api.Controllers
 
             var scene = request.MapToScene(sceneId);
 
-            var groupIdsToApply = request.GroupIds;
-
-            var updated = await _sceneService.UpdateSceneAsync(scene, groupIdsToApply, cancellationToken);
+            var updated = await _sceneService.UpdateSceneAsync(scene, cancellationToken);
 
             if (updated is null)
 
@@ -366,6 +365,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
+        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPut(ApiEndpoints.Scenes.Update)]
         [Consumes("multipart/form-data")]
@@ -410,8 +410,6 @@ namespace EduCollab.Api.Controllers
 
                 Description = request.Description,
 
-                GroupIds = request.GroupIds,
-
                 JsonContent = SceneFormContentResolver.ParseJsonContent(jsonContent),
 
             };
@@ -434,7 +432,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-
+        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [HttpDelete(ApiEndpoints.Scenes.Delete)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]

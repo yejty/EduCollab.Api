@@ -45,7 +45,7 @@ public sealed class WorkspacePermissionPresetsTests
     [Fact]
     public void DeriveRole_ReturnsCustom_WhenPresetCombinationDoesNotMatchTemplate()
     {
-        var customPresets = new[] { "addAssets", "loadScenes" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var customPresets = new[] { "addAssets", "loadScenesAndFlows" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(customPresets));
     }
@@ -82,22 +82,42 @@ public sealed class WorkspacePermissionPresetsTests
     {
         Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["viewer", "addAssets"], out var normalized, out _));
 
-        Assert.Contains("loadScenes", normalized);
+        Assert.Contains("loadScenesAndFlows", normalized);
         Assert.Contains("addAssets", normalized);
         Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(normalized));
     }
 
     [Fact]
-    public void ResolveMemberRole_ReturnsViewer_WhenOnlyLoadScenesPresetIsAssigned()
+    public void TryNormalizeKeys_AcceptsLegacyAddScenesAndAddFlowsAliases()
+    {
+        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["addScenes"], out var fromScenes, out _));
+        Assert.Contains("addScenesAndFlows", fromScenes);
+        Assert.DoesNotContain("addScenes", fromScenes);
+
+        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["addFlows"], out var fromFlows, out _));
+        Assert.Contains("addScenesAndFlows", fromFlows);
+        Assert.DoesNotContain("addFlows", fromFlows);
+    }
+
+    [Fact]
+    public void ResolveMemberRole_ReturnsViewer_WhenOnlyLoadScenesAndFlowsPresetIsAssigned()
     {
         var member = new WorkspaceMember
         {
             Role = WorkspaceRole.Custom,
-            Presets = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadScenes" },
+            Presets = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadScenesAndFlows" },
         };
 
         Assert.Equal(WorkspaceRole.Viewer, WorkspacePermissionPresets.ResolveMemberRole(member));
         Assert.Equal("viewer", WorkspacePermissionPresets.ToRoleKey(WorkspacePermissionPresets.ResolveMemberRole(member)));
+    }
+
+    [Fact]
+    public void TryNormalizeKeys_AcceptsLegacyLoadScenesAlias()
+    {
+        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["loadScenes"], out var normalized, out _));
+        Assert.Contains("loadScenesAndFlows", normalized);
+        Assert.DoesNotContain("loadScenes", normalized);
     }
 
     [Fact]

@@ -77,10 +77,69 @@ namespace EduCollab.Application.Services.Groups
         {
             await EnsureCurrentUserCanManageGroupsAsync(cancellationToken);
 
-            if (workspaceId != (await ResolveCurrentWorkspaceMembershipAsync(cancellationToken)).WorkspaceId)
+            var (_, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            if (workspaceId != workspaceMember.WorkspaceId)
                 throw new AccessDeniedException("You cannot manage groups outside your workspace.");
 
             await RequireGroupAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+        }
+
+        private async Task EnsureCurrentUserIsDirectGroupMemberAsync(
+            int workspaceId,
+            int groupId,
+            WorkspaceMember workspaceMember,
+            CancellationToken cancellationToken)
+        {
+            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
+                return;
+
+            var currentUserGroupMember = await _groupRepository.GetGroupMemberAsync(
+                workspaceId,
+                groupId,
+                workspaceMember.UserId,
+                cancellationToken);
+            if (currentUserGroupMember is not null)
+                return;
+
+            throw new AccessDeniedException("You must be a member of this group.");
+        }
+
+        private static void EnsureCanViewGroupMembers(WorkspaceMember workspaceMember)
+        {
+            if (!WorkspacePresetPermissions.CanViewGroupMembers(workspaceMember))
+                throw new AccessDeniedException("You do not have permission to view group members.");
+        }
+
+        private async Task EnsureCurrentUserCanViewGroupMembersInGroupAsync(
+            int workspaceId,
+            int groupId,
+            CancellationToken cancellationToken)
+        {
+            var (_, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
+            EnsureCanViewGroupMembers(workspaceMember);
+
+            if (workspaceId != workspaceMember.WorkspaceId)
+                throw new AccessDeniedException("You cannot access groups outside your workspace.");
+
+            await RequireGroupAsync(workspaceId, groupId, cancellationToken);
+
+            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
+                return;
+
+            if (WorkspacePresetPermissions.CanSeeUsersTab(workspaceMember))
+            {
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+                return;
+            }
+
+            if (WorkspacePresetPermissions.CanManageGroups(workspaceMember))
+            {
+                await EnsureCurrentUserIsDirectGroupMemberAsync(workspaceId, groupId, workspaceMember, cancellationToken);
+                return;
+            }
+
+            throw new AccessDeniedException("You do not have permission to view group members.");
         }
 
         private async Task EnsureCurrentUserCanManageGroupMembersAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
@@ -90,23 +149,11 @@ namespace EduCollab.Application.Services.Groups
             if (workspaceId != workspaceMember.WorkspaceId)
                 throw new AccessDeniedException("You cannot manage groups outside your workspace.");
 
+            if (!WorkspacePresetPermissions.CanManageGroupMembers(workspaceMember))
+                throw new AccessDeniedException("You do not have permission to manage group members.");
+
             await RequireGroupAsync(workspaceId, groupId, cancellationToken);
-
-            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
-                return;
-
-            if (WorkspacePresetPermissions.CanManageGroups(workspaceMember))
-            {
-                var currentUserGroupMember = await _groupRepository.GetGroupMemberAsync(
-                    workspaceId,
-                    groupId,
-                    workspaceMember.UserId,
-                    cancellationToken);
-                if (currentUserGroupMember is not null)
-                    return;
-            }
-
-            throw new AccessDeniedException("Only workspace owners or managers who are members of this group can manage group members.");
+            await EnsureCurrentUserIsDirectGroupMemberAsync(workspaceId, groupId, workspaceMember, cancellationToken);
         }
 
         private async Task<Group> RequireGroupAsync(int workspaceId, int groupId, CancellationToken cancellationToken)
@@ -159,7 +206,10 @@ namespace EduCollab.Application.Services.Groups
                 throw new AccessDeniedException("Only workspace owners and managers can create groups.");
 
             if (group.ParentGroupId is int parentGroupId)
+            {
                 await RequireGroupAsync(workspaceId, parentGroupId, cancellationToken);
+                await EnsureCurrentUserCanAccessGroupAsync(workspaceId, parentGroupId, cancellationToken);
+            }
 
             var now = DateTimeOffset.UtcNow;
             group.CreatedAtUtc = now.UtcDateTime;
@@ -311,7 +361,7 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(groupId));
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanViewGroupMembersInGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.GetAllGroupMembersAsync(workspaceId, groupId, cancellationToken);
         }
 
@@ -323,7 +373,7 @@ namespace EduCollab.Application.Services.Groups
                 throw new ArgumentOutOfRangeException(nameof(userId));
 
             var (workspaceId, _) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
+            await EnsureCurrentUserCanViewGroupMembersInGroupAsync(workspaceId, groupId, cancellationToken);
             return await _groupRepository.GetGroupMemberAsync(workspaceId, groupId, userId, cancellationToken);
         }
 

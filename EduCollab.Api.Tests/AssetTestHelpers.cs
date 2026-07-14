@@ -27,14 +27,16 @@ internal static class AssetTestHelpers
 
     public static MultipartFormDataContent CreateAssetMultipartForm(
         string name,
-        int groupId,
+        int? groupId = null,
         string? description = null,
         bool includeFile = true,
         string zipFileName = "asset.zip")
     {
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(name), "name");
-        form.Add(new StringContent(groupId.ToString()), "groupIds");
+
+        if (groupId is > 0)
+            form.Add(new StringContent(groupId.Value.ToString()), "groupIds");
 
         if (!string.IsNullOrWhiteSpace(description))
             form.Add(new StringContent(description), "description");
@@ -48,7 +50,7 @@ internal static class AssetTestHelpers
     public static async Task<AssetResponse> PostAssetAsync(
         this HttpClient client,
         string name,
-        int groupId,
+        int? groupId = null,
         string? description = null)
     {
         using var form = CreateAssetMultipartForm(name, groupId, description);

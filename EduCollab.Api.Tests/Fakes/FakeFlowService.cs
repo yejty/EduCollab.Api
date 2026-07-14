@@ -10,7 +10,7 @@ public sealed class FakeFlowService : IFlowService
     public Func<CancellationToken, Task<List<Flow>>>? GetMyFlowsAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<List<Flow>>>? GetFlowsInGroupAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<Flow?>>? GetFlowByIdAsyncHandler { get; set; }
-    public Func<Flow, IReadOnlyList<int>?, IReadOnlyList<int>?, CancellationToken, Task<Flow?>>? UpdateFlowAsyncHandler { get; set; }
+    public Func<Flow, IReadOnlyList<int>?, CancellationToken, Task<Flow?>>? UpdateFlowAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<bool>>? DeleteFlowAsyncHandler { get; set; }
     public Func<int, CancellationToken, Task<bool>>? CanCurrentUserManageFlowAsyncHandler { get; set; }
 
@@ -29,8 +29,8 @@ public sealed class FakeFlowService : IFlowService
     public Task<Flow?> GetFlowByIdAsync(int flowId, CancellationToken cancellationToken) =>
         GetFlowByIdAsyncHandler?.Invoke(flowId, cancellationToken) ?? Task.FromResult<Flow?>(null);
 
-    public Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? groupIds, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken) =>
-        UpdateFlowAsyncHandler?.Invoke(flow, groupIds, sceneIds, cancellationToken) ?? Task.FromResult<Flow?>(null);
+    public Task<Flow?> UpdateFlowAsync(Flow flow, IReadOnlyList<int>? sceneIds, CancellationToken cancellationToken) =>
+        UpdateFlowAsyncHandler?.Invoke(flow, sceneIds, cancellationToken) ?? Task.FromResult<Flow?>(null);
 
     public Task<bool> DeleteFlowAsync(int flowId, CancellationToken cancellationToken) =>
         DeleteFlowAsyncHandler?.Invoke(flowId, cancellationToken) ?? Task.FromResult(false);

@@ -129,7 +129,7 @@ public sealed class WorkspacesControllerEndpointTests
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(41, body.UserId);
         Assert.Equal("viewer", body.Role);
-        Assert.Contains("loadScenes", body.Presets);
+        Assert.Contains("loadScenesAndFlows", body.Presets);
     }
 
     [Fact]
@@ -385,13 +385,13 @@ public sealed class WorkspacesControllerEndpointTests
 
         var response = await client.PutAsJsonAsync("/api/workspace/users/77", new UpdateWorkspaceMemberRequest
         {
-            Presets = ["loadScenes"],
+            Presets = ["loadScenesAndFlows"],
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal("viewer", body.Role);
-        Assert.Equal(["loadScenes"], body.Presets);
+        Assert.Equal(["loadScenesAndFlows"], body.Presets);
     }
 
     [Fact]
@@ -491,5 +491,50 @@ public sealed class WorkspacesControllerEndpointTests
         var response = await client.DeleteAsync("/api/workspace/thumbnail");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCurrentWorkspaceMembers_ReturnsForbidden_WhenCallerLacksSeeUsersTab()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.WorkspaceService.GetCurrentWorkspaceAsyncHandler = _ => Task.FromResult<Workspace?>(new Workspace { Id = 5, Name = "Test" });
+        factory.WorkspaceService.GetCurrentUserWorkspaceMemberForCurrentWorkspaceAsyncHandler = _ =>
+            Task.FromResult<WorkspaceMember?>(new WorkspaceMember
+            {
+                UserId = 31,
+                WorkspaceId = 5,
+                Role = WorkspaceRole.Creator,
+                Presets = WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Creator),
+            });
+
+        using var client = factory.CreateClient(userId: 31);
+
+        var response = await client.GetAsync("/api/workspace/users");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("forbidden", body.Error);
+    }
+
+    [Fact]
+    public async Task GetWorkspaceUser_ReturnsForbidden_WhenCallerLacksSeeUsersTab()
+    {
+        await using var factory = new ApiWebApplicationFactory();
+        factory.WorkspaceService.GetCurrentUserWorkspaceMemberForCurrentWorkspaceAsyncHandler = _ =>
+            Task.FromResult<WorkspaceMember?>(new WorkspaceMember
+            {
+                UserId = 31,
+                WorkspaceId = 5,
+                Role = WorkspaceRole.Creator,
+                Presets = WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Creator),
+            });
+
+        using var client = factory.CreateClient(userId: 31);
+
+        var response = await client.GetAsync("/api/workspace/users/77");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("forbidden", body.Error);
     }
 }

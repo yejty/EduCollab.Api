@@ -240,8 +240,9 @@ public sealed class WorkspaceApiIntegrationTests
             WorkspaceId = firstWorkspace.Id,
         });
         switchResponse.EnsureSuccessStatusCode();
+        var secondWorkspaceId = workspaces.Workspaces.Single(w => w.WorkspaceName == "Second Workspace").WorkspaceId;
         var me = await switchResponse.ReadAsJsonAsync<UserResponse>();
-        Assert.Equal(firstWorkspace.Id, me.WorkspaceId);
+        Assert.Equal([firstWorkspace.Id, secondWorkspaceId], me.WorkspaceIds.OrderBy(id => id));
 
         var currentWorkspaceResponse = await memberClient.GetAsync("/api/workspace");
         currentWorkspaceResponse.EnsureSuccessStatusCode();
