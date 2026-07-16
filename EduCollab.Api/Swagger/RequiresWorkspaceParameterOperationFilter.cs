@@ -4,13 +4,13 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace EduCollab.Api.Swagger
 {
-    public sealed class RequiresWorkspacePresetOperationFilter : IOperationFilter
+    public sealed class RequiresWorkspaceParameterOperationFilter : IOperationFilter
     {
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
             var attribute = context.MethodInfo?
-                .GetCustomAttributes(typeof(RequiresWorkspacePresetAttribute), inherit: true)
-                .OfType<RequiresWorkspacePresetAttribute>()
+                .GetCustomAttributes(typeof(RequiresWorkspaceParameterAttribute), inherit: true)
+                .OfType<RequiresWorkspaceParameterAttribute>()
                 .FirstOrDefault();
 
             if (attribute is null)
@@ -19,16 +19,16 @@ namespace EduCollab.Api.Swagger
             var lines = new List<string>();
             if (attribute.MembershipOnly)
             {
-                lines.Add("**Workspace presets:** active workspace membership (any member).");
+                lines.Add("**Workspace parameters:** active workspace membership (any member).");
             }
-            else if (attribute.Presets.Length > 0)
+            else if (attribute.Parameters.Length > 0)
             {
-                var presetLabels = attribute.Presets
-                    .Select(FormatPreset)
+                var parameterLabels = attribute.Parameters
+                    .Select(FormatParameter)
                     .ToList();
 
                 var joiner = attribute.RequireAll ? " and " : " or ";
-                lines.Add($"**Workspace presets:** {string.Join(joiner, presetLabels)}.");
+                lines.Add($"**Workspace parameters:** {string.Join(joiner, parameterLabels)}.");
             }
 
             if (attribute.EditWorkspaceBypass && !attribute.MembershipOnly)
@@ -49,18 +49,18 @@ namespace EduCollab.Api.Swagger
                 ? block
                 : $"{operation.Description.TrimEnd()}\n\n{block}";
 
-            operation.Extensions["x-workspace-presets"] = BuildExtension(attribute);
+            operation.Extensions["x-workspace-parameters"] = BuildExtension(attribute);
         }
 
-        private static string FormatPreset(string presetKey)
+        private static string FormatParameter(string parameterKey)
         {
-            var definition = WorkspacePermissionPresets.TryGetDefinition(presetKey);
+            var definition = WorkspacePermissionParameters.TryGetDefinition(parameterKey);
             return definition is null
-                ? $"`{presetKey}`"
+                ? $"`{parameterKey}`"
                 : $"`{definition.Key}` ({definition.Label})";
         }
 
-        private static Microsoft.OpenApi.Any.IOpenApiAny BuildExtension(RequiresWorkspacePresetAttribute attribute)
+        private static Microsoft.OpenApi.Any.IOpenApiAny BuildExtension(RequiresWorkspaceParameterAttribute attribute)
         {
             var extension = new Microsoft.OpenApi.Any.OpenApiObject
             {
@@ -69,15 +69,15 @@ namespace EduCollab.Api.Swagger
                 ["editWorkspaceBypass"] = new Microsoft.OpenApi.Any.OpenApiBoolean(attribute.EditWorkspaceBypass),
             };
 
-            if (attribute.Presets.Length > 0)
+            if (attribute.Parameters.Length > 0)
             {
-                var presets = new Microsoft.OpenApi.Any.OpenApiArray();
-                foreach (var preset in attribute.Presets)
+                var parameters = new Microsoft.OpenApi.Any.OpenApiArray();
+                foreach (var parameter in attribute.Parameters)
                 {
-                    presets.Add(new Microsoft.OpenApi.Any.OpenApiString(preset));
+                    parameters.Add(new Microsoft.OpenApi.Any.OpenApiString(parameter));
                 }
 
-                extension["presets"] = presets;
+                extension["parameters"] = parameters;
             }
 
             if (!string.IsNullOrWhiteSpace(attribute.Notes))

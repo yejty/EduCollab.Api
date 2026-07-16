@@ -62,7 +62,11 @@ namespace EduCollab.Application.Services.Workspaces
             return name.Trim();
         }
 
-        public async Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, CancellationToken cancellationToken)
+        public async Task<WorkspaceCreationRequest> SubmitRequestAsync(
+            string name,
+            string? description,
+            string? type,
+            CancellationToken cancellationToken)
         {
             var userId = RequireCurrentUserId();
             var normalizedName = RequireTrimmedName(name);
@@ -80,6 +84,7 @@ namespace EduCollab.Application.Services.Workspaces
                 RequestedByUserId = userId,
                 Name = normalizedName,
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Type = string.IsNullOrWhiteSpace(type) ? null : type.Trim(),
                 Status = WorkspaceCreationRequestStatus.Pending,
                 CreatedAtUtc = now,
             };
@@ -113,11 +118,11 @@ namespace EduCollab.Application.Services.Workspaces
                 }
 
                 var mail = EduCollabEmailTemplates.WorkspaceCreationRequestAdminNotification(
-                    user.FirstName,
-                    user.LastName,
+                    user.FullName,
                     user.Email,
                     request.Name,
                     request.Description,
+                    request.Type,
                     approveUrl,
                     denyUrl);
 
@@ -311,7 +316,7 @@ namespace EduCollab.Application.Services.Workspaces
                 return null;
 
             var mail = EduCollabEmailTemplates.WorkspaceCreationDenied(
-                requester.FirstName,
+                requester.FullName,
                 denied.Name,
                 denied.DenialReason);
 
@@ -346,7 +351,7 @@ namespace EduCollab.Application.Services.Workspaces
             }
 
             var mail = EduCollabEmailTemplates.WorkspaceCreationApproved(
-                requester.FirstName,
+                requester.FullName,
                 approved.Name,
                 createUrl,
                 plainToken,

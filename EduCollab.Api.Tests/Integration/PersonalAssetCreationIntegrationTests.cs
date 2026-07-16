@@ -15,7 +15,7 @@ public sealed class PersonalAssetCreationIntegrationTests
         var email = $"owner-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var tokens = await client.RegisterAndConfirmAsync(factory, "Owner", "User", email, password);
+        var tokens = await client.RegisterAndConfirmAsync(factory, "Owner User", email, password);
         client.SetBearerToken(tokens.AccessToken);
 
         await client.CreateApprovedWorkspaceAsync(

@@ -79,10 +79,10 @@ namespace EduCollab.Api.ExceptionHandlers
                     StatusCodes.Status401Unauthorized,
                     "unauthorized",
                     "Authentication is required for this operation."),
-                AccessDeniedException => (
+                AccessDeniedException accessDenied => (
                     StatusCodes.Status403Forbidden,
-                    "forbidden",
-                    "You are not allowed to perform this operation."),
+                    accessDenied.ErrorCode,
+                    accessDenied.Message),
                 InvalidAssetReferenceException => (
                     StatusCodes.Status400BadRequest,
                     "invalid_asset_reference",

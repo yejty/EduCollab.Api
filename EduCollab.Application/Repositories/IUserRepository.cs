@@ -29,7 +29,7 @@ namespace EduCollab.Application.Repositories
         Task<UserCredentialRecordDto?> GetCredentialByIdAsync(int userId, CancellationToken cancellationToken);
         Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken);
         Task<bool> IsPlatformAdminAsync(int userId, CancellationToken cancellationToken);
-        Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken);
+        Task<int> InsertRegisteredUserAsync(string fullName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken);
         Task<bool> UpdateAsync(User user, CancellationToken cancellationToken);
 
         Task<bool> SetActiveWorkspaceIdAsync(int userId, int? workspaceId, CancellationToken cancellationToken);

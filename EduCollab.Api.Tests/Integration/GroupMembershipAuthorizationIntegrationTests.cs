@@ -24,7 +24,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -32,20 +32,21 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             ownerEmail,
             "Group Membership Auth Workspace",
             "Group membership authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
         var invitationToken = factory.GetInvitationToken(managerEmail);
         var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
         {
-            FirstName = "Workspace",
-            LastName = "Manager",
+            FullName = "Workspace Manager",
             Email = managerEmail,
             Password = password,
         });
@@ -87,7 +88,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -95,6 +96,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             ownerEmail,
             "Group Membership Auth Workspace",
             "Group membership authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         foreach (var (email, role, client, first, last) in new[]
         {
@@ -106,15 +108,15 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Presets = WorkspacePresetTestHelpers.PresetsForRole(role),
+                GroupId = invitationGroup.Id,
+                Parameters = WorkspaceParameterTestHelpers.ParametersForRole(role),
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
             var invitationToken = factory.GetInvitationToken(email);
             var acceptResponse = await client.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
             {
-                FirstName = first,
-                LastName = last,
+                FullName = $"{first} {last}",
                 Email = email,
                 Password = password,
             });
@@ -162,7 +164,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -170,20 +172,21 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             ownerEmail,
             "Group Parent Access Workspace",
             "Group parent access authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
         var invitationToken = factory.GetInvitationToken(managerEmail);
         var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
         {
-            FirstName = "Workspace",
-            LastName = "Manager",
+            FullName = "Workspace Manager",
             Email = managerEmail,
             Password = password,
         });
@@ -245,7 +248,7 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
         var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -253,20 +256,21 @@ public sealed class GroupMembershipAuthorizationIntegrationTests
             ownerEmail,
             "Group Parent Access Workspace",
             "Group parent access authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = managerEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Manager),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
         });
         Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
         var invitationToken = factory.GetInvitationToken(managerEmail);
         var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
         {
-            FirstName = "Workspace",
-            LastName = "Manager",
+            FullName = "Workspace Manager",
             Email = managerEmail,
             Password = password,
         });

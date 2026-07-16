@@ -1,8 +1,10 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Requests.Users;
 using EduCollab.Contracts.Requests.Workspaces;
+using EduCollab.Contracts.Responses.Groups;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 
@@ -18,8 +20,7 @@ internal static partial class IntegrationTestHelpers
     public static async Task<TokensResponse> RegisterAndConfirmAsync(
         this HttpClient client,
         PostgresIntegrationApiFactory factory,
-        string firstName,
-        string lastName,
+        string fullName,
         string email,
         string password)
     {
@@ -27,8 +28,7 @@ internal static partial class IntegrationTestHelpers
 
         var registerResponse = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = firstName,
-            LastName = lastName,
+            FullName = fullName,
             Email = email,
             Password = password,
         });
@@ -145,6 +145,37 @@ internal static partial class IntegrationTestHelpers
         });
         createResponse.EnsureSuccessStatusCode();
         return await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
+    }
+
+    public static async Task<GroupResponse> CreateGroupAsync(
+        this HttpClient client,
+        string name = "Default",
+        string? description = null,
+        int? parentGroupId = null)
+    {
+        var response = await client.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = name,
+            Description = description,
+            ParentGroupId = parentGroupId,
+        });
+        response.EnsureSuccessStatusCode();
+        return await response.ReadAsJsonAsync<GroupResponse>();
+    }
+
+    public static async Task InviteUserAsync(
+        this HttpClient client,
+        string email,
+        int groupId,
+        IReadOnlyList<string> parameters)
+    {
+        var response = await client.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = email,
+            GroupId = groupId,
+            Parameters = parameters.ToList(),
+        });
+        response.EnsureSuccessStatusCode();
     }
 
     private static string ExtractMatch(string input, Regex regex, string valueName)

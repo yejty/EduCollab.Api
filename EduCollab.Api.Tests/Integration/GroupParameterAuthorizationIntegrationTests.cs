@@ -9,7 +9,7 @@ using EduCollab.Contracts.Responses.Groups;
 namespace EduCollab.Api.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class GroupPresetAuthorizationIntegrationTests
+public sealed class GroupParameterAuthorizationIntegrationTests
 {
     [Fact]
     public async Task AddGroupsOnly_CanManageGroupsAndMembers()
@@ -22,16 +22,18 @@ public sealed class GroupPresetAuthorizationIntegrationTests
         var memberEmail = $"grouper-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Groups Gate", "Group preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Groups Gate", "Group parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["addGroups", "loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["addGroups", "loadScenes", "loadFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -40,8 +42,7 @@ public sealed class GroupPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Group",
-                LastName = "Manager",
+                FullName = "Group Manager",
                 Email = memberEmail,
                 Password = password,
             });
@@ -98,16 +99,18 @@ public sealed class GroupPresetAuthorizationIntegrationTests
         var memberEmail = $"grouper-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Groups Membership Gate", "Group preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Groups Membership Gate", "Group parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["addGroups", "loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["addGroups", "loadScenes", "loadFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -116,8 +119,7 @@ public sealed class GroupPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Group",
-                LastName = "Manager",
+                FullName = "Group Manager",
                 Email = memberEmail,
                 Password = password,
             });
@@ -166,16 +168,18 @@ public sealed class GroupPresetAuthorizationIntegrationTests
         var memberEmail = $"creator-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "No Add Groups Gate", "Group preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "No Add Groups Gate", "Group parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Creator),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Creator),
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -184,8 +188,7 @@ public sealed class GroupPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Creator",
-                LastName = "Member",
+                FullName = "Creator Member",
                 Email = memberEmail,
                 Password = password,
             });

@@ -20,8 +20,7 @@ public sealed class UserApiIntegrationTests
 
         var registerResponse = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = email,
             Password = password,
         });
@@ -70,14 +69,12 @@ public sealed class UserApiIntegrationTests
 
         var updateResponse = await client.PutAsJsonAsync($"/api/users/{me.Id}", new UpdateUserProfileRequest
         {
-            FirstName = "Janet",
-            LastName = "Updated",
+            FullName = "Janet Updated",
         });
 
         updateResponse.EnsureSuccessStatusCode();
         var updated = await updateResponse.ReadAsJsonAsync<UserResponse>();
-        Assert.Equal("Janet", updated.FirstName);
-        Assert.Equal("Updated", updated.LastName);
+        Assert.Equal("Janet Updated", updated.FullName);
 
         var deleteResponse = await client.DeleteAsync($"/api/users/{me.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
@@ -93,7 +90,7 @@ public sealed class UserApiIntegrationTests
         const string password = "Pass123!";
         const string newPassword = "Pass456!";
 
-        await client.RegisterAndConfirmAsync(factory, "John", "Smith", email, password);
+        await client.RegisterAndConfirmAsync(factory, "John Smith", email, password);
 
         factory.EmailSender.Clear();
 
@@ -200,8 +197,7 @@ public sealed class UserApiIntegrationTests
 
         var registerResponse = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Resend",
-            LastName = "User",
+            FullName = "Resend User",
             Email = email,
             Password = password,
         });

@@ -33,7 +33,8 @@ namespace EduCollab.Application.Repositories
             string email,
             string tokenHashSha256Hex,
             WorkspaceRole role,
-            IReadOnlySet<string> presets,
+            IReadOnlySet<string> parameters,
+            int groupId,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,
@@ -48,8 +49,7 @@ namespace EduCollab.Application.Repositories
             int workspaceId,
             string tokenHashSha256Hex,
             string email,
-            string firstName,
-            string lastName,
+            string fullName,
             string plainPassword,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken);
@@ -65,7 +65,5 @@ namespace EduCollab.Application.Repositories
         Task<bool> RemoveWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
 
         Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken);
-
-        Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken);
     }
 }

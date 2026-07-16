@@ -1,4 +1,4 @@
-﻿using EduCollab.Application.Exceptions;
+using EduCollab.Application.Exceptions;
 using EduCollab.Application.Identity;
 using EduCollab.Application.Models;
 using EduCollab.Application.Repositories;
@@ -56,7 +56,7 @@ namespace EduCollab.Application.Services.Groups
             if (workspaceId != workspaceMember.WorkspaceId)
                 throw new AccessDeniedException("You cannot access groups outside your workspace.");
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(workspaceMember))
                 return;
 
             var currentUserId = RequireCurrentUserId();
@@ -69,7 +69,7 @@ namespace EduCollab.Application.Services.Groups
         private async Task EnsureCurrentUserCanManageGroupsAsync(CancellationToken cancellationToken)
         {
             var (_, workspaceMember) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspacePresetPermissions.CanManageGroups(workspaceMember))
+            if (!WorkspaceParameterPermissions.CanManageGroups(workspaceMember))
                 throw new AccessDeniedException("Only workspace owners and managers can manage groups.");
         }
 
@@ -91,7 +91,7 @@ namespace EduCollab.Application.Services.Groups
             WorkspaceMember workspaceMember,
             CancellationToken cancellationToken)
         {
-            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(workspaceMember))
                 return;
 
             var currentUserGroupMember = await _groupRepository.GetGroupMemberAsync(
@@ -107,7 +107,7 @@ namespace EduCollab.Application.Services.Groups
 
         private static void EnsureCanViewGroupMembers(WorkspaceMember workspaceMember)
         {
-            if (!WorkspacePresetPermissions.CanViewGroupMembers(workspaceMember))
+            if (!WorkspaceParameterPermissions.CanViewGroupMembers(workspaceMember))
                 throw new AccessDeniedException("You do not have permission to view group members.");
         }
 
@@ -124,16 +124,16 @@ namespace EduCollab.Application.Services.Groups
 
             await RequireGroupAsync(workspaceId, groupId, cancellationToken);
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(workspaceMember))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(workspaceMember))
                 return;
 
-            if (WorkspacePresetPermissions.CanSeeUsersTab(workspaceMember))
+            if (WorkspaceParameterPermissions.CanSeeUsersTab(workspaceMember))
             {
                 await EnsureCurrentUserCanAccessGroupAsync(workspaceId, groupId, cancellationToken);
                 return;
             }
 
-            if (WorkspacePresetPermissions.CanManageGroups(workspaceMember))
+            if (WorkspaceParameterPermissions.CanManageGroups(workspaceMember))
             {
                 await EnsureCurrentUserIsDirectGroupMemberAsync(workspaceId, groupId, workspaceMember, cancellationToken);
                 return;
@@ -149,7 +149,7 @@ namespace EduCollab.Application.Services.Groups
             if (workspaceId != workspaceMember.WorkspaceId)
                 throw new AccessDeniedException("You cannot manage groups outside your workspace.");
 
-            if (!WorkspacePresetPermissions.CanManageGroupMembers(workspaceMember))
+            if (!WorkspaceParameterPermissions.CanManageGroupMembers(workspaceMember))
                 throw new AccessDeniedException("You do not have permission to manage group members.");
 
             await RequireGroupAsync(workspaceId, groupId, cancellationToken);
@@ -202,7 +202,7 @@ namespace EduCollab.Application.Services.Groups
         {
             ArgumentNullException.ThrowIfNull(group);
             var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspacePresetPermissions.CanManageGroups(membership))
+            if (!WorkspaceParameterPermissions.CanManageGroups(membership))
                 throw new AccessDeniedException("Only workspace owners and managers can create groups.");
 
             if (group.ParentGroupId is int parentGroupId)
@@ -237,7 +237,7 @@ namespace EduCollab.Application.Services.Groups
         public async Task<List<Group>> GetAllGroupsAsync(CancellationToken cancellationToken)
         {
             var (workspaceId, membership) = await ResolveCurrentWorkspaceMembershipAsync(cancellationToken);
-            var groups = WorkspacePresetPermissions.CanSeeAllContent(membership)
+            var groups = WorkspaceParameterPermissions.CanSeeAllContent(membership)
                 ? await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken)
                 : await _groupRepository.GetGroupsForMemberAsync(workspaceId, membership.UserId, cancellationToken);
 
@@ -254,7 +254,7 @@ namespace EduCollab.Application.Services.Groups
             {
                 await EnsureCurrentUserCanAccessGroupAsync(workspaceId, parentId, cancellationToken);
                 var children = await _groupRepository.GetChildGroupsAsync(workspaceId, parentId, cancellationToken);
-                if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+                if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
                 {
                     AssignGroupPaths(children);
                     return children;
@@ -267,7 +267,7 @@ namespace EduCollab.Application.Services.Groups
             }
 
             var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
-            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
             {
                 var roots = allGroups.Where(g => g.ParentGroupId is null).ToList();
                 AssignGroupPaths(roots);
@@ -291,7 +291,7 @@ namespace EduCollab.Application.Services.Groups
             var allGroups = await _groupRepository.GetAllGroupsAsync(workspaceId, cancellationToken);
             AssignGroupPaths(allGroups);
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
                 return allGroups;
 
             var accessibleIds = await _groupAccessResolver.GetEffectiveAccessibleGroupIdsAsync(workspaceId, userId, cancellationToken);

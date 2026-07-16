@@ -316,12 +316,18 @@ namespace EduCollab.Infrastructure.Repositories
 
         public async Task<List<int>> GetFlowGroupIdsAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
         {
+            var shares = await GetFlowGroupSharesAsync(workspaceId, flowId, cancellationToken);
+            return shares.Select(share => share.GroupId).ToList();
+        }
+
+        public async Task<List<FlowGroupShare>> GetFlowGroupSharesAsync(int workspaceId, int flowId, CancellationToken cancellationToken)
+        {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
 
-            var groupIds = await connection.QueryAsync<int>(
+            var shares = await connection.QueryAsync<FlowGroupShare>(
                 new CommandDefinition(
                     """
-                    SELECT fgs.GroupId
+                    SELECT fgs.GroupId, fgs.IncludeAssets
                     FROM FlowGroupShares fgs
                     INNER JOIN Flows f ON f.Id = fgs.FlowId
                     WHERE fgs.FlowId = @FlowId
@@ -331,7 +337,7 @@ namespace EduCollab.Infrastructure.Repositories
                     new { FlowId = flowId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
-            return groupIds.AsList();
+            return shares.AsList();
         }
 
         public async Task<Dictionary<int, List<int>>> GetFlowGroupIdsByFlowIdsAsync(
@@ -362,10 +368,23 @@ namespace EduCollab.Infrastructure.Repositories
                 .ToDictionary(group => group.Key, group => group.Select(row => row.GroupId).ToList());
         }
 
-        public async Task ReplaceFlowGroupSharesAsync(
+        public Task ReplaceFlowGroupSharesAsync(
             int workspaceId,
             int flowId,
             IReadOnlyList<int> groupIds,
+            CancellationToken cancellationToken)
+        {
+            var shares = groupIds
+                .Distinct()
+                .Select(groupId => new FlowGroupShare { GroupId = groupId, IncludeAssets = false })
+                .ToList();
+            return ReplaceFlowGroupSharesAsync(workspaceId, flowId, shares, cancellationToken);
+        }
+
+        public async Task ReplaceFlowGroupSharesAsync(
+            int workspaceId,
+            int flowId,
+            IReadOnlyList<FlowGroupShare> shares,
             CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -385,13 +404,15 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             var createdAtUtc = DateTime.UtcNow;
-            foreach (var groupId in groupIds.Distinct())
+            foreach (var share in shares
+                         .GroupBy(item => item.GroupId)
+                         .Select(group => group.Last()))
             {
                 await connection.ExecuteAsync(
                     new CommandDefinition(
                         """
-                        INSERT INTO FlowGroupShares (FlowId, GroupId, CreatedAtUtc)
-                        SELECT @FlowId, @GroupId, @CreatedAtUtc
+                        INSERT INTO FlowGroupShares (FlowId, GroupId, IncludeAssets, CreatedAtUtc)
+                        SELECT @FlowId, @GroupId, @IncludeAssets, @CreatedAtUtc
                         WHERE EXISTS (
                             SELECT 1
                             FROM Flows f
@@ -408,7 +429,8 @@ namespace EduCollab.Infrastructure.Repositories
                         new
                         {
                             FlowId = flowId,
-                            GroupId = groupId,
+                            GroupId = share.GroupId,
+                            IncludeAssets = share.IncludeAssets,
                             CreatedAtUtc = createdAtUtc,
                             WorkspaceId = workspaceId
                         },
@@ -419,10 +441,18 @@ namespace EduCollab.Infrastructure.Repositories
             transaction.Commit();
         }
 
+        public Task<bool> AddFlowGroupShareAsync(
+            int workspaceId,
+            int flowId,
+            int groupId,
+            CancellationToken cancellationToken) =>
+            AddFlowGroupShareAsync(workspaceId, flowId, groupId, includeAssets: false, cancellationToken);
+
         public async Task<bool> AddFlowGroupShareAsync(
             int workspaceId,
             int flowId,
             int groupId,
+            bool includeAssets,
             CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -430,8 +460,8 @@ namespace EduCollab.Infrastructure.Repositories
             var inserted = await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    INSERT INTO FlowGroupShares (FlowId, GroupId, CreatedAtUtc)
-                    SELECT @FlowId, @GroupId, @CreatedAtUtc
+                    INSERT INTO FlowGroupShares (FlowId, GroupId, IncludeAssets, CreatedAtUtc)
+                    SELECT @FlowId, @GroupId, @IncludeAssets, @CreatedAtUtc
                     WHERE EXISTS (
                         SELECT 1
                         FROM Flows f
@@ -444,12 +474,14 @@ namespace EduCollab.Infrastructure.Repositories
                         WHERE g.Id = @GroupId
                           AND g.WorkspaceId = @WorkspaceId
                     )
-                    ON CONFLICT (FlowId, GroupId) DO NOTHING;
+                    ON CONFLICT (FlowId, GroupId) DO UPDATE
+                    SET IncludeAssets = EXCLUDED.IncludeAssets;
                     """,
                     new
                     {
                         FlowId = flowId,
                         GroupId = groupId,
+                        IncludeAssets = includeAssets,
                         CreatedAtUtc = DateTime.UtcNow,
                         WorkspaceId = workspaceId
                     },

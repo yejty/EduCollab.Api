@@ -38,15 +38,21 @@ public sealed class FakeFlowService : IFlowService
     public Task<bool> CanCurrentUserManageFlowAsync(int ownerUserId, CancellationToken cancellationToken) =>
         CanCurrentUserManageFlowAsyncHandler?.Invoke(ownerUserId, cancellationToken) ?? Task.FromResult(true);
 
-    public Task<List<int>> GetFlowGroupIdsAsync(int flowId, CancellationToken cancellationToken) =>
-        Task.FromResult(new List<int>());
+    public Task<List<FlowGroupShare>> GetFlowGroupSharesAsync(int flowId, CancellationToken cancellationToken) =>
+        Task.FromResult(new List<FlowGroupShare>());
 
-    public Task<List<int>?> SetFlowGroupIdsAsync(int flowId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken) =>
-        Task.FromResult<List<int>?>(groupIds.ToList());
+    public Task<List<FlowGroupShare>?> SetFlowGroupSharesAsync(int flowId, IReadOnlyList<FlowGroupShare> shares, CancellationToken cancellationToken) =>
+        Task.FromResult<List<FlowGroupShare>?>(shares.ToList());
 
-    public Task<bool> AddFlowGroupAsync(int flowId, int groupId, CancellationToken cancellationToken) =>
+    public Task<bool> AddFlowGroupAsync(int flowId, int groupId, bool includeAssets, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
     public Task<bool> RemoveFlowGroupAsync(int flowId, int groupId, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    public Task<FlowScenesManifest> GetFlowScenesAsync(int flowId, CancellationToken cancellationToken) =>
+        Task.FromResult(new FlowScenesManifest { FlowId = flowId });
+
+    public Task<FlowSceneContent?> GetFlowSceneContentAsync(string downloadToken, CancellationToken cancellationToken) =>
+        Task.FromResult<FlowSceneContent?>(null);
 }

@@ -12,7 +12,7 @@ todos:
     content: Add SessionJoinTicketService (JWT mint/validate) and workspace + public join-ticket endpoints
     status: pending
   - id: bootstrap-manifest
-    content: Build session bootstrap endpoint reusing SceneService/FlowService manifests with includeAssets override
+    content: Build session bootstrap from flow/scene contextual manifests; session includeAssets overrides nested asset downloads (align with flow share IncludeAssets)
     status: pending
   - id: session-content
     content: Add session-scoped content endpoints (session-assets, session-scenes) with join-ticket auth
@@ -102,7 +102,7 @@ flowchart TB
 | Active session list | DB query + lifecycle | Reports room started/ended via webhook |
 | Realtime presence | N/A | Existing CollabRoom schema |
 
-Your API already has the right building blocks: group-based sharing ([`GroupAccessResolver`](EduCollab.Application/Services/Groups/GroupAccessResolver.cs)), contextual manifests ([`GetSceneAssetsAsync`](EduCollab.Application/Services/Scenes/SceneService.cs), [`GetFlowScenesAsync`](EduCollab.Application/Services/Flows/FlowService.cs)), and JWT auth ([`AccessTokenService`](EduCollab.Api/Security/AccessTokenService.cs)).
+Your API already has the right building blocks: group-based sharing ([`GroupAccessResolver`](EduCollab.Application/Services/Groups/GroupAccessResolver.cs)), JWT auth ([`AccessTokenService`](EduCollab.Api/Security/AccessTokenService.cs)), and the **flow-scoped manifest** model (restore/add `flow-scenes` + nested asset content gated by share/session `includeAssets` — see [`.cursor/plans/remove_manifest_apis_7c515783.plan.md`](.cursor/plans/remove_manifest_apis_7c515783.plan.md)). `loadFlows` and `loadScenes` are orthogonal: session hosts from a flow path do not require participants to have `loadScenes`.
 
 ```mermaid
 flowchart LR
@@ -305,10 +305,14 @@ This is **better than the original plan** which said Colyseus should not carry s
 
 ### `includeAssets` toggle
 
-| `includeAssets` | Scene JSON | Asset manifest | Download URLs |
-|-----------------|------------|----------------|---------------|
-| `true` | Included | Full list from [`SceneJsonReferenceParser`](EduCollab.Application/Services/Scenes/SceneJsonAssetReferenceParser.cs) | Session-scoped endpoints grant access even when library `canViewDirectly=false` |
-| `false` | Included | IDs + metadata only | `403 assets_not_included` |
+Same semantic as **flow↔group share `includeAssets`** in [`.cursor/plans/remove_manifest_apis_7c515783.plan.md`](.cursor/plans/remove_manifest_apis_7c515783.plan.md) (flow-scoped manifests plan): when true, participants get scenes + **nested binary assets** via contextual manifests even without `loadScenes` / direct library visibility.
+
+| `includeAssets` | Scene / flow content | Nested asset manifest | Download URLs |
+|-----------------|----------------------|-----------------------|---------------|
+| `true` | Included | Full list from [`SceneJsonAssetReferenceParser`](EduCollab.Application/Services/Scenes/SceneJsonAssetReferenceParser.cs) | Session-scoped endpoints grant access even when library `canViewDirectly=false` |
+| `false` | Scene/flow JSON still loadable for the session | IDs + metadata only | `403 assets_not_included` |
+
+When creating a session from a **flow**, the create body still takes an explicit `includeAssets` flag; it may default from whether the flow was shared to the target groups with `IncludeAssets=true` (host can override).
 
 ### Client cache strategy
 

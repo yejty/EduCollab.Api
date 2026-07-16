@@ -4,7 +4,7 @@ namespace EduCollab.Application.Services.Workspaces
 {
     public interface IWorkspaceCreationRequestService
     {
-        Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, CancellationToken cancellationToken);
+        Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, string? type, CancellationToken cancellationToken);
 
         Task<WorkspaceCreationRequest?> GetCurrentUserLatestRequestAsync(CancellationToken cancellationToken);
 

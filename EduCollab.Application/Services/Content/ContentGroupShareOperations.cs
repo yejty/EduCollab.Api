@@ -161,7 +161,7 @@ namespace EduCollab.Application.Services.Content
                 if (group is null)
                     throw new KeyNotFoundException("Group not found.");
 
-                if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+                if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
                     continue;
 
                 if (await groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
@@ -173,7 +173,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactAssetGroupSharesIfCannotView(Asset asset, WorkspaceMember membership)
         {
-            if (WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+            if (WorkspaceParameterPermissions.CanViewAssetGroupShares(membership))
                 return;
 
             asset.GroupIds = [];
@@ -182,7 +182,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactAssetGroupSharesIfCannotView(List<Asset> assets, WorkspaceMember membership)
         {
-            if (WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+            if (WorkspaceParameterPermissions.CanViewAssetGroupShares(membership))
                 return;
 
             foreach (var asset in assets)
@@ -191,7 +191,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(Scene scene, WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+            if (!WorkspaceParameterPermissions.HasOnlyLoadScenesAndFlowsParameter(membership))
                 return;
 
             scene.GroupIds = [];
@@ -200,7 +200,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(List<Scene> scenes, WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+            if (!WorkspaceParameterPermissions.HasOnlyLoadScenesAndFlowsParameter(membership))
                 return;
 
             foreach (var scene in scenes)
@@ -209,7 +209,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(Flow flow, WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+            if (!WorkspaceParameterPermissions.HasOnlyLoadScenesAndFlowsParameter(membership))
                 return;
 
             flow.GroupIds = [];
@@ -218,7 +218,7 @@ namespace EduCollab.Application.Services.Content
 
         internal static void RedactResourceGroupSharesIfLoadScenesAndFlowsOnly(List<Flow> flows, WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.HasOnlyLoadScenesAndFlowsPreset(membership))
+            if (!WorkspaceParameterPermissions.HasOnlyLoadScenesAndFlowsParameter(membership))
                 return;
 
             foreach (var flow in flows)
@@ -233,7 +233,7 @@ namespace EduCollab.Application.Services.Content
             int legacyGroupId,
             IReadOnlySet<int> accessibleGroupIds)
         {
-            if (!WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership))
+            if (!WorkspaceParameterPermissions.CanManageOthersContentViaGroups(membership))
                 return false;
 
             if (ownerUserId == userId)

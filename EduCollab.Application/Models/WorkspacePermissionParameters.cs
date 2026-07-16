@@ -1,6 +1,6 @@
 namespace EduCollab.Application.Models
 {
-    public static class WorkspacePermissionPresets
+    public static class WorkspacePermissionParameters
     {
         public static readonly IReadOnlyList<WorkspacePermissionDefinition> Catalog =
         [
@@ -10,10 +10,12 @@ namespace EduCollab.Application.Models
             new() { Key = "seeUsersTab", Label = "See users tab" },
             new() { Key = "inviteUsers", Label = "Invite users" },
             new() { Key = "addAssets", Label = "Add assets" },
-            new() { Key = "addScenesAndFlows", Label = "Add scenes and flows" },
+            new() { Key = "addScenes", Label = "Add scenes" },
+            new() { Key = "addFlows", Label = "Add flows" },
             new() { Key = "createSessions", Label = "Create sessions" },
             new() { Key = "loadAssets", Label = "Load assets" },
-            new() { Key = "loadScenesAndFlows", Label = "Load scenes and flows" },
+            new() { Key = "loadScenes", Label = "Load scenes" },
+            new() { Key = "loadFlows", Label = "Load flows" },
             new() { Key = "editorOutliner", Label = "Editor / outliner panel" },
             new() { Key = "editorSequencer", Label = "Editor / sequencer panel" },
             new() { Key = "editorActions", Label = "Editor / actions panel" },
@@ -33,27 +35,27 @@ namespace EduCollab.Application.Models
                 [WorkspaceRole.Owner] = ToSet(
                 [
                     "editWorkspace", "seeGroupsTab", "addGroups", "seeUsersTab", "inviteUsers",
-                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
+                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes", "loadFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
                 [WorkspaceRole.Manager] = ToSet(
                 [
                     "seeGroupsTab", "addGroups", "seeUsersTab", "inviteUsers",
-                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
+                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes", "loadFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
                 [WorkspaceRole.Creator] = ToSet(
                 [
-                    "addAssets", "addScenesAndFlows", "createSessions", "loadAssets", "loadScenesAndFlows",
+                    "addAssets", "addScenes", "addFlows", "createSessions", "loadAssets", "loadScenes", "loadFlows",
                     "editorOutliner", "editorSequencer", "editorActions", "editorDetails", "editorConsole",
                     "editorCatalog", "editorUi", "editorTransformTools",
                 ]),
-                [WorkspaceRole.Viewer] = ToSet(["loadScenesAndFlows"]),
+                [WorkspaceRole.Viewer] = ToSet(["loadFlows"]),
             };
 
-        private static readonly IReadOnlyDictionary<string, WorkspaceRole> RoleShortcutByKey =
+        private static readonly IReadOnlyDictionary<string, WorkspaceRole> PresetByKey =
             new Dictionary<string, WorkspaceRole>(StringComparer.OrdinalIgnoreCase)
             {
                 ["owner"] = WorkspaceRole.Owner,
@@ -62,63 +64,64 @@ namespace EduCollab.Application.Models
                 ["viewer"] = WorkspaceRole.Viewer,
             };
 
-        public static IReadOnlyCollection<string> RoleShortcutKeys { get; } =
-            RoleShortcutByKey.Keys.ToArray();
+        public static IReadOnlyCollection<string> PresetKeys { get; } =
+            PresetByKey.Keys.ToArray();
 
         public static bool TryNormalizeKeys(
-            IEnumerable<string>? presetKeys,
+            IEnumerable<string>? parameterKeys,
             out IReadOnlySet<string> normalized,
             out string? error)
         {
             normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             error = null;
 
-            if (presetKeys is null)
+            if (parameterKeys is null)
             {
-                error = "At least one preset key is required.";
+                error = "At least one parameter key is required.";
                 return false;
             }
 
-            var keys = presetKeys
+            var keys = parameterKeys
                 .Where(key => !string.IsNullOrWhiteSpace(key))
                 .Select(key => key.Trim())
                 .ToList();
 
             if (keys.Count == 0)
             {
-                error = "At least one preset key is required.";
+                error = "At least one parameter key is required.";
                 return false;
             }
 
             var expanded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in keys)
             {
-                if (RoleShortcutByKey.TryGetValue(key, out var role))
+                if (PresetByKey.TryGetValue(key, out var role))
                 {
-                    foreach (var presetKey in GetPresetKeysForRole(role))
+                    foreach (var parameterKey in GetParameterKeysForRole(role))
                     {
-                        expanded.Add(presetKey);
+                        expanded.Add(parameterKey);
                     }
 
                     continue;
                 }
 
-                if (string.Equals(key, "loadScenes", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(key, "loadScenesAndFlows", StringComparison.OrdinalIgnoreCase))
                 {
-                    expanded.Add("loadScenesAndFlows");
+                    expanded.Add("loadScenes");
+                    expanded.Add("loadFlows");
                     continue;
                 }
 
-                if (string.Equals(key, "addScenes", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(key, "addFlows", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(key, "addScenesAndFlows", StringComparison.OrdinalIgnoreCase))
                 {
-                    expanded.Add("addScenesAndFlows");
+                    expanded.Add("addScenes");
+                    expanded.Add("addFlows");
                     continue;
                 }
 
                 if (!CatalogByKey.ContainsKey(key))
                 {
-                    error = $"Unknown preset or role shortcut key '{key}'.";
+                    error = $"Unknown parameter or preset key '{key}'.";
                     return false;
                 }
 
@@ -129,11 +132,11 @@ namespace EduCollab.Application.Models
             return true;
         }
 
-        public static WorkspaceRole DeriveRole(IReadOnlySet<string> presetKeys)
+        public static WorkspaceRole DeriveRole(IReadOnlySet<string> parameterKeys)
         {
             foreach (var (role, template) in RoleTemplates)
             {
-                if (presetKeys.SetEquals(template))
+                if (parameterKeys.SetEquals(template))
                 {
                     return role;
                 }
@@ -142,7 +145,7 @@ namespace EduCollab.Application.Models
             return WorkspaceRole.Custom;
         }
 
-        public static IReadOnlySet<string> GetPresetKeysForRole(WorkspaceRole role)
+        public static IReadOnlySet<string> GetParameterKeysForRole(WorkspaceRole role)
         {
             if (RoleTemplates.TryGetValue(role, out var template))
             {
@@ -152,11 +155,11 @@ namespace EduCollab.Application.Models
             return RoleTemplates[WorkspaceRole.Viewer];
         }
 
-        public static IReadOnlySet<string> ResolveMemberPresetKeys(WorkspaceMember member)
+        public static IReadOnlySet<string> ResolveMemberParameterKeys(WorkspaceMember member)
         {
-            if (member.Presets.Count > 0)
+            if (member.Parameters.Count > 0)
             {
-                return NormalizeStoredPresetKeys(member.Presets);
+                return NormalizeStoredParameterKeys(member.Parameters);
             }
 
             if (member.Role == WorkspaceRole.Custom)
@@ -164,25 +167,37 @@ namespace EduCollab.Application.Models
                 return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
-            return GetPresetKeysForRole(member.Role);
+            return GetParameterKeysForRole(member.Role);
         }
 
-        private static IReadOnlySet<string> NormalizeStoredPresetKeys(IReadOnlySet<string> presets)
+        private static IReadOnlySet<string> NormalizeStoredParameterKeys(IReadOnlySet<string> parameters)
         {
-            var normalized = new HashSet<string>(presets, StringComparer.OrdinalIgnoreCase);
+            var normalized = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            if (normalized.Remove("loadScenes"))
-                normalized.Add("loadScenesAndFlows");
+            foreach (var key in parameters)
+            {
+                if (string.Equals(key, "loadScenesAndFlows", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add("loadScenes");
+                    normalized.Add("loadFlows");
+                    continue;
+                }
 
-            var hadLegacyAddPreset = normalized.Remove("addScenes") | normalized.Remove("addFlows");
-            if (hadLegacyAddPreset)
-                normalized.Add("addScenesAndFlows");
+                if (string.Equals(key, "addScenesAndFlows", StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add("addScenes");
+                    normalized.Add("addFlows");
+                    continue;
+                }
+
+                normalized.Add(key);
+            }
 
             return normalized;
         }
 
         public static WorkspaceRole ResolveMemberRole(WorkspaceMember member) =>
-            DeriveRole(ResolveMemberPresetKeys(member));
+            DeriveRole(ResolveMemberParameterKeys(member));
 
         public static string ToRoleKey(WorkspaceRole role) =>
             role switch
@@ -194,8 +209,8 @@ namespace EduCollab.Application.Models
                 _ => "custom",
             };
 
-        public static WorkspacePermissionDefinition? TryGetDefinition(string presetKey) =>
-            CatalogByKey.TryGetValue(presetKey, out var definition) ? definition : null;
+        public static WorkspacePermissionDefinition? TryGetDefinition(string parameterKey) =>
+            CatalogByKey.TryGetValue(parameterKey, out var definition) ? definition : null;
 
         private static IReadOnlySet<string> ToSet(IEnumerable<string> keys) =>
             keys.ToHashSet(StringComparer.OrdinalIgnoreCase);

@@ -5,7 +5,7 @@ namespace EduCollab.Contracts.Responses.Workspaces
     {
         public int UserId { get; set; }
 
-        public List<string> Presets { get; set; } = new();
+        public List<string> Parameters { get; set; } = new();
 
         public string Role { get; set; } = string.Empty;
 

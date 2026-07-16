@@ -3,24 +3,24 @@ using EduCollab.Application.Models;
 
 namespace EduCollab.Api.Tests;
 
-public sealed class WorkspacePermissionPresetsTests
+public sealed class WorkspacePermissionParametersTests
 {
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, bool>> CsvMatrix = LoadCsvMatrix();
 
     [Fact]
     public void RoleTemplates_MatchRolesFunctionsCsv()
     {
-        var csvPresetKeys = CsvMatrix.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var csvParameterKeys = CsvMatrix.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var templateRoleKeys = new[] { "owner", "manager", "creator", "viewer" };
-        Assert.Equal(csvPresetKeys, templateRoleKeys.ToHashSet(StringComparer.OrdinalIgnoreCase));
+        Assert.Equal(csvParameterKeys, templateRoleKeys.ToHashSet(StringComparer.OrdinalIgnoreCase));
 
         foreach (var roleKey in templateRoleKeys)
         {
             var role = Enum.Parse<WorkspaceRole>(roleKey, ignoreCase: true);
-            var template = WorkspacePermissionPresets.GetPresetKeysForRole(role);
+            var template = WorkspacePermissionParameters.GetParameterKeysForRole(role);
             var csvRow = CsvMatrix[roleKey];
 
-            foreach (var definition in WorkspacePermissionPresets.Catalog)
+            foreach (var definition in WorkspacePermissionParameters.Catalog)
             {
                 Assert.Equal(csvRow[definition.Key], template.Contains(definition.Key));
             }
@@ -35,7 +35,7 @@ public sealed class WorkspacePermissionPresetsTests
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var catalogKeys = WorkspacePermissionPresets.Catalog
+        var catalogKeys = WorkspacePermissionParameters.Catalog
             .Select(p => p.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -43,11 +43,11 @@ public sealed class WorkspacePermissionPresetsTests
     }
 
     [Fact]
-    public void DeriveRole_ReturnsCustom_WhenPresetCombinationDoesNotMatchTemplate()
+    public void DeriveRole_ReturnsCustom_WhenParameterCombinationDoesNotMatchTemplate()
     {
-        var customPresets = new[] { "addAssets", "loadScenesAndFlows" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var customParameters = new[] { "addAssets", "loadScenes", "loadFlows" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(customPresets));
+        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionParameters.DeriveRole(customParameters));
     }
 
     [Theory]
@@ -58,9 +58,9 @@ public sealed class WorkspacePermissionPresetsTests
     public void DeriveRole_MatchesRoleTemplates(string roleKey, WorkspaceRole expectedRole)
     {
         var role = Enum.Parse<WorkspaceRole>(roleKey, ignoreCase: true);
-        var presets = WorkspacePermissionPresets.GetPresetKeysForRole(role);
+        var parameters = WorkspacePermissionParameters.GetParameterKeysForRole(role);
 
-        Assert.Equal(expectedRole, WorkspacePermissionPresets.DeriveRole(presets));
+        Assert.Equal(expectedRole, WorkspacePermissionParameters.DeriveRole(parameters));
     }
 
     [Theory]
@@ -70,60 +70,79 @@ public sealed class WorkspacePermissionPresetsTests
     [InlineData("viewer", WorkspaceRole.Viewer)]
     public void TryNormalizeKeys_ExpandsRoleShortcut(string roleShortcut, WorkspaceRole expectedRole)
     {
-        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys([roleShortcut], out var normalized, out var error), error);
-        Assert.Equal(expectedRole, WorkspacePermissionPresets.DeriveRole(normalized));
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys([roleShortcut], out var normalized, out var error), error);
+        Assert.Equal(expectedRole, WorkspacePermissionParameters.DeriveRole(normalized));
         Assert.Equal(
-            WorkspacePermissionPresets.GetPresetKeysForRole(expectedRole),
+            WorkspacePermissionParameters.GetParameterKeysForRole(expectedRole),
             normalized);
     }
 
     [Fact]
-    public void TryNormalizeKeys_MergesRoleShortcutWithIndividualPresets()
+    public void TryNormalizeKeys_MergesRoleShortcutWithIndividualParameters()
     {
-        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["viewer", "addAssets"], out var normalized, out _));
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys(["viewer", "addAssets"], out var normalized, out _));
 
-        Assert.Contains("loadScenesAndFlows", normalized);
+        Assert.DoesNotContain("loadScenes", normalized);
+        Assert.Contains("loadFlows", normalized);
         Assert.Contains("addAssets", normalized);
-        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionPresets.DeriveRole(normalized));
+        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionParameters.DeriveRole(normalized));
     }
 
     [Fact]
-    public void TryNormalizeKeys_AcceptsLegacyAddScenesAndAddFlowsAliases()
+    public void TryNormalizeKeys_AcceptsAddScenesAndAddFlowsIndependently()
     {
-        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["addScenes"], out var fromScenes, out _));
-        Assert.Contains("addScenesAndFlows", fromScenes);
-        Assert.DoesNotContain("addScenes", fromScenes);
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys(["addScenes"], out var fromScenes, out _));
+        Assert.Contains("addScenes", fromScenes);
+        Assert.DoesNotContain("addFlows", fromScenes);
 
-        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["addFlows"], out var fromFlows, out _));
-        Assert.Contains("addScenesAndFlows", fromFlows);
-        Assert.DoesNotContain("addFlows", fromFlows);
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys(["addFlows"], out var fromFlows, out _));
+        Assert.Contains("addFlows", fromFlows);
+        Assert.DoesNotContain("addScenes", fromFlows);
     }
 
     [Fact]
-    public void ResolveMemberRole_ReturnsViewer_WhenOnlyLoadScenesAndFlowsPresetIsAssigned()
+    public void ResolveMemberRole_ReturnsViewer_WhenOnlyLoadFlowsIsAssigned()
     {
         var member = new WorkspaceMember
         {
             Role = WorkspaceRole.Custom,
-            Presets = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadScenesAndFlows" },
+            Parameters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadFlows" },
         };
 
-        Assert.Equal(WorkspaceRole.Viewer, WorkspacePermissionPresets.ResolveMemberRole(member));
-        Assert.Equal("viewer", WorkspacePermissionPresets.ToRoleKey(WorkspacePermissionPresets.ResolveMemberRole(member)));
+        Assert.Equal(WorkspaceRole.Viewer, WorkspacePermissionParameters.ResolveMemberRole(member));
+        Assert.Equal("viewer", WorkspacePermissionParameters.ToRoleKey(WorkspacePermissionParameters.ResolveMemberRole(member)));
     }
 
     [Fact]
-    public void TryNormalizeKeys_AcceptsLegacyLoadScenesAlias()
+    public void ResolveMemberRole_ReturnsCustom_WhenLoadScenesAndLoadFlowsAreAssigned()
     {
-        Assert.True(WorkspacePermissionPresets.TryNormalizeKeys(["loadScenes"], out var normalized, out _));
-        Assert.Contains("loadScenesAndFlows", normalized);
-        Assert.DoesNotContain("loadScenes", normalized);
+        var member = new WorkspaceMember
+        {
+            Role = WorkspaceRole.Custom,
+            Parameters = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "loadScenes", "loadFlows" },
+        };
+
+        Assert.Equal(WorkspaceRole.Custom, WorkspacePermissionParameters.ResolveMemberRole(member));
     }
 
     [Fact]
-    public void TryNormalizeKeys_RejectsUnknownPreset()
+    public void TryNormalizeKeys_ExpandsLegacyCombinedAliases()
     {
-        Assert.False(WorkspacePermissionPresets.TryNormalizeKeys(["addAssets", "unknown"], out _, out var error));
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys(["loadScenesAndFlows"], out var loadNormalized, out _));
+        Assert.Contains("loadScenes", loadNormalized);
+        Assert.Contains("loadFlows", loadNormalized);
+        Assert.DoesNotContain("loadScenesAndFlows", loadNormalized);
+
+        Assert.True(WorkspacePermissionParameters.TryNormalizeKeys(["addScenesAndFlows"], out var addNormalized, out _));
+        Assert.Contains("addScenes", addNormalized);
+        Assert.Contains("addFlows", addNormalized);
+        Assert.DoesNotContain("addScenesAndFlows", addNormalized);
+    }
+
+    [Fact]
+    public void TryNormalizeKeys_RejectsUnknownParameter()
+    {
+        Assert.False(WorkspacePermissionParameters.TryNormalizeKeys(["addAssets", "unknown"], out _, out var error));
         Assert.Contains("unknown", error, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -147,7 +166,7 @@ public sealed class WorkspacePermissionPresetsTests
         var header = lines[0].Split(';');
         var presetColumns = header.Skip(1).ToArray();
 
-        var permissionKeyByCsvLabel = WorkspacePermissionPresets.Catalog
+        var permissionKeyByCsvLabel = WorkspacePermissionParameters.Catalog
             .ToDictionary(p => NormalizeLabel(p.Label), p => p.Key, StringComparer.OrdinalIgnoreCase);
 
         var matrix = new Dictionary<string, Dictionary<string, bool>>(StringComparer.OrdinalIgnoreCase);

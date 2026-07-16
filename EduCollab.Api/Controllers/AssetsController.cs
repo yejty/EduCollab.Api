@@ -55,7 +55,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create assets in this group.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets")]
+        [RequiresWorkspaceParameter("addAssets")]
         [HttpPost(ApiEndpoints.Assets.Create)]
 
         [Consumes("multipart/form-data")]
@@ -134,7 +134,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access assets in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadAssets", "addAssets", Notes = "Also requires effective access to each asset (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadAssets", "addAssets", Notes = "Also requires effective access to each asset (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Assets.GetAll)]
 
         [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
@@ -223,7 +223,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this asset.</response>
         /// <response code="404">Asset was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadAssets", "addAssets", Notes = "Also requires effective access to the asset (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadAssets", "addAssets", Notes = "Also requires effective access to the asset (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Assets.Get)]
 
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
@@ -261,7 +261,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this asset.</response>
         /// <response code="404">Asset was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
         [HttpPut(ApiEndpoints.Assets.Update)]
 
         [ProducesResponseType(typeof(AssetResponse), StatusCodes.Status200OK)]
@@ -300,7 +300,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this asset.</response>
         /// <response code="404">Asset was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
         [HttpDelete(ApiEndpoints.Assets.Delete)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -333,25 +333,21 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this asset.</response>
         /// <response code="404">Asset or content was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadAssets", "addAssets", Notes = "Also requires effective access to the asset (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadAssets", "addAssets", Notes = "Also requires effective access to the asset (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Assets.Content)]
-
+        [Produces("application/zip")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-
         public async Task<IActionResult> GetAssetContent(int assetId, CancellationToken cancellationToken)
-
         {
-
             var content = await _assetService.GetAssetContentAsync(assetId, cancellationToken);
-
             if (content is null)
-
                 return ApiNotFound();
 
+            var contentType = string.IsNullOrWhiteSpace(content.ContentType)
+                ? AssetContentFormats.ZipContentType
+                : content.ContentType;
 
-
-            return File(content.Data, content.ContentType);
-
+            return File(content.Data, contentType, fileDownloadName: $"asset-{assetId}.zip");
         }
 
 
@@ -368,7 +364,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this asset.</response>
         /// <response code="404">Asset was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.")]
         [HttpPut(ApiEndpoints.Assets.Content)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]

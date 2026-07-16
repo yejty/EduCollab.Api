@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace EduCollab.Contracts.Requests.Workspaces
 {
@@ -6,6 +6,6 @@ namespace EduCollab.Contracts.Requests.Workspaces
     {
         [Required]
         [MinLength(1)]
-        public List<string> Presets { get; set; } = new();
+        public List<string> Parameters { get; set; } = new();
     }
 }

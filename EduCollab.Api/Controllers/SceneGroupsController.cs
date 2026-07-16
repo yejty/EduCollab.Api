@@ -1,4 +1,5 @@
 using EduCollab.Api.Swagger;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Scenes;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Responses.Groups;
@@ -21,7 +22,7 @@ namespace EduCollab.Api.Controllers
         /// List groups a scene is shared with.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires effective access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires effective access to the scene.")]
         [HttpGet(ApiEndpoints.SceneGroups.GetAll)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> GetSceneGroups(
@@ -33,8 +34,8 @@ namespace EduCollab.Api.Controllers
 
             try
             {
-                var groupIds = await _sceneService.GetSceneGroupIdsAsync(sceneId, cancellationToken);
-                return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+                var shares = await _sceneService.GetSceneGroupSharesAsync(sceneId, cancellationToken);
+                return Ok(MapShares(shares));
             }
             catch (KeyNotFoundException)
             {
@@ -46,7 +47,7 @@ namespace EduCollab.Api.Controllers
         /// Share a scene with a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires manage access to the scene.")]
         [HttpPost(ApiEndpoints.SceneGroups.Create)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status201Created)]
         public async Task<ActionResult<ResourceGroupsResponse>> AddSceneGroup(
@@ -59,24 +60,28 @@ namespace EduCollab.Api.Controllers
             if (request.GroupId <= 0)
                 return ApiBadRequest("invalid_group_id", "groupId must be a positive integer.");
 
-            var added = await _sceneService.AddSceneGroupAsync(request.SceneId, request.GroupId, cancellationToken);
+            var added = await _sceneService.AddSceneGroupAsync(
+                request.SceneId,
+                request.GroupId,
+                request.IncludeAssets,
+                cancellationToken);
             if (!added)
                 return ApiNotFound("share_failed", "Scene or group was not found.");
 
-            var groupIds = await _sceneService.GetSceneGroupIdsAsync(request.SceneId, cancellationToken);
-            return StatusCode(StatusCodes.Status201Created, new ResourceGroupsResponse { GroupIds = groupIds });
+            var shares = await _sceneService.GetSceneGroupSharesAsync(request.SceneId, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, MapShares(shares));
         }
 
         /// <summary>
         /// Replace all group shares for a scene.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires manage access to the scene.")]
         [HttpPut(ApiEndpoints.SceneGroups.Update)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> SetSceneGroups(
             [FromQuery] int sceneId,
-            [FromBody] SetResourceGroupsRequest request,
+            [FromBody] SetSceneGroupsRequest request,
             CancellationToken cancellationToken)
         {
             if (sceneId <= 0)
@@ -84,11 +89,19 @@ namespace EduCollab.Api.Controllers
 
             try
             {
-                var groupIds = await _sceneService.SetSceneGroupIdsAsync(sceneId, request.GroupIds, cancellationToken);
-                if (groupIds is null)
+                var shares = (request.Groups ?? [])
+                    .Select(group => new SceneGroupShare
+                    {
+                        GroupId = group.GroupId,
+                        IncludeAssets = group.IncludeAssets,
+                    })
+                    .ToList();
+
+                var updated = await _sceneService.SetSceneGroupSharesAsync(sceneId, shares, cancellationToken);
+                if (updated is null)
                     return ApiNotFound("update_failed", "Scene was not found.");
 
-                return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+                return Ok(MapShares(updated));
             }
             catch (ArgumentException ex) when (ex.ParamName == "groupIds")
             {
@@ -100,7 +113,7 @@ namespace EduCollab.Api.Controllers
         /// Remove a scene from a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires manage access to the scene.")]
         [HttpDelete(ApiEndpoints.SceneGroups.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> RemoveSceneGroup(
@@ -120,5 +133,18 @@ namespace EduCollab.Api.Controllers
 
             return NoContent();
         }
+
+        private static ResourceGroupsResponse MapShares(IReadOnlyList<SceneGroupShare> shares) =>
+            new()
+            {
+                GroupIds = shares.Select(share => share.GroupId).ToList(),
+                Groups = shares
+                    .Select(share => new ResourceGroupShareResponse
+                    {
+                        GroupId = share.GroupId,
+                        IncludeAssets = share.IncludeAssets,
+                    })
+                    .ToList(),
+            };
     }
 }

@@ -302,7 +302,7 @@ namespace EduCollab.Infrastructure.Repositories
             return await connection.QuerySingleOrDefaultAsync<User>(
                 new CommandDefinition(
                     """
-                    SELECT Id, FirstName, LastName, Email, WorkspaceId, IsPlatformAdmin
+                    SELECT Id, FullName, Email, Description, WorkspaceId, IsPlatformAdmin
                     FROM Users
                     WHERE Id = @Id
                     LIMIT 1;
@@ -326,11 +326,11 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
         }
 
-        public async Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken)
+        public async Task<int> InsertRegisteredUserAsync(string fullName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken)
         {
             const string sql = """
-                INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc)
-                VALUES (@FirstName, @LastName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
+                INSERT INTO Users (FullName, Email, PasswordHash, EmailConfirmedAtUtc)
+                VALUES (@FullName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
                 RETURNING Id;
                 """;
 
@@ -338,7 +338,7 @@ namespace EduCollab.Infrastructure.Repositories
             return await connection.QuerySingleAsync<int>(
                 new CommandDefinition(
                     sql,
-                    new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = passwordHash, EmailConfirmedAtUtc },
+                    new { FullName = fullName, Email = email, PasswordHash = passwordHash, EmailConfirmedAtUtc },
                     cancellationToken: cancellationToken));
         }
 
@@ -349,14 +349,14 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     """
                     UPDATE Users
-                    SET FirstName = @FirstName,
-                        LastName = @LastName
+                    SET FullName = @FullName,
+                        Description = @Description
                     WHERE Id = @Id;
                     """,
                     new
                     {
-                        user.FirstName,
-                        user.LastName,
+                        user.FullName,
+                        user.Description,
                         user.Id
                     },
                     cancellationToken: cancellationToken));

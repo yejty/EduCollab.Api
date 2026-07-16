@@ -12,7 +12,7 @@ using EduCollab.Contracts.Responses.Scenes;
 namespace EduCollab.Api.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class SceneFlowPresetAuthorizationIntegrationTests
+public sealed class SceneFlowParameterAuthorizationIntegrationTests
 {
     [Fact]
     public async Task LoadScenesAndFlowsOnly_CanReadScenesAndFlows_ButCannotMutate()
@@ -25,16 +25,18 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         var memberEmail = $"loader-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Load Gate", "Scene and flow preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Load Gate", "Scene and flow parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes", "loadFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -43,8 +45,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Load",
-                LastName = "Only",
+                FullName = "Load Only",
                 Email = memberEmail,
                 Password = password,
             });
@@ -78,6 +79,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         {
             Name = "Shared Flow",
             GroupIds = [group.Id],
+            SceneIds = [scene.Id],
         });
         createFlowResponse.EnsureSuccessStatusCode();
         var flow = await createFlowResponse.ReadAsJsonAsync<FlowResponse>();
@@ -131,16 +133,18 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         var memberEmail = $"creator-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Add Gate", "Scene and flow preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Add Gate", "Scene and flow parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["addScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["addScenes", "addFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -149,8 +153,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Add",
-                LastName = "Only",
+                FullName = "Add Only",
                 Email = memberEmail,
                 Password = password,
             });
@@ -200,6 +203,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         var createFlowResponse = await memberClient.PostAsJsonAsync("/api/workspace/flows", new CreateFlowRequest
         {
             Name = "Member Flow",
+            SceneIds = [scene.Id],
         });
         createFlowResponse.EnsureSuccessStatusCode();
         var flow = await createFlowResponse.ReadAsJsonAsync<FlowResponse>();
@@ -220,7 +224,10 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
 
         var setSceneGroupsResponse = await memberClient.PutAsJsonAsync(
             $"/api/workspace/scene-groups?sceneId={scene.Id}",
-            new SetResourceGroupsRequest { GroupIds = [group.Id] });
+            new SetSceneGroupsRequest
+            {
+                Groups = [new ResourceGroupShareRequest { GroupId = group.Id, IncludeAssets = false }],
+            });
         setSceneGroupsResponse.EnsureSuccessStatusCode();
 
         (await memberClient.GetAsync($"/api/workspace/scene-groups?sceneId={scene.Id}")).EnsureSuccessStatusCode();
@@ -236,7 +243,10 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
 
         var setFlowGroupsResponse = await memberClient.PutAsJsonAsync(
             $"/api/workspace/flow-groups?flowId={flow.Id}",
-            new SetResourceGroupsRequest { GroupIds = [group.Id] });
+            new SetFlowGroupsRequest
+            {
+                Groups = [new ResourceGroupShareRequest { GroupId = group.Id, IncludeAssets = false }],
+            });
         setFlowGroupsResponse.EnsureSuccessStatusCode();
 
         (await memberClient.GetAsync($"/api/workspace/flow-groups?flowId={flow.Id}")).EnsureSuccessStatusCode();
@@ -263,16 +273,18 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         var memberEmail = $"assets-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Deny Gate", "Scene and flow preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Scene Flow Deny Gate", "Scene and flow parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["loadAssets"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadAssets"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -281,8 +293,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Asset",
-                LastName = "Only",
+                FullName = "Asset Only",
                 Email = memberEmail,
                 Password = password,
             });
@@ -316,6 +327,7 @@ public sealed class SceneFlowPresetAuthorizationIntegrationTests
         {
             Name = "Shared Flow",
             GroupIds = [group.Id],
+            SceneIds = [scene.Id],
         });
         createFlowResponse.EnsureSuccessStatusCode();
         var flow = await createFlowResponse.ReadAsJsonAsync<FlowResponse>();

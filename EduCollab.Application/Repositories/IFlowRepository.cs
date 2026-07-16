@@ -15,9 +15,12 @@ namespace EduCollab.Application.Repositories
         Task<Dictionary<int, List<int>>> GetFlowSceneIdsByFlowIdsAsync(int workspaceId, IReadOnlyCollection<int> flowIds, CancellationToken cancellationToken);
         Task ReplaceFlowSceneLinksAsync(int workspaceId, int flowId, IReadOnlyList<int> sceneIds, int createdByUserId, CancellationToken cancellationToken);
         Task<List<int>> GetFlowGroupIdsAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
+        Task<List<FlowGroupShare>> GetFlowGroupSharesAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
         Task<Dictionary<int, List<int>>> GetFlowGroupIdsByFlowIdsAsync(int workspaceId, IReadOnlyCollection<int> flowIds, CancellationToken cancellationToken);
         Task ReplaceFlowGroupSharesAsync(int workspaceId, int flowId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken);
+        Task ReplaceFlowGroupSharesAsync(int workspaceId, int flowId, IReadOnlyList<FlowGroupShare> shares, CancellationToken cancellationToken);
         Task<bool> AddFlowGroupShareAsync(int workspaceId, int flowId, int groupId, CancellationToken cancellationToken);
+        Task<bool> AddFlowGroupShareAsync(int workspaceId, int flowId, int groupId, bool includeAssets, CancellationToken cancellationToken);
         Task<bool> RemoveFlowGroupShareAsync(int workspaceId, int flowId, int groupId, CancellationToken cancellationToken);
         Task SyncFlowPrimaryGroupIdAsync(int workspaceId, int flowId, CancellationToken cancellationToken);
     }

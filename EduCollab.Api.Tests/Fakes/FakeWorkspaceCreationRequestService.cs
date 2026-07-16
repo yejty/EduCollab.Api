@@ -5,7 +5,7 @@ namespace EduCollab.Api.Tests.Fakes;
 
 public sealed class FakeWorkspaceCreationRequestService : IWorkspaceCreationRequestService
 {
-    public Func<string, string?, CancellationToken, Task<WorkspaceCreationRequest>>? SubmitRequestAsyncHandler { get; set; }
+    public Func<string, string?, string?, CancellationToken, Task<WorkspaceCreationRequest>>? SubmitRequestAsyncHandler { get; set; }
     public Func<CancellationToken, Task<WorkspaceCreationRequest?>>? GetCurrentUserLatestRequestAsyncHandler { get; set; }
     public Func<WorkspaceCreationRequestStatus?, CancellationToken, Task<List<WorkspaceCreationRequest>>>? GetRequestsAsyncHandler { get; set; }
     public Func<long, CancellationToken, Task<WorkspaceCreationRequest?>>? ApproveRequestAsyncHandler { get; set; }
@@ -13,13 +13,14 @@ public sealed class FakeWorkspaceCreationRequestService : IWorkspaceCreationRequ
     public Func<long, string, CancellationToken, Task<WorkspaceCreationRequest?>>? ApproveRequestByReviewTokenAsyncHandler { get; set; }
     public Func<long, string, CancellationToken, Task<WorkspaceCreationRequest?>>? DenyRequestByReviewTokenAsyncHandler { get; set; }
 
-    public Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, CancellationToken cancellationToken) =>
-        SubmitRequestAsyncHandler?.Invoke(name, description, cancellationToken)
+    public Task<WorkspaceCreationRequest> SubmitRequestAsync(string name, string? description, string? type, CancellationToken cancellationToken) =>
+        SubmitRequestAsyncHandler?.Invoke(name, description, type, cancellationToken)
         ?? Task.FromResult(new WorkspaceCreationRequest
         {
             Id = 1,
             Name = name,
             Description = description,
+            Type = type,
             Status = WorkspaceCreationRequestStatus.Pending,
             CreatedAtUtc = DateTime.UtcNow,
         });

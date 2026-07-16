@@ -26,12 +26,14 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc)
                     VALUES (
                         @RequestedByUserId,
                         @Name,
                         @Description,
+                        @Type,
                         @Status,
                         @CreatedAtUtc)
                     RETURNING Id;
@@ -41,6 +43,7 @@ namespace EduCollab.Infrastructure.Repositories
                         request.RequestedByUserId,
                         request.Name,
                         request.Description,
+                        request.Type,
                         Status = request.Status.ToPersistedString(),
                         request.CreatedAtUtc,
                     },
@@ -59,6 +62,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -86,6 +90,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -116,6 +121,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -153,6 +159,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -247,6 +254,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -341,6 +349,7 @@ namespace EduCollab.Infrastructure.Repositories
                         RequestedByUserId,
                         Name,
                         Description,
+                        Type,
                         Status,
                         CreatedAtUtc,
                         ReviewedAtUtc,
@@ -476,6 +485,7 @@ namespace EduCollab.Infrastructure.Repositories
                 RequestedByUserId = row.RequestedByUserId,
                 Name = row.Name,
                 Description = row.Description,
+                Type = row.Type,
                 Status = WorkspaceCreationRequestStatusExtensions.FromPersisted(row.Status),
                 CreatedAtUtc = row.CreatedAtUtc,
                 ReviewedAtUtc = row.ReviewedAtUtc,
@@ -489,6 +499,7 @@ namespace EduCollab.Infrastructure.Repositories
             public int RequestedByUserId { get; set; }
             public string Name { get; set; } = string.Empty;
             public string? Description { get; set; }
+            public string? Type { get; set; }
             public string Status { get; set; } = string.Empty;
             public DateTime CreatedAtUtc { get; set; }
             public DateTime? ReviewedAtUtc { get; set; }

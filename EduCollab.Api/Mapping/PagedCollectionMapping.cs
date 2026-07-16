@@ -88,5 +88,64 @@ namespace EduCollab.Api.Mapping
                 PageSize = paged.PageSize,
                 TotalCount = paged.TotalCount,
             };
+
+        public static SceneAssetsResponse MapToResponse(
+            this PagedResult<SceneAssetContextItem> paged,
+            SceneAssetsManifest manifest) =>
+            new()
+            {
+                SceneId = manifest.SceneId,
+                IncludeAssets = manifest.IncludeAssets,
+                Message = manifest.Message,
+                Assets = paged.Items.Select(MapSceneAsset).ToList(),
+                Page = paged.Page,
+                PageSize = paged.PageSize,
+                TotalCount = paged.TotalCount,
+            };
+
+        public static FlowScenesResponse MapToResponse(
+            this PagedResult<FlowSceneContextItem> paged,
+            FlowScenesManifest manifest) =>
+            new()
+            {
+                FlowId = manifest.FlowId,
+                IncludeAssets = manifest.IncludeAssets,
+                Message = manifest.Message,
+                Scenes = paged.Items.Select(MapFlowScene).ToList(),
+                Page = paged.Page,
+                PageSize = paged.PageSize,
+                TotalCount = paged.TotalCount,
+            };
+
+        private static SceneAssetResponse MapSceneAsset(SceneAssetContextItem item) =>
+            new()
+            {
+                AssetId = item.AssetId,
+                SceneId = item.SceneId,
+                WorkspaceId = item.WorkspaceId,
+                Name = item.Name,
+                AssetType = item.AssetType,
+                UsableInScene = item.UsableInScene,
+                CanViewDirectly = item.CanViewDirectly,
+                IncludeAssets = item.IncludeAssets,
+                DownloadToken = item.DownloadToken,
+                CacheKey = item.CacheKey,
+                Message = item.Message,
+            };
+
+        private static FlowSceneResponse MapFlowScene(FlowSceneContextItem item) =>
+            new()
+            {
+                SceneId = item.SceneId,
+                FlowId = item.FlowId,
+                WorkspaceId = item.WorkspaceId,
+                Name = item.Name,
+                UsableInFlow = item.UsableInFlow,
+                CanViewDirectly = item.CanViewDirectly,
+                IncludeAssets = item.IncludeAssets,
+                DownloadToken = item.DownloadToken,
+                CacheKey = item.CacheKey,
+                Message = item.Message,
+            };
     }
 }

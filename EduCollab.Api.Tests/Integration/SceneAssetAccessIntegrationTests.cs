@@ -29,7 +29,7 @@ public sealed class SceneAssetAccessIntegrationTests
         const string ownerPassword = "Owner123!";
         const string memberPassword = "Member123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -37,13 +37,15 @@ public sealed class SceneAssetAccessIntegrationTests
             ownerEmail,
             "Scene Access Workspace",
             "Scene asset access integration test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
 
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -52,8 +54,7 @@ public sealed class SceneAssetAccessIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Member",
-                LastName = "User",
+                FullName = "Member User",
                 Email = memberEmail,
                 Password = memberPassword,
             });
@@ -138,7 +139,7 @@ public sealed class SceneAssetAccessIntegrationTests
         const string ownerPassword = "Owner123!";
         const string memberPassword = "Member123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -146,13 +147,15 @@ public sealed class SceneAssetAccessIntegrationTests
             ownerEmail,
             "Private Scene Workspace",
             "Scene visibility integration test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
 
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -161,8 +164,7 @@ public sealed class SceneAssetAccessIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Member",
-                LastName = "User",
+                FullName = "Member User",
                 Email = memberEmail,
                 Password = memberPassword,
             });
@@ -200,7 +202,7 @@ public sealed class SceneAssetAccessIntegrationTests
         var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
         const string ownerPassword = "Owner123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -240,7 +242,7 @@ public sealed class SceneAssetAccessIntegrationTests
         const string ownerPassword = "Owner123!";
         const string memberPassword = "Member123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -248,13 +250,15 @@ public sealed class SceneAssetAccessIntegrationTests
             ownerEmail,
             "Flow Access Workspace",
             "Flow scene access integration test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
 
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Viewer),
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -263,8 +267,7 @@ public sealed class SceneAssetAccessIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Member",
-                LastName = "User",
+                FullName = "Member User",
                 Email = memberEmail,
                 Password = memberPassword,
             });
@@ -339,10 +342,10 @@ public sealed class SceneAssetAccessIntegrationTests
         Assert.Contains(privateScene.Id, memberFlow.SceneIds);
 
         var memberPrivateSceneResponse = await memberClient.GetAsync($"/api/workspace/scenes/{privateScene.Id}");
-        Assert.Equal(HttpStatusCode.NotFound, memberPrivateSceneResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, memberPrivateSceneResponse.StatusCode);
 
         var memberSharedSceneResponse = await memberClient.GetAsync($"/api/workspace/scenes/{sharedScene.Id}");
-        memberSharedSceneResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, memberSharedSceneResponse.StatusCode);
     }
 
     [Fact]
@@ -354,7 +357,7 @@ public sealed class SceneAssetAccessIntegrationTests
         var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
         const string ownerPassword = "Owner123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, ownerPassword);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, ownerPassword);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(

@@ -21,7 +21,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         var service = CreateService(
             currentUserId: ManagerUserId,
             workspaceRole: WorkspaceRole.Custom,
-            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            parameters: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenes", "loadFlows" },
             groupMembers: []);
 
         var exception = await Assert.ThrowsAsync<AccessDeniedException>(() =>
@@ -46,7 +46,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         var service = CreateService(
             currentUserId: ManagerUserId,
             workspaceRole: WorkspaceRole.Custom,
-            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            parameters: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenes", "loadFlows" },
             repository: repository,
             additionalWorkspaceMemberIds: OtherUserId);
 
@@ -78,7 +78,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         var service = CreateService(
             currentUserId: ManagerUserId,
             workspaceRole: WorkspaceRole.Custom,
-            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            parameters: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenes", "loadFlows" },
             repository: repository);
 
         var members = await service.GetAllGroupMembersAsync(GroupId, CancellationToken.None);
@@ -92,7 +92,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         var service = CreateService(
             currentUserId: ManagerUserId,
             workspaceRole: WorkspaceRole.Custom,
-            presets: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenesAndFlows" },
+            parameters: new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "addGroups", "loadScenes", "loadFlows" },
             groupMembers:
             [
                 new GroupMember { GroupId = GroupId, UserId = OwnerUserId },
@@ -256,7 +256,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         WorkspaceRole workspaceRole,
         List<GroupMember>? groupMembers = null,
         StubGroupRepository? repository = null,
-        IReadOnlySet<string>? presets = null,
+        IReadOnlySet<string>? parameters = null,
         params int[] additionalWorkspaceMemberIds)
     {
         repository ??= new StubGroupRepository { GroupMembers = groupMembers ?? [] };
@@ -266,9 +266,9 @@ public sealed class GroupServiceMembershipAuthorizationTests
             WorkspaceId = WorkspaceId,
             UserId = currentUserId,
             Role = workspaceRole,
-            Presets = presets is null
+            Parameters = parameters is null
                 ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                : new HashSet<string>(presets, StringComparer.OrdinalIgnoreCase),
+                : new HashSet<string>(parameters, StringComparer.OrdinalIgnoreCase),
         };
 
         var workspaceMemberIds = new HashSet<int>(additionalWorkspaceMemberIds) { currentUserId };
@@ -329,7 +329,7 @@ public sealed class GroupServiceMembershipAuthorizationTests
         public Task<bool> IsPlatformAdminAsync(int userId, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
-        public Task<int> InsertRegisteredUserAsync(string firstName, string lastName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken) =>
+        public Task<int> InsertRegisteredUserAsync(string fullName, string email, string passwordHash, DateTime? EmailConfirmedAtUtc, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
         public Task<bool> UpdateAsync(User user, CancellationToken cancellationToken) =>
@@ -393,13 +393,13 @@ public sealed class GroupServiceMembershipAuthorizationTests
         public Task RevokePendingWorkspaceInvitationsAsync(int workspaceId, string email, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
-        public Task<long> InsertWorkspaceInvitationAsync(int workspaceId, string email, string tokenHashSha256Hex, WorkspaceRole role, IReadOnlySet<string> presets, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, int invitedByUserId, CancellationToken cancellationToken) =>
+        public Task<long> InsertWorkspaceInvitationAsync(int workspaceId, string email, string tokenHashSha256Hex, WorkspaceRole role, IReadOnlySet<string> parameters, int groupId, DateTimeOffset expiresAtUtc, DateTimeOffset createdAtUtc, int invitedByUserId, CancellationToken cancellationToken) =>
             Task.FromResult(1L);
 
         public Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(string tokenHashSha256Hex, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
-        public Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(int workspaceId, string tokenHashSha256Hex, string email, string firstName, string lastName, string plainPassword, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
+        public Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(int workspaceId, string tokenHashSha256Hex, string email, string fullName, string plainPassword, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
         public Task<WorkspaceMember?> AcceptWorkspaceInvitationForExistingUserAsync(int workspaceId, string tokenHashSha256Hex, int userId, string email, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
@@ -409,9 +409,6 @@ public sealed class GroupServiceMembershipAuthorizationTests
             throw new NotImplementedException();
 
         public Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken) =>
-            throw new NotImplementedException();
-
-        public Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
     }
 

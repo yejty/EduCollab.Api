@@ -21,7 +21,7 @@ namespace EduCollab.Api.Controllers
         /// List groups an asset is shared with.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires effective access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires effective access to the asset.")]
         [HttpGet(ApiEndpoints.AssetGroups.GetAll)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> GetAssetGroups(
@@ -46,7 +46,7 @@ namespace EduCollab.Api.Controllers
         /// Share an asset with a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpPost(ApiEndpoints.AssetGroups.Create)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status201Created)]
         public async Task<ActionResult<ResourceGroupsResponse>> AddAssetGroup(
@@ -71,7 +71,7 @@ namespace EduCollab.Api.Controllers
         /// Replace all group shares for an asset.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpPut(ApiEndpoints.AssetGroups.Update)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> SetAssetGroups(
@@ -100,7 +100,7 @@ namespace EduCollab.Api.Controllers
         /// Remove an asset from a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addAssets", Notes = "Also requires manage access to the asset.")]
+        [RequiresWorkspaceParameter("addAssets", Notes = "Also requires manage access to the asset.")]
         [HttpDelete(ApiEndpoints.AssetGroups.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> RemoveAssetGroup(

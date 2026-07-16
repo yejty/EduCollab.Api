@@ -25,7 +25,7 @@ public sealed class GroupAssetSharingIntegrationTests
         var childMemberEmail = $"child-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -34,25 +34,29 @@ public sealed class GroupAssetSharingIntegrationTests
             "Hierarchical Group Workspace",
             "Group hierarchy integration test");
 
-        foreach (var (client, email, first, last) in new[]
+        var science = await ownerClient.CreateGroupAsync("Science", "Root science group");
+        var physics = await ownerClient.CreateGroupAsync("Physics", "Science subgroup", science.Id);
+        var hidden = await ownerClient.CreateGroupAsync("Hidden", "Owner-only root group");
+
+        foreach (var (client, email, first, last, groupId) in new[]
         {
-            (parentMemberClient, parentMemberEmail, "Parent", "Member"),
-            (childMemberClient, childMemberEmail, "Child", "Member"),
+            (parentMemberClient, parentMemberEmail, "Parent", "Member", science.Id),
+            (childMemberClient, childMemberEmail, "Child", "Member", physics.Id),
         })
         {
             factory.EmailSender.Clear();
             var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
             {
                 Email = email,
-                Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Viewer),
+                GroupId = groupId,
+                Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Viewer),
             });
             Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
 
             var invitationToken = factory.GetInvitationToken(email);
             var acceptResponse = await client.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
             {
-                FirstName = first,
-                LastName = last,
+                FullName = $"{first} {last}",
                 Email = email,
                 Password = password
             });
@@ -61,53 +65,6 @@ public sealed class GroupAssetSharingIntegrationTests
             var tokens = await client.LoginAsync(email, password);
             client.SetBearerToken(tokens.AccessToken);
         }
-
-        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
-        {
-            Name = "Science",
-            Description = "Root science group"
-        });
-        scienceResponse.EnsureSuccessStatusCode();
-        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
-
-        var physicsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
-        {
-            Name = "Physics",
-            Description = "Science subgroup",
-            ParentGroupId = science.Id
-        });
-        physicsResponse.EnsureSuccessStatusCode();
-        var physics = await physicsResponse.ReadAsJsonAsync<GroupResponse>();
-
-        var hiddenResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
-        {
-            Name = "Hidden",
-            Description = "Owner-only root group"
-        });
-        hiddenResponse.EnsureSuccessStatusCode();
-        var hidden = await hiddenResponse.ReadAsJsonAsync<GroupResponse>();
-
-        var parentMe = await parentMemberClient.GetAsync("/api/users/me");
-        parentMe.EnsureSuccessStatusCode();
-        var parentUser = await parentMe.ReadAsJsonAsync<EduCollab.Contracts.Responses.Users.UserResponse>();
-
-        var childMe = await childMemberClient.GetAsync("/api/users/me");
-        childMe.EnsureSuccessStatusCode();
-        var childUser = await childMe.ReadAsJsonAsync<EduCollab.Contracts.Responses.Users.UserResponse>();
-
-        await ownerClient.PostAsJsonAsync($"/api/workspace/groups/{science.Id}/users", new CreateGroupMemberRequest
-        {
-            UserId = checked((int)parentUser.Id),
-        }).ContinueWith(t => t.Result.EnsureSuccessStatusCode());
-
-        var parentPhysicsMembershipResponse = await ownerClient.GetAsync(
-            $"/api/workspace/groups/{physics.Id}/users/{parentUser.Id}");
-        parentPhysicsMembershipResponse.EnsureSuccessStatusCode();
-
-        await ownerClient.PostAsJsonAsync($"/api/workspace/groups/{physics.Id}/users", new CreateGroupMemberRequest
-        {
-            UserId = checked((int)childUser.Id),
-        }).ContinueWith(t => t.Result.EnsureSuccessStatusCode());
 
         var scienceAsset = await ownerClient.PostAssetAsync("Science Asset", science.Id);
 
@@ -180,7 +137,7 @@ public sealed class GroupAssetSharingIntegrationTests
         var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(
@@ -240,7 +197,7 @@ public sealed class GroupAssetSharingIntegrationTests
         var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
         await ownerClient.CreateApprovedWorkspaceAsync(

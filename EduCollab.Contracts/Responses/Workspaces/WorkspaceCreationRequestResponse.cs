@@ -8,6 +8,11 @@ namespace EduCollab.Contracts.Responses.Workspaces
 
         public string? Description { get; set; }
 
+        /// <summary>
+        /// Optional workspace type used by clients to select UI/app functionality.
+        /// </summary>
+        public string? Type { get; set; }
+
         public string Status { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }

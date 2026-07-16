@@ -17,6 +17,11 @@ namespace EduCollab.Application.Models
 
         public string? Description { get; set; }
 
+        /// <summary>
+        /// Optional client-facing workspace type (e.g. classroom, lab) used to select UI/app functionality.
+        /// </summary>
+        public string? Type { get; set; }
+
         public DateTime CreatedAtUtc { get; set; }
 
         public DateTime UpdatedAtUtc { get; set; }

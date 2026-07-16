@@ -25,8 +25,7 @@ public sealed class UsersControllerEndpointTests
 
         var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example.com",
             Password = "Pass123!",
         });
@@ -44,8 +43,7 @@ public sealed class UsersControllerEndpointTests
 
         var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example.com",
             Password = "password",
         });
@@ -61,8 +59,7 @@ public sealed class UsersControllerEndpointTests
 
         var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example",
             Password = "Pass123!",
         });
@@ -235,8 +232,7 @@ public sealed class UsersControllerEndpointTests
         factory.UserService.GetCurrentUserAsyncHandler = _ => Task.FromResult<User?>(new User
         {
             Id = 21,
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example.com",
             MemberWorkspaceIds = [3, 7],
         });
@@ -258,8 +254,7 @@ public sealed class UsersControllerEndpointTests
         factory.UserService.GetUserByIdAsyncHandler = (_, _) => Task.FromResult<User?>(new User
         {
             Id = 42,
-            FirstName = "Alex",
-            LastName = "Member",
+            FullName = "Alex Member",
             Email = "alex@example.com",
             MemberWorkspaceIds = [3, 7, 12],
         });
@@ -334,8 +329,7 @@ public sealed class UsersControllerEndpointTests
 
         var response = await client.PutAsJsonAsync("/api/users/99", new UpdateUserProfileRequest
         {
-            FirstName = "New",
-            LastName = "Name",
+            FullName = "New Name",
         });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

@@ -5,10 +5,12 @@ add groups;TRUE;TRUE;FALSE;FALSE
 see users tab;TRUE;TRUE;FALSE;FALSE
 invite users;TRUE;TRUE;FALSE;FALSE
 add assets;TRUE;TRUE;TRUE;FALSE
-add scenes and flows;TRUE;TRUE;TRUE;FALSE
+add scenes;TRUE;TRUE;TRUE;FALSE
+add flows;TRUE;TRUE;TRUE;FALSE
 create sessions;TRUE;TRUE;TRUE;FALSE
 load assets;TRUE;TRUE;TRUE;FALSE
-load scenes and flows;TRUE;TRUE;TRUE;TRUE
+load scenes;TRUE;TRUE;TRUE;FALSE
+load flows;TRUE;TRUE;TRUE;TRUE
 editor / outliner panel;TRUE;TRUE;TRUE;FALSE
 editor / sequencer panel;TRUE;TRUE;TRUE;FALSE
 editor / actions panel;TRUE;TRUE;TRUE;FALSE

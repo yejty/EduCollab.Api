@@ -71,7 +71,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create scenes in this group.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows")]
+        [RequiresWorkspaceParameter("addScenes")]
         [HttpPost(ApiEndpoints.Scenes.Create)]
         [Consumes("application/json")]
 
@@ -117,7 +117,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create scenes in this group.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows")]
+        [RequiresWorkspaceParameter("addScenes")]
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPost(ApiEndpoints.Scenes.Create)]
         [Consumes("multipart/form-data")]
@@ -189,7 +189,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access scenes in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to each scene (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadScenes", "addScenes", Notes = "Also requires effective access to each scene (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Scenes.GetAll)]
 
         [ProducesResponseType(typeof(ScenesResponse), StatusCodes.Status200OK)]
@@ -284,7 +284,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to the scene (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadScenes", "addScenes", Notes = "Also requires effective access to the scene (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Scenes.Get)]
 
         [ProducesResponseType(typeof(SceneResponse), StatusCodes.Status200OK)]
@@ -323,7 +323,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [HttpPut(ApiEndpoints.Scenes.Update)]
         [Consumes("application/json")]
 
@@ -365,7 +365,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPut(ApiEndpoints.Scenes.Update)]
         [Consumes("multipart/form-data")]
@@ -432,7 +432,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this scene.</response>
         /// <response code="404">Scene was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
+        [RequiresWorkspaceParameter("addScenes", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.")]
         [HttpDelete(ApiEndpoints.Scenes.Delete)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]

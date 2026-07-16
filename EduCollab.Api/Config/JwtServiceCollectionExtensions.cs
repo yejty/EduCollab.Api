@@ -1,4 +1,5 @@
 using EduCollab.Api.Security;
+using EduCollab.Application.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,7 @@ namespace EduCollab.Api.Config
         {
               services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
               services.AddSingleton<IAccessTokenService, AccessTokenService>();
+              services.AddSingleton<IContentDownloadTokenService, ContentDownloadTokenService>();
               services
                     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     .AddJwtBearer(options =>

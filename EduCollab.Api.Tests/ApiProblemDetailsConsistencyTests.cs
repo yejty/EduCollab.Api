@@ -33,8 +33,7 @@ public sealed class ApiProblemDetailsConsistencyTests
 
         var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example.com",
             Password = "password",
         });
@@ -59,8 +58,7 @@ public sealed class ApiProblemDetailsConsistencyTests
 
         var response = await client.PostAsJsonAsync("/api/users/register", new RegisterUserRequest
         {
-            FirstName = "Jane",
-            LastName = "Doe",
+            FullName = "Jane Doe",
             Email = "jane@example",
             Password = "Pass123!",
         });

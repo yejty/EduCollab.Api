@@ -11,8 +11,15 @@ namespace EduCollab.Contracts.Requests.Users
         [DataType(DataType.EmailAddress)]
         public string Email { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Group the invitee joins. Membership grants access to this group and all of its subgroups.
+        /// </summary>
+        [Required]
+        [Range(1, int.MaxValue, ErrorMessage = "GroupId is required.")]
+        public int GroupId { get; set; }
+
         [Required]
         [MinLength(1)]
-        public List<string> Presets { get; set; } = new();
+        public List<string> Parameters { get; set; } = new();
     }
 }

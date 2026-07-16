@@ -1,4 +1,5 @@
 using EduCollab.Api.Swagger;
+using EduCollab.Application.Models;
 using EduCollab.Application.Services.Flows;
 using EduCollab.Contracts.Requests.Groups;
 using EduCollab.Contracts.Responses.Groups;
@@ -21,7 +22,7 @@ namespace EduCollab.Api.Controllers
         /// List groups a flow is shared with.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires effective access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires effective access to the flow.")]
         [HttpGet(ApiEndpoints.FlowGroups.GetAll)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> GetFlowGroups(
@@ -33,8 +34,8 @@ namespace EduCollab.Api.Controllers
 
             try
             {
-                var groupIds = await _flowService.GetFlowGroupIdsAsync(flowId, cancellationToken);
-                return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+                var shares = await _flowService.GetFlowGroupSharesAsync(flowId, cancellationToken);
+                return Ok(MapShares(shares));
             }
             catch (KeyNotFoundException)
             {
@@ -46,7 +47,7 @@ namespace EduCollab.Api.Controllers
         /// Share a flow with a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires manage access to the flow.")]
         [HttpPost(ApiEndpoints.FlowGroups.Create)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status201Created)]
         public async Task<ActionResult<ResourceGroupsResponse>> AddFlowGroup(
@@ -59,24 +60,28 @@ namespace EduCollab.Api.Controllers
             if (request.GroupId <= 0)
                 return ApiBadRequest("invalid_group_id", "groupId must be a positive integer.");
 
-            var added = await _flowService.AddFlowGroupAsync(request.FlowId, request.GroupId, cancellationToken);
+            var added = await _flowService.AddFlowGroupAsync(
+                request.FlowId,
+                request.GroupId,
+                request.IncludeAssets,
+                cancellationToken);
             if (!added)
                 return ApiNotFound("share_failed", "Flow or group was not found.");
 
-            var groupIds = await _flowService.GetFlowGroupIdsAsync(request.FlowId, cancellationToken);
-            return StatusCode(StatusCodes.Status201Created, new ResourceGroupsResponse { GroupIds = groupIds });
+            var shares = await _flowService.GetFlowGroupSharesAsync(request.FlowId, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, MapShares(shares));
         }
 
         /// <summary>
         /// Replace all group shares for a flow.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires manage access to the flow.")]
         [HttpPut(ApiEndpoints.FlowGroups.Update)]
         [ProducesResponseType(typeof(ResourceGroupsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<ResourceGroupsResponse>> SetFlowGroups(
             [FromQuery] int flowId,
-            [FromBody] SetResourceGroupsRequest request,
+            [FromBody] SetFlowGroupsRequest request,
             CancellationToken cancellationToken)
         {
             if (flowId <= 0)
@@ -84,11 +89,19 @@ namespace EduCollab.Api.Controllers
 
             try
             {
-                var groupIds = await _flowService.SetFlowGroupIdsAsync(flowId, request.GroupIds, cancellationToken);
-                if (groupIds is null)
+                var shares = (request.Groups ?? [])
+                    .Select(group => new FlowGroupShare
+                    {
+                        GroupId = group.GroupId,
+                        IncludeAssets = group.IncludeAssets,
+                    })
+                    .ToList();
+
+                var updated = await _flowService.SetFlowGroupSharesAsync(flowId, shares, cancellationToken);
+                if (updated is null)
                     return ApiNotFound("update_failed", "Flow was not found.");
 
-                return Ok(new ResourceGroupsResponse { GroupIds = groupIds });
+                return Ok(MapShares(updated));
             }
             catch (ArgumentException ex) when (ex.ParamName == "groupIds")
             {
@@ -100,7 +113,7 @@ namespace EduCollab.Api.Controllers
         /// Remove a flow from a group.
         /// </summary>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires manage access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires manage access to the flow.")]
         [HttpDelete(ApiEndpoints.FlowGroups.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> RemoveFlowGroup(
@@ -120,5 +133,18 @@ namespace EduCollab.Api.Controllers
 
             return NoContent();
         }
+
+        private static ResourceGroupsResponse MapShares(IReadOnlyList<FlowGroupShare> shares) =>
+            new()
+            {
+                GroupIds = shares.Select(share => share.GroupId).ToList(),
+                Groups = shares
+                    .Select(share => new ResourceGroupShareResponse
+                    {
+                        GroupId = share.GroupId,
+                        IncludeAssets = share.IncludeAssets,
+                    })
+                    .ToList(),
+            };
     }
 }

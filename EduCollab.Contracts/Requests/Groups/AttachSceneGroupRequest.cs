@@ -4,5 +4,6 @@ namespace EduCollab.Contracts.Requests.Groups
     {
         public int SceneId { get; set; }
         public int GroupId { get; set; }
+        public bool IncludeAssets { get; set; }
     }
 }

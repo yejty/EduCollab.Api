@@ -18,11 +18,14 @@ app.UseMiddleware<RequestIdMiddleware>();
 app.UseExceptionHandler();
 
 //if (app.Environment.IsDevelopment())
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    options.SwaggerEndpoint($"/swagger/{OpenApiContractDescriptions.DocumentName}/swagger.json", "EduCollab API v1");
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint($"/swagger/{OpenApiContractDescriptions.DocumentName}/swagger.json", "EduCollab API v1");
+    });
+}
 
 if (!app.Environment.IsEnvironment("Testing"))
 {

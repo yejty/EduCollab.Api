@@ -25,13 +25,15 @@ namespace EduCollab.Infrastructure.Database
         public async Task InitializeAsync()
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            await connection.ExecuteAsync("CREATE TABLE IF NOT EXISTS Users (Id SERIAL PRIMARY KEY, FirstName VARCHAR(100), LastName VARCHAR(100), Email VARCHAR(255))");
+            await connection.ExecuteAsync("CREATE TABLE IF NOT EXISTS Users (Id SERIAL PRIMARY KEY, FullName VARCHAR(200), Email VARCHAR(255), Description TEXT)");
+            await MigrateUsersNameColumnsAsync(connection);
             await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS Workspaces (
                     Id SERIAL PRIMARY KEY,
                     Name VARCHAR(200) NOT NULL,
                     Description TEXT NULL,
+                    Type VARCHAR(50) NULL,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     CreatedByUserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL,
@@ -39,6 +41,7 @@ namespace EduCollab.Infrastructure.Database
                 );
                 """);
             await connection.ExecuteAsync("ALTER TABLE Workspaces ADD COLUMN IF NOT EXISTS Description TEXT NULL;");
+            await connection.ExecuteAsync("ALTER TABLE Workspaces ADD COLUMN IF NOT EXISTS Type VARCHAR(50) NULL;");
             await connection.ExecuteAsync("ALTER TABLE Workspaces ADD COLUMN IF NOT EXISTS CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW();");
             await connection.ExecuteAsync("ALTER TABLE Workspaces ADD COLUMN IF NOT EXISTS UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW();");
             await connection.ExecuteAsync(
@@ -191,6 +194,7 @@ namespace EduCollab.Infrastructure.Database
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
                     CreatedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE,
                     PRIMARY KEY (SceneId, GroupId)
                 );
                 """);
@@ -312,6 +316,7 @@ namespace EduCollab.Infrastructure.Database
                     Email VARCHAR(255) NOT NULL,
                     TokenHash VARCHAR(64) NOT NULL UNIQUE,
                     Role VARCHAR(32) NOT NULL DEFAULT 'Viewer',
+                    GroupId INT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
                     ExpiresAt TIMESTAMPTZ NOT NULL,
                     CreatedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     UsedAt TIMESTAMPTZ NULL,
@@ -328,6 +333,11 @@ namespace EduCollab.Infrastructure.Database
                 ADD COLUMN IF NOT EXISTS Role VARCHAR(32) NOT NULL DEFAULT 'Viewer';
                 """);
             await connection.ExecuteAsync(
+                """
+                ALTER TABLE WorkspaceInvitations
+                ADD COLUMN IF NOT EXISTS GroupId INT NULL REFERENCES Groups(Id) ON DELETE CASCADE;
+                """);
+            await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_WorkspaceId ON WorkspaceInvitations (WorkspaceId);");
             await connection.ExecuteAsync(
                 "CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkspaceInvitations_TokenHash ON WorkspaceInvitations (TokenHash);");
@@ -335,24 +345,24 @@ namespace EduCollab.Infrastructure.Database
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceInvitations_Email ON WorkspaceInvitations (Email);");
             await connection.ExecuteAsync(
                 """
-                CREATE TABLE IF NOT EXISTS WorkspaceMemberPresets (
+                CREATE TABLE IF NOT EXISTS WorkspaceMemberParameters (
                     WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
                     UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
-                    PresetKey VARCHAR(64) NOT NULL,
-                    PRIMARY KEY (WorkspaceId, UserId, PresetKey)
+                    ParameterKey VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (WorkspaceId, UserId, ParameterKey)
                 );
                 """);
             await connection.ExecuteAsync(
-                "CREATE INDEX IF NOT EXISTS IX_WorkspaceMemberPresets_WorkspaceUser ON WorkspaceMemberPresets (WorkspaceId, UserId);");
+                "CREATE INDEX IF NOT EXISTS IX_WorkspaceMemberParameters_WorkspaceUser ON WorkspaceMemberParameters (WorkspaceId, UserId);");
             await connection.ExecuteAsync(
                 """
-                CREATE TABLE IF NOT EXISTS WorkspaceInvitationPresets (
+                CREATE TABLE IF NOT EXISTS WorkspaceInvitationParameters (
                     InvitationId BIGINT NOT NULL REFERENCES WorkspaceInvitations(Id) ON DELETE CASCADE,
-                    PresetKey VARCHAR(64) NOT NULL,
-                    PRIMARY KEY (InvitationId, PresetKey)
+                    ParameterKey VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (InvitationId, ParameterKey)
                 );
                 """);
-            await BackfillWorkspaceMemberPresetsAsync(connection);
+            await BackfillWorkspaceMemberParametersAsync(connection);
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS EmailConfirmedAtUtc TIMESTAMPTZ NULL;");
             await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS IsPlatformAdmin BOOLEAN NOT NULL DEFAULT FALSE;");
             await connection.ExecuteAsync(
@@ -399,6 +409,7 @@ namespace EduCollab.Infrastructure.Database
                     RequestedByUserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
                     Name VARCHAR(200) NOT NULL,
                     Description TEXT NULL,
+                    Type VARCHAR(50) NULL,
                     Status VARCHAR(32) NOT NULL DEFAULT 'Pending',
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     ReviewedAtUtc TIMESTAMPTZ NULL,
@@ -406,6 +417,8 @@ namespace EduCollab.Infrastructure.Database
                     DenialReason TEXT NULL
                 );
                 """);
+            await connection.ExecuteAsync(
+                "ALTER TABLE WorkspaceCreationRequests ADD COLUMN IF NOT EXISTS Type VARCHAR(50) NULL;");
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationRequests_Status ON WorkspaceCreationRequests (Status);");
             await connection.ExecuteAsync(
@@ -447,7 +460,47 @@ namespace EduCollab.Infrastructure.Database
 
             await MigrateToHierarchicalGroupsAsync(connection);
             await MigrateToMultiGroupSharingAsync(connection);
+            await MigrateSceneGroupShareIncludeAssetsAsync(connection);
+            await MigrateFlowGroupShareIncludeAssetsAsync(connection);
+            await MigrateViewerParametersToLoadFlowsOnlyAsync(connection);
             await SeedPlatformAdminUserAsync(connection);
+        }
+
+        private static async Task MigrateSceneGroupShareIncludeAssetsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE SceneGroupShares
+                ADD COLUMN IF NOT EXISTS IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE;
+                """);
+        }
+
+        private static async Task MigrateFlowGroupShareIncludeAssetsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE FlowGroupShares
+                ADD COLUMN IF NOT EXISTS IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE;
+                """);
+        }
+
+        private static async Task MigrateViewerParametersToLoadFlowsOnlyAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                DELETE FROM WorkspaceMemberParameters target
+                WHERE target.ParameterKey = 'loadScenes'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM WorkspaceMemberParameters allp
+                      WHERE allp.WorkspaceId = target.WorkspaceId
+                        AND allp.UserId = target.UserId
+                      GROUP BY allp.WorkspaceId, allp.UserId
+                      HAVING COUNT(*) = 2
+                         AND COUNT(*) FILTER (WHERE allp.ParameterKey = 'loadScenes') = 1
+                         AND COUNT(*) FILTER (WHERE allp.ParameterKey = 'loadFlows') = 1
+                  );
+                """);
         }
 
         private static async Task MigrateToHierarchicalGroupsAsync(System.Data.IDbConnection connection)
@@ -685,6 +738,7 @@ namespace EduCollab.Infrastructure.Database
                     SceneId INT NOT NULL REFERENCES Scenes(Id) ON DELETE CASCADE,
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE,
                     PRIMARY KEY (SceneId, GroupId)
                 );
                 """);
@@ -697,6 +751,7 @@ namespace EduCollab.Infrastructure.Database
                     FlowId INT NOT NULL REFERENCES Flows(Id) ON DELETE CASCADE,
                     GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
                     CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE,
                     PRIMARY KEY (FlowId, GroupId)
                 );
                 """);
@@ -746,27 +801,116 @@ namespace EduCollab.Infrastructure.Database
                 """);
         }
 
-        private static async Task BackfillWorkspaceMemberPresetsAsync(System.Data.IDbConnection connection)
+        private static async Task MigrateUsersNameColumnsAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS FullName VARCHAR(200);");
+            await connection.ExecuteAsync("ALTER TABLE Users ADD COLUMN IF NOT EXISTS Description TEXT;");
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'users'
+                          AND column_name = 'firstname') THEN
+                        UPDATE Users
+                        SET FullName = TRIM(BOTH ' ' FROM CONCAT(COALESCE(FirstName, ''), ' ', COALESCE(LastName, '')))
+                        WHERE FullName IS NULL OR BTRIM(FullName) = '';
+                    END IF;
+                END $$;
+                """);
+        }
+
+        private static async Task RenameWorkspacePermissionTablesAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF to_regclass('public.workspacememberpresets') IS NOT NULL
+                       AND to_regclass('public.workspacememberparameters') IS NULL THEN
+                        ALTER TABLE workspacememberpresets RENAME TO workspacememberparameters;
+                    END IF;
+
+                    IF to_regclass('public.workspaceinvitationpresets') IS NOT NULL
+                       AND to_regclass('public.workspaceinvitationparameters') IS NULL THEN
+                        ALTER TABLE workspaceinvitationpresets RENAME TO workspaceinvitationparameters;
+                    END IF;
+                END $$;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'workspacememberparameters'
+                          AND column_name = 'presetkey')
+                       AND NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'workspacememberparameters'
+                          AND column_name = 'parameterkey') THEN
+                        ALTER TABLE workspacememberparameters RENAME COLUMN presetkey TO parameterkey;
+                    END IF;
+
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'workspaceinvitationparameters'
+                          AND column_name = 'presetkey')
+                       AND NOT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'workspaceinvitationparameters'
+                          AND column_name = 'parameterkey') THEN
+                        ALTER TABLE workspaceinvitationparameters RENAME COLUMN presetkey TO parameterkey;
+                    END IF;
+                END $$;
+                """);
+
+            await connection.ExecuteAsync(
+                """
+                DO $$
+                BEGIN
+                    IF to_regclass('public.ix_workspacememberpresets_workspaceuser') IS NOT NULL
+                       AND to_regclass('public.ix_workspacememberparameters_workspaceuser') IS NULL THEN
+                        ALTER INDEX ix_workspacememberpresets_workspaceuser
+                            RENAME TO ix_workspacememberparameters_workspaceuser;
+                    END IF;
+                END $$;
+                """);
+        }
+
+        private static async Task BackfillWorkspaceMemberParametersAsync(System.Data.IDbConnection connection)
         {
             foreach (var role in new[] { WorkspaceRole.Owner, WorkspaceRole.Manager, WorkspaceRole.Creator, WorkspaceRole.Viewer })
             {
                 var roleName = role.ToString();
-                foreach (var presetKey in WorkspacePermissionPresets.GetPresetKeysForRole(role))
+                foreach (var parameterKey in WorkspacePermissionParameters.GetParameterKeysForRole(role))
                 {
                     await connection.ExecuteAsync(
                         """
-                        INSERT INTO WorkspaceMemberPresets (WorkspaceId, UserId, PresetKey)
-                        SELECT wm.WorkspaceId, wm.UserId, @PresetKey
+                        INSERT INTO WorkspaceMemberParameters (WorkspaceId, UserId, ParameterKey)
+                        SELECT wm.WorkspaceId, wm.UserId, @ParameterKey
                         FROM WorkspaceMembers wm
                         WHERE wm.Role = @Role
                           AND NOT EXISTS (
                               SELECT 1
-                              FROM WorkspaceMemberPresets wmp
+                              FROM WorkspaceMemberParameters wmp
                               WHERE wmp.WorkspaceId = wm.WorkspaceId
                                 AND wmp.UserId = wm.UserId)
                         ON CONFLICT DO NOTHING;
                         """,
-                        new { Role = roleName, PresetKey = presetKey });
+                        new { Role = roleName, ParameterKey = parameterKey });
                 }
             }
         }
@@ -788,8 +932,8 @@ namespace EduCollab.Infrastructure.Database
 
             await connection.ExecuteAsync(
                 """
-                INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc, IsPlatformAdmin)
-                VALUES ('Platform', 'Admin', @Email, @PasswordHash, NOW(), TRUE);
+                INSERT INTO Users (FullName, Email, PasswordHash, EmailConfirmedAtUtc, IsPlatformAdmin)
+                VALUES ('Platform Admin', @Email, @PasswordHash, NOW(), TRUE);
                 """,
                 new { Email = email, PasswordHash = passwordHash });
         }

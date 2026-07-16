@@ -1,4 +1,4 @@
-﻿using EduCollab.Api.Mapping;
+using EduCollab.Api.Mapping;
 
 using EduCollab.Api.Query;
 
@@ -117,7 +117,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create groups in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addGroups")]
+        [RequiresWorkspaceParameter("addGroups")]
         [HttpPost(ApiEndpoints.Groups.Create)]
 
         [ProducesResponseType(typeof(GroupResponse), StatusCodes.Status201Created)]
@@ -159,7 +159,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access groups in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true, Notes = "Returns groups the caller can access via editWorkspace or effective group membership.")]
+        [RequiresWorkspaceParameter(MembershipOnly = true, Notes = "Returns groups the caller can access via editWorkspace or effective group membership.")]
         [HttpGet(ApiEndpoints.Groups.GetAll)]
 
         [ProducesResponseType(typeof(GroupsResponse), StatusCodes.Status200OK)]
@@ -228,7 +228,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access groups in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true, Notes = "Returns groups the caller can access via editWorkspace or effective group membership.")]
+        [RequiresWorkspaceParameter(MembershipOnly = true, Notes = "Returns groups the caller can access via editWorkspace or effective group membership.")]
         [HttpGet(ApiEndpoints.Groups.GetAllFlat)]
 
         [ProducesResponseType(typeof(GroupsResponse), StatusCodes.Status200OK)]
@@ -293,7 +293,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true, Notes = "Also requires effective access to the group via editWorkspace or group membership.")]
+        [RequiresWorkspaceParameter(MembershipOnly = true, Notes = "Also requires effective access to the group via editWorkspace or group membership.")]
         [HttpGet(ApiEndpoints.Groups.Get)]
 
         [ProducesResponseType(typeof(GroupResponse), StatusCodes.Status200OK)]
@@ -335,7 +335,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addGroups", Notes = "Also requires manage access to the group.")]
+        [RequiresWorkspaceParameter("addGroups", Notes = "Also requires manage access to the group.")]
         [HttpPut(ApiEndpoints.Groups.Update)]
 
         [ProducesResponseType(typeof(GroupResponse), StatusCodes.Status200OK)]
@@ -378,7 +378,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addGroups", Notes = "Also requires manage access to the group.")]
+        [RequiresWorkspaceParameter("addGroups", Notes = "Also requires manage access to the group.")]
         [HttpDelete(ApiEndpoints.Groups.Delete)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -419,7 +419,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadAssets", "addAssets", Notes = "Also requires effective access to the group.")]
+        [RequiresWorkspaceParameter("loadAssets", "addAssets", Notes = "Also requires effective access to the group.")]
         [HttpGet(ApiEndpoints.Groups.GetAssets)]
 
         [ProducesResponseType(typeof(AssetsResponse), StatusCodes.Status200OK)]
@@ -504,7 +504,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to the group.")]
+        [RequiresWorkspaceParameter("loadScenes", "addScenes", Notes = "Also requires effective access to the group.")]
         [HttpGet(ApiEndpoints.Groups.GetScenes)]
 
         [ProducesResponseType(typeof(ScenesResponse), StatusCodes.Status200OK)]
@@ -595,7 +595,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to the group.")]
+        [RequiresWorkspaceParameter("loadFlows", "addFlows", Notes = "Also requires effective access to the group.")]
         [HttpGet(ApiEndpoints.Groups.GetFlows)]
 
         [ProducesResponseType(typeof(FlowsResponse), StatusCodes.Status200OK)]
@@ -680,7 +680,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("seeUsersTab", "inviteUsers", "addGroups", Notes = "Also requires group access rules based on the caller's presets.")]
+        [RequiresWorkspaceParameter("seeUsersTab", "inviteUsers", "addGroups", Notes = "Also requires group access rules based on the caller's parameters.")]
         [HttpGet(ApiEndpoints.Groups.GetAllMembers)]
 
         [ProducesResponseType(typeof(GroupMembersResponse), StatusCodes.Status200OK)]
@@ -749,7 +749,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot manage members in this group.</response>
         /// <response code="404">Group was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addGroups", Notes = "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.")]
+        [RequiresWorkspaceParameter("addGroups", Notes = "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.")]
         [HttpPost(ApiEndpoints.Groups.CreateMember)]
 
         [ProducesResponseType(typeof(GroupMemberResponse), StatusCodes.Status201Created)]
@@ -789,7 +789,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this group.</response>
         /// <response code="404">Group or member was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("seeUsersTab", "inviteUsers", "addGroups", Notes = "Also requires group access rules based on the caller's presets.")]
+        [RequiresWorkspaceParameter("seeUsersTab", "inviteUsers", "addGroups", Notes = "Also requires group access rules based on the caller's parameters.")]
         [HttpGet(ApiEndpoints.Groups.GetMember)]
 
         [ProducesResponseType(typeof(GroupMemberResponse), StatusCodes.Status200OK)]
@@ -827,7 +827,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot manage members in this group.</response>
         /// <response code="404">Group or member was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addGroups", Notes = "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.")]
+        [RequiresWorkspaceParameter("addGroups", Notes = "editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.")]
         [HttpDelete(ApiEndpoints.Groups.DeleteMember)]
 
         [ProducesResponseType(StatusCodes.Status204NoContent)]

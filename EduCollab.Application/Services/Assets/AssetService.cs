@@ -132,13 +132,13 @@ namespace EduCollab.Application.Services.Assets
 
         private static void EnsureCanCreateAsset(WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.CanCreateAssets(membership))
+            if (!WorkspaceParameterPermissions.CanCreateAssets(membership))
                 throw new AccessDeniedException("You do not have permission to create assets.");
         }
 
         private static void EnsureCanLoadAssets(WorkspaceMember membership)
         {
-            if (!WorkspacePresetPermissions.CanLoadAssets(membership))
+            if (!WorkspaceParameterPermissions.CanLoadAssets(membership))
                 throw new AccessDeniedException("You do not have permission to load assets.");
         }
 
@@ -148,7 +148,7 @@ namespace EduCollab.Application.Services.Assets
 
         {
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
             {
 
@@ -176,21 +176,21 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
                 return;
 
 
 
-            if (!WorkspacePresetPermissions.CanCreateAssets(membership))
+            if (!WorkspaceParameterPermissions.CanCreateAssets(membership))
 
                 throw new AccessDeniedException("Viewers have read-only access to assets.");
 
 
 
-            if (WorkspacePresetPermissions.CanCreateAssets(membership)
-                && !WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
-                && !WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanCreateAssets(membership)
+                && !WorkspaceParameterPermissions.CanManageOthersContentViaGroups(membership)
+                && !WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
                 return;
 
@@ -206,7 +206,7 @@ namespace EduCollab.Application.Services.Assets
 
             await ContentGroupShareOperations.PopulateAssetGroupIdsAsync(_assetRepository, workspaceId, asset, cancellationToken);
 
-            if (WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
+            if (WorkspaceParameterPermissions.CanManageOthersContentViaGroups(membership)
                 && ContentGroupShareOperations.ManagerCanManageViaGroups(
                     membership,
                     asset.OwnerUserId,
@@ -248,7 +248,7 @@ namespace EduCollab.Application.Services.Assets
 
         {
 
-            if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+            if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
                 return;
 
@@ -358,7 +358,7 @@ namespace EduCollab.Application.Services.Assets
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
             var visibleAssets = assets
-                .Where(asset => WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
+                .Where(asset => WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspaceParameterPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 .ToList();
             ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(visibleAssets, membership);
             return visibleAssets;
@@ -385,7 +385,7 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-            if (!WorkspacePresetPermissions.CanSeeAllContent(membership)
+            if (!WorkspaceParameterPermissions.CanSeeAllContent(membership)
 
                 && !await _groupAccessResolver.HasEffectiveAccessAsync(workspaceId, userId, groupId, cancellationToken))
 
@@ -455,7 +455,7 @@ namespace EduCollab.Application.Services.Assets
 
             var accessibleGroupIds = await GetAccessibleGroupIdsAsync(workspaceId, membership, userId, cancellationToken);
 
-            if (!WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspacePresetPermissions.CanSeeAllContent(membership), accessibleGroupIds))
+            if (!WorkspaceContentVisibility.IsAssetVisibleToUser(asset, userId, WorkspaceParameterPermissions.CanSeeAllContent(membership), accessibleGroupIds))
                 return null;
 
             ContentGroupShareOperations.RedactAssetGroupSharesIfCannotView(asset, membership);
@@ -636,21 +636,21 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-                if (WorkspacePresetPermissions.CanSeeAllContent(membership))
+                if (WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
                     return true;
 
 
 
-                if (!WorkspacePresetPermissions.CanCreateAssets(membership))
+                if (!WorkspaceParameterPermissions.CanCreateAssets(membership))
 
                     return false;
 
 
 
-                if (WorkspacePresetPermissions.CanCreateAssets(membership)
-                    && !WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership)
-                    && !WorkspacePresetPermissions.CanSeeAllContent(membership))
+                if (WorkspaceParameterPermissions.CanCreateAssets(membership)
+                    && !WorkspaceParameterPermissions.CanManageOthersContentViaGroups(membership)
+                    && !WorkspaceParameterPermissions.CanSeeAllContent(membership))
 
                     return true;
 
@@ -662,7 +662,7 @@ namespace EduCollab.Application.Services.Assets
 
 
 
-                return WorkspacePresetPermissions.CanManageOthersContentViaGroups(membership);
+                return WorkspaceParameterPermissions.CanManageOthersContentViaGroups(membership);
 
             }
 
@@ -710,7 +710,7 @@ namespace EduCollab.Application.Services.Assets
                 throw new ArgumentOutOfRangeException(nameof(assetId));
 
             var (_, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
-            if (!WorkspacePresetPermissions.CanViewAssetGroupShares(membership))
+            if (!WorkspaceParameterPermissions.CanViewAssetGroupShares(membership))
                 throw new AccessDeniedException("You do not have permission to view asset group shares.");
 
             var asset = await GetAssetByIdAsync(assetId, cancellationToken);

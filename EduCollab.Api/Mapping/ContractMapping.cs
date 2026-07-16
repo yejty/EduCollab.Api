@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using EduCollab.Application.Models;
@@ -48,8 +48,7 @@ namespace EduCollab.Api.Mapping
         {
             return new User
             {
-                FirstName = request.FirstName,
-                LastName = request.LastName,
+                FullName = request.FullName,
                 Email = request.Email
             };
         }
@@ -59,8 +58,8 @@ namespace EduCollab.Api.Mapping
             return new User
             {
                 Id = id,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
+                FullName = request.FullName,
+                Description = request.Description,
             };
         }
 
@@ -180,9 +179,9 @@ namespace EduCollab.Api.Mapping
             return new UserResponse
             {
                 Id = user.Id,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
+                FullName = user.FullName,
                 Email = user.Email,
+                Description = user.Description,
                 WorkspaceIds = user.MemberWorkspaceIds,
             };
         }
@@ -227,6 +226,7 @@ namespace EduCollab.Api.Mapping
                 Id = workspace.Id,
                 Name = workspace.Name,
                 Description = workspace.Description,
+                Type = workspace.Type,
                 CreatedAt = workspace.CreatedAtUtc,
                 UpdatedAt = workspace.UpdatedAtUtc,
                 CreatedByUserId = workspace.CreatedByUserId,
@@ -242,19 +242,19 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static WorkspacePermissionPresetsResponse MapCatalogToResponse()
+        public static WorkspacePermissionParametersResponse MapCatalogToResponse()
         {
-            return new WorkspacePermissionPresetsResponse
+            return new WorkspacePermissionParametersResponse
             {
-                Presets = WorkspacePermissionPresets.Catalog.Select(p => p.MapToResponse()).ToList(),
-                RoleShortcuts = WorkspacePermissionPresets.RoleShortcutKeys
-                    .Select(shortcutKey =>
+                Parameters = WorkspacePermissionParameters.Catalog.Select(p => p.MapToResponse()).ToList(),
+                Presets = WorkspacePermissionParameters.PresetKeys
+                    .Select(presetKey =>
                     {
-                        var role = Enum.Parse<WorkspaceRole>(shortcutKey, ignoreCase: true);
-                        return new WorkspaceRoleShortcutResponse
+                        var role = Enum.Parse<WorkspaceRole>(presetKey, ignoreCase: true);
+                        return new WorkspacePermissionPresetResponse
                         {
-                            Key = shortcutKey,
-                            Presets = WorkspacePermissionPresets.GetPresetKeysForRole(role)
+                            Key = presetKey,
+                            Parameters = WorkspacePermissionParameters.GetParameterKeysForRole(role)
                                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                                 .ToList(),
                         };
@@ -263,34 +263,34 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static WorkspacePermissionPresetsResponse MapToResponse(this IEnumerable<WorkspacePermissionDefinition> presets)
+        public static WorkspacePermissionParametersResponse MapToResponse(this IEnumerable<WorkspacePermissionDefinition> parameters)
         {
-            return new WorkspacePermissionPresetsResponse
+            return new WorkspacePermissionParametersResponse
             {
-                Presets = presets.Select(p => p.MapToResponse()).ToList(),
+                Parameters = parameters.Select(p => p.MapToResponse()).ToList(),
             };
         }
 
-        public static WorkspacePermissionPresetResponse MapToResponse(this WorkspacePermissionDefinition preset)
+        public static WorkspacePermissionParameterResponse MapToResponse(this WorkspacePermissionDefinition parameter)
         {
-            return new WorkspacePermissionPresetResponse
+            return new WorkspacePermissionParameterResponse
             {
-                Key = preset.Key,
-                Label = preset.Label,
+                Key = parameter.Key,
+                Label = parameter.Label,
             };
         }
 
         public static WorkspaceMemberResponse MapToResponse(this WorkspaceMember workspaceMember)
         {
-            var presets = WorkspacePermissionPresets.ResolveMemberPresetKeys(workspaceMember)
+            var parameters = WorkspacePermissionParameters.ResolveMemberParameterKeys(workspaceMember)
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             return new WorkspaceMemberResponse
             {
                 UserId = workspaceMember.UserId,
-                Presets = presets,
-                Role = WorkspacePermissionPresets.ToRoleKey(WorkspacePermissionPresets.ResolveMemberRole(workspaceMember)),
+                Parameters = parameters,
+                Role = WorkspacePermissionParameters.ToRoleKey(WorkspacePermissionParameters.ResolveMemberRole(workspaceMember)),
                 JoinedAt = workspaceMember.JoinedAtUtc
             };
         }
@@ -310,6 +310,7 @@ namespace EduCollab.Api.Mapping
                 Id = request.Id,
                 Name = request.Name,
                 Description = request.Description,
+                Type = request.Type,
                 Status = request.Status.ToString(),
                 CreatedAt = request.CreatedAtUtc,
                 ReviewedAt = request.ReviewedAtUtc,
@@ -327,17 +328,17 @@ namespace EduCollab.Api.Mapping
 
         public static WorkspaceMember MapToWorkspaceMember(this UpdateWorkspaceMemberRequest request, int id, int userId)
         {
-            if (!WorkspacePermissionPresets.TryNormalizeKeys(request.Presets, out var presets, out var error))
+            if (!WorkspacePermissionParameters.TryNormalizeKeys(request.Parameters, out var parameters, out var error))
             {
-                throw new ArgumentException(error ?? "Invalid workspace presets.");
+                throw new ArgumentException(error ?? "Invalid workspace parameters.");
             }
 
             return new WorkspaceMember
             {
                 UserId = userId,
                 WorkspaceId = id,
-                Presets = presets,
-                Role = WorkspacePermissionPresets.DeriveRole(presets),
+                Parameters = parameters,
+                Role = WorkspacePermissionParameters.DeriveRole(parameters),
             };
         }
 

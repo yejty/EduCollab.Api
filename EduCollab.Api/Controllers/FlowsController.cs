@@ -31,7 +31,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot create flows in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows")]
+        [RequiresWorkspaceParameter("addFlows")]
         [HttpPost(ApiEndpoints.Flows.Create)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateFlow([FromBody] CreateFlowRequest request, CancellationToken cancellationToken)
@@ -61,7 +61,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot access flows in this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to each flow (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadFlows", "addFlows", Notes = "Also requires effective access to each flow (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Flows.GetAll)]
         [ProducesResponseType(typeof(FlowsResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<FlowsResponse>> GetFlows(
@@ -111,7 +111,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this flow.</response>
         /// <response code="404">Flow was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("loadScenesAndFlows", "addScenesAndFlows", Notes = "Also requires effective access to the flow (ownership or group membership).")]
+        [RequiresWorkspaceParameter("loadFlows", "addFlows", Notes = "Also requires effective access to the flow (ownership or group membership).")]
         [HttpGet(ApiEndpoints.Flows.Get)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<FlowResponse>> GetFlow(int flowId, CancellationToken cancellationToken)
@@ -136,7 +136,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot update this flow.</response>
         /// <response code="404">Flow was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.")]
         [HttpPut(ApiEndpoints.Flows.Update)]
         [ProducesResponseType(typeof(FlowResponse), StatusCodes.Status200OK)]
         public async Task<ActionResult<FlowResponse>> UpdateFlow(int flowId, [FromBody] UpdateFlowRequest request, CancellationToken cancellationToken)
@@ -163,7 +163,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot delete this flow.</response>
         /// <response code="404">Flow was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("addScenesAndFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.")]
+        [RequiresWorkspaceParameter("addFlows", Notes = "Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.")]
         [HttpDelete(ApiEndpoints.Flows.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> DeleteFlow(int flowId, CancellationToken cancellationToken)

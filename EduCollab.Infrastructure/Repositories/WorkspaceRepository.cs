@@ -29,6 +29,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Id,
                         Name,
                         Description,
+                        Type,
                         CreatedAtUtc,
                         UpdatedAtUtc,
                         COALESCE(CreatedByUserId, 0) AS CreatedByUserId,
@@ -52,6 +53,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Id,
                         Name,
                         Description,
+                        Type,
                         CreatedAtUtc,
                         UpdatedAtUtc,
                         COALESCE(CreatedByUserId, 0) AS CreatedByUserId,
@@ -88,7 +90,7 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            await PopulateMemberPresetsAsync(connection, [member], cancellationToken);
+            await PopulateMemberParametersAsync(connection, [member], cancellationToken);
             return member;
         }
 
@@ -111,7 +113,7 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             var list = members.AsList();
-            await PopulateMemberPresetsAsync(connection, list, cancellationToken);
+            await PopulateMemberParametersAsync(connection, list, cancellationToken);
             return list;
         }
 
@@ -128,14 +130,15 @@ namespace EduCollab.Infrastructure.Repositories
             var workspaceId = await connection.QuerySingleAsync<int>(
                 new CommandDefinition(
                     """
-                    INSERT INTO Workspaces (Name, Description, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, IsArchived)
-                    VALUES (@Name, @Description, @CreatedAtUtc, @UpdatedAtUtc, @CreatedByUserId, @IsArchived)
+                    INSERT INTO Workspaces (Name, Description, Type, CreatedAtUtc, UpdatedAtUtc, CreatedByUserId, IsArchived)
+                    VALUES (@Name, @Description, @Type, @CreatedAtUtc, @UpdatedAtUtc, @CreatedByUserId, @IsArchived)
                     RETURNING Id;
                     """,
                     new
                     {
                         workspace.Name,
                         workspace.Description,
+                        workspace.Type,
                         workspace.CreatedAtUtc,
                         workspace.UpdatedAtUtc,
                         workspace.CreatedByUserId,
@@ -154,11 +157,11 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            await InsertMemberPresetsAsync(
+            await InsertMemberParametersAsync(
                 connection,
                 workspaceId,
                 ownerUserId,
-                WorkspacePermissionPresets.GetPresetKeysForRole(WorkspaceRole.Owner),
+                WorkspacePermissionParameters.GetParameterKeysForRole(WorkspaceRole.Owner),
                 tx,
                 cancellationToken);
 
@@ -194,28 +197,28 @@ namespace EduCollab.Infrastructure.Repositories
                 return list;
             }
 
-            var rows = await connection.QueryAsync<WorkspaceMemberPresetRow>(
+            var rows = await connection.QueryAsync<WorkspaceMemberParameterRow>(
                 new CommandDefinition(
                     """
-                    SELECT WorkspaceId, UserId, PresetKey
-                    FROM WorkspaceMemberPresets
+                    SELECT WorkspaceId, UserId, ParameterKey
+                    FROM WorkspaceMemberParameters
                     WHERE UserId = @UserId;
                     """,
                     new { UserId = userId },
                     cancellationToken: cancellationToken));
 
-            var presetsByWorkspace = rows
+            var parametersByWorkspace = rows
                 .GroupBy(row => row.WorkspaceId)
                 .ToDictionary(
                     group => group.Key,
-                    group => group.Select(row => row.PresetKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                    group => group.Select(row => row.ParameterKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
 
             foreach (var member in list)
             {
-                member.Presets = presetsByWorkspace.TryGetValue(member.WorkspaceId, out var presets)
-                    ? presets
+                member.Parameters = parametersByWorkspace.TryGetValue(member.WorkspaceId, out var parameters)
+                    ? parameters
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                member.Role = WorkspacePermissionPresets.ResolveMemberRole(member);
+                member.Role = WorkspacePermissionParameters.ResolveMemberRole(member);
             }
 
             return list;
@@ -232,6 +235,7 @@ namespace EduCollab.Infrastructure.Repositories
                         w.Id,
                         w.Name,
                         w.Description,
+                        w.Type,
                         w.CreatedAtUtc,
                         w.UpdatedAtUtc,
                         w.CreatedByUserId,
@@ -296,12 +300,16 @@ namespace EduCollab.Infrastructure.Repositories
             string email,
             string tokenHashSha256Hex,
             WorkspaceRole role,
-            IReadOnlySet<string> presets,
+            IReadOnlySet<string> parameters,
+            int groupId,
             DateTimeOffset expiresAtUtc,
             DateTimeOffset createdAtUtc,
             int invitedByUserId,
             CancellationToken cancellationToken)
         {
+            if (groupId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(groupId));
+
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
             if (connection is not DbConnection dbConnection)
             {
@@ -313,8 +321,8 @@ namespace EduCollab.Infrastructure.Repositories
             var invitationId = await connection.QuerySingleAsync<long>(
                 new CommandDefinition(
                     """
-                    INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, Role, ExpiresAt, CreatedAt, InvitedByUserId)
-                    VALUES (@WorkspaceId, @Email, @TokenHash, @Role, @ExpiresAt, @CreatedAt, @InvitedByUserId)
+                    INSERT INTO WorkspaceInvitations (WorkspaceId, Email, TokenHash, Role, GroupId, ExpiresAt, CreatedAt, InvitedByUserId)
+                    VALUES (@WorkspaceId, @Email, @TokenHash, @Role, @GroupId, @ExpiresAt, @CreatedAt, @InvitedByUserId)
                     RETURNING Id;
                     """,
                     new
@@ -323,6 +331,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Email = email,
                         TokenHash = tokenHashSha256Hex,
                         Role = role.ToPersistedString(),
+                        GroupId = groupId,
                         ExpiresAt = expiresAtUtc,
                         CreatedAt = createdAtUtc,
                         InvitedByUserId = invitedByUserId
@@ -330,7 +339,7 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            await InsertInvitationPresetsAsync(connection, invitationId, presets, tx, cancellationToken);
+            await InsertInvitationParametersAsync(connection, invitationId, parameters, tx, cancellationToken);
 
             await tx.CommitAsync(cancellationToken);
             return invitationId;
@@ -342,7 +351,7 @@ namespace EduCollab.Infrastructure.Repositories
             CancellationToken cancellationToken)
         {
             const string sql = """
-                SELECT Id, WorkspaceId, Email, Role
+                SELECT Id, WorkspaceId, Email, Role, GroupId
                 FROM WorkspaceInvitations
                 WHERE TokenHash = @TokenHash
                   AND UsedAt IS NULL
@@ -360,15 +369,16 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            var presets = await LoadInvitationPresetsAsync(connection, row.Id, cancellationToken);
+            var parameters = await LoadInvitationParametersAsync(connection, row.Id, cancellationToken);
 
             return new WorkspaceInvitationDetails
             {
                 InvitationId = row.Id,
                 WorkspaceId = row.WorkspaceId,
                 Email = row.Email,
+                GroupId = row.GroupId ?? 0,
                 Role = WorkspaceRoleExtensions.FromPersistedOrViewer(row.Role),
-                Presets = presets,
+                Parameters = parameters,
             };
         }
 
@@ -376,8 +386,7 @@ namespace EduCollab.Infrastructure.Repositories
             int workspaceId,
             string tokenHashSha256Hex,
             string email,
-            string firstName,
-            string lastName,
+            string fullName,
             string plainPassword,
             DateTimeOffset utcNow,
             CancellationToken cancellationToken)
@@ -393,7 +402,7 @@ namespace EduCollab.Infrastructure.Repositories
             var invitationRow = await connection.QuerySingleOrDefaultAsync<LockedInvitationRow>(
                 new CommandDefinition(
                     """
-                    SELECT wi.Id, wi.Email, wi.Role
+                    SELECT wi.Id, wi.Email, wi.Role, wi.GroupId
                     FROM WorkspaceInvitations wi
                     WHERE wi.WorkspaceId = @WorkspaceId
                       AND wi.TokenHash = @TokenHash
@@ -414,6 +423,13 @@ namespace EduCollab.Infrastructure.Repositories
             }
 
             if (!string.Equals(invitationRow.Email.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
+            if (invitationRow.GroupId is null or <= 0
+                || !await GroupExistsInWorkspaceAsync(connection, workspaceId, invitationRow.GroupId.Value, tx, cancellationToken))
             {
                 await tx.RollbackAsync(cancellationToken);
                 return null;
@@ -443,11 +459,11 @@ namespace EduCollab.Infrastructure.Repositories
             var userId = await connection.QuerySingleAsync<int>(
                 new CommandDefinition(
                     """
-                    INSERT INTO Users (FirstName, LastName, Email, PasswordHash, EmailConfirmedAtUtc)
-                    VALUES (@FirstName, @LastName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
+                    INSERT INTO Users (FullName, Email, PasswordHash, EmailConfirmedAtUtc)
+                    VALUES (@FullName, @Email, @PasswordHash, @EmailConfirmedAtUtc)
                     RETURNING Id;
                     """,
-                    new { FirstName = firstName, LastName = lastName, Email = email, PasswordHash = initialHash, EmailConfirmedAtUtc = utcNow },
+                    new { FullName = fullName, Email = email, PasswordHash = initialHash, EmailConfirmedAtUtc = utcNow },
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
@@ -461,9 +477,9 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            var invitationPresets = await LoadInvitationPresetsAsync(connection, invitationRow.Id, cancellationToken, tx);
-            var invitedRole = invitationPresets.Count > 0
-                ? WorkspacePermissionPresets.DeriveRole(invitationPresets)
+            var invitationParameters = await LoadInvitationParametersAsync(connection, invitationRow.Id, cancellationToken, tx);
+            var invitedRole = invitationParameters.Count > 0
+                ? WorkspacePermissionParameters.DeriveRole(invitationParameters)
                 : WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
 
             await connection.ExecuteAsync(
@@ -476,37 +492,24 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            await InsertMemberPresetsAsync(
+            await InsertMemberParametersAsync(
                 connection,
                 workspaceId,
                 userId,
-                invitationPresets.Count > 0
-                    ? invitationPresets
-                    : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole),
+                invitationParameters.Count > 0
+                    ? invitationParameters
+                    : WorkspacePermissionParameters.GetParameterKeysForRole(invitedRole),
                 tx,
                 cancellationToken);
 
-            if (invitedRole == WorkspaceRole.Owner)
-            {
-                await connection.ExecuteAsync(
-                    new CommandDefinition(
-                        """
-                        UPDATE WorkspaceMembers
-                        SET Role = @ManagerRole
-                        WHERE WorkspaceId = @WorkspaceId
-                          AND UserId <> @UserId
-                          AND Role = @OwnerRole;
-                        """,
-                        new
-                        {
-                            WorkspaceId = workspaceId,
-                            UserId = userId,
-                            OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
-                            ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
-                        },
-                        transaction: tx,
-                        cancellationToken: cancellationToken));
-            }
+            await AddGroupMemberAsync(
+                connection,
+                workspaceId,
+                invitationRow.GroupId.Value,
+                userId,
+                utcNow,
+                tx,
+                cancellationToken);
 
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -545,7 +548,7 @@ namespace EduCollab.Infrastructure.Repositories
             var invitationRow = await connection.QuerySingleOrDefaultAsync<LockedInvitationRow>(
                 new CommandDefinition(
                     """
-                    SELECT wi.Id, wi.Email, wi.Role
+                    SELECT wi.Id, wi.Email, wi.Role, wi.GroupId
                     FROM WorkspaceInvitations wi
                     WHERE wi.WorkspaceId = @WorkspaceId
                       AND wi.TokenHash = @TokenHash
@@ -571,6 +574,13 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
+            if (invitationRow.GroupId is null or <= 0
+                || !await GroupExistsInWorkspaceAsync(connection, workspaceId, invitationRow.GroupId.Value, tx, cancellationToken))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return null;
+            }
+
             var alreadyMember = await connection.ExecuteScalarAsync<bool>(
                 new CommandDefinition(
                     """
@@ -589,9 +599,9 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            var invitationPresets = await LoadInvitationPresetsAsync(connection, invitationRow.Id, cancellationToken, tx);
-            var invitedRole = invitationPresets.Count > 0
-                ? WorkspacePermissionPresets.DeriveRole(invitationPresets)
+            var invitationParameters = await LoadInvitationParametersAsync(connection, invitationRow.Id, cancellationToken, tx);
+            var invitedRole = invitationParameters.Count > 0
+                ? WorkspacePermissionParameters.DeriveRole(invitationParameters)
                 : WorkspaceRoleExtensions.FromPersistedOrViewer(invitationRow.Role);
 
             var member = await connection.QuerySingleAsync<WorkspaceMember>(
@@ -605,41 +615,28 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
-            await InsertMemberPresetsAsync(
+            await InsertMemberParametersAsync(
                 connection,
                 workspaceId,
                 userId,
-                invitationPresets.Count > 0
-                    ? invitationPresets
-                    : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole),
+                invitationParameters.Count > 0
+                    ? invitationParameters
+                    : WorkspacePermissionParameters.GetParameterKeysForRole(invitedRole),
                 tx,
                 cancellationToken);
 
-            member.Presets = invitationPresets.Count > 0
-                ? invitationPresets
-                : WorkspacePermissionPresets.GetPresetKeysForRole(invitedRole);
+            member.Parameters = invitationParameters.Count > 0
+                ? invitationParameters
+                : WorkspacePermissionParameters.GetParameterKeysForRole(invitedRole);
 
-            if (invitedRole == WorkspaceRole.Owner)
-            {
-                await connection.ExecuteAsync(
-                    new CommandDefinition(
-                        """
-                        UPDATE WorkspaceMembers
-                        SET Role = @ManagerRole
-                        WHERE WorkspaceId = @WorkspaceId
-                          AND UserId <> @UserId
-                          AND Role = @OwnerRole;
-                        """,
-                        new
-                        {
-                            WorkspaceId = workspaceId,
-                            UserId = userId,
-                            OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
-                            ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
-                        },
-                        transaction: tx,
-                        cancellationToken: cancellationToken));
-            }
+            await AddGroupMemberAsync(
+                connection,
+                workspaceId,
+                invitationRow.GroupId.Value,
+                userId,
+                utcNow,
+                tx,
+                cancellationToken);
 
             await connection.ExecuteAsync(
                 new CommandDefinition(
@@ -748,6 +745,7 @@ namespace EduCollab.Infrastructure.Repositories
                         Id,
                         Name,
                         Description,
+                        Type,
                         CreatedAtUtc,
                         UpdatedAtUtc,
                         COALESCE(CreatedByUserId, 0) AS CreatedByUserId,
@@ -867,37 +865,15 @@ namespace EduCollab.Infrastructure.Repositories
                 return null;
             }
 
-            await ReplaceMemberPresetsAsync(connection, id, userId, member.Presets, tx, cancellationToken);
-            updated.Presets = member.Presets;
-            updated.Role = WorkspacePermissionPresets.ResolveMemberRole(updated);
+            await ReplaceMemberParametersAsync(connection, id, userId, member.Parameters, tx, cancellationToken);
+            updated.Parameters = member.Parameters;
+            updated.Role = WorkspacePermissionParameters.ResolveMemberRole(updated);
 
             await tx.CommitAsync(cancellationToken);
             return updated;
         }
 
-        public async Task DemoteWorkspaceOwnersExceptAsync(int workspaceId, int userId, CancellationToken cancellationToken)
-        {
-            using var connection = await _dbConnectionFactory.CreateConnectionAsync();
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    UPDATE WorkspaceMembers
-                    SET Role = @ManagerRole
-                    WHERE WorkspaceId = @WorkspaceId
-                      AND UserId <> @UserId
-                      AND Role = @OwnerRole;
-                    """,
-                    new
-                    {
-                        WorkspaceId = workspaceId,
-                        UserId = userId,
-                        OwnerRole = WorkspaceRole.Owner.ToPersistedString(),
-                        ManagerRole = WorkspaceRole.Manager.ToPersistedString(),
-                    },
-                    cancellationToken: cancellationToken));
-        }
-
-        private static async Task PopulateMemberPresetsAsync(
+        private static async Task PopulateMemberParametersAsync(
             System.Data.IDbConnection connection,
             IList<WorkspaceMember> members,
             CancellationToken cancellationToken)
@@ -909,33 +885,33 @@ namespace EduCollab.Infrastructure.Repositories
 
             var workspaceId = members[0].WorkspaceId;
             var userIds = members.Select(member => member.UserId).Distinct().ToArray();
-            var rows = await connection.QueryAsync<MemberPresetRow>(
+            var rows = await connection.QueryAsync<MemberParameterRow>(
                 new CommandDefinition(
                     """
-                    SELECT UserId, PresetKey
-                    FROM WorkspaceMemberPresets
+                    SELECT UserId, ParameterKey
+                    FROM WorkspaceMemberParameters
                     WHERE WorkspaceId = @WorkspaceId
                       AND UserId = ANY(@UserIds);
                     """,
                     new { WorkspaceId = workspaceId, UserIds = userIds },
                     cancellationToken: cancellationToken));
 
-            var presetsByUser = rows
+            var parametersByUser = rows
                 .GroupBy(row => row.UserId)
                 .ToDictionary(
                     group => group.Key,
-                    group => group.Select(row => row.PresetKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
+                    group => group.Select(row => row.ParameterKey).ToHashSet(StringComparer.OrdinalIgnoreCase));
 
             foreach (var member in members)
             {
-                member.Presets = presetsByUser.TryGetValue(member.UserId, out var presets)
-                    ? presets
+                member.Parameters = parametersByUser.TryGetValue(member.UserId, out var parameters)
+                    ? parameters
                     : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                member.Role = WorkspacePermissionPresets.ResolveMemberRole(member);
+                member.Role = WorkspacePermissionParameters.ResolveMemberRole(member);
             }
         }
 
-        private static async Task<IReadOnlySet<string>> LoadInvitationPresetsAsync(
+        private static async Task<IReadOnlySet<string>> LoadInvitationParametersAsync(
             System.Data.IDbConnection connection,
             long invitationId,
             CancellationToken cancellationToken,
@@ -944,8 +920,8 @@ namespace EduCollab.Infrastructure.Repositories
             var keys = await connection.QueryAsync<string>(
                 new CommandDefinition(
                     """
-                    SELECT PresetKey
-                    FROM WorkspaceInvitationPresets
+                    SELECT ParameterKey
+                    FROM WorkspaceInvitationParameters
                     WHERE InvitationId = @InvitationId;
                     """,
                     new { InvitationId = invitationId },
@@ -955,63 +931,126 @@ namespace EduCollab.Infrastructure.Repositories
             return keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
-        private static async Task InsertInvitationPresetsAsync(
+        private static async Task InsertInvitationParametersAsync(
             System.Data.IDbConnection connection,
             long invitationId,
-            IReadOnlySet<string> presets,
+            IReadOnlySet<string> parameters,
             DbTransaction transaction,
             CancellationToken cancellationToken)
         {
-            foreach (var presetKey in presets)
+            foreach (var parameterKey in parameters)
             {
                 await connection.ExecuteAsync(
                     new CommandDefinition(
                         """
-                        INSERT INTO WorkspaceInvitationPresets (InvitationId, PresetKey)
-                        VALUES (@InvitationId, @PresetKey)
+                        INSERT INTO WorkspaceInvitationParameters (InvitationId, ParameterKey)
+                        VALUES (@InvitationId, @ParameterKey)
                         ON CONFLICT DO NOTHING;
                         """,
-                        new { InvitationId = invitationId, PresetKey = presetKey },
+                        new { InvitationId = invitationId, ParameterKey = parameterKey },
                         transaction: transaction,
                         cancellationToken: cancellationToken));
             }
         }
 
-        private static async Task InsertMemberPresetsAsync(
+        private static async Task InsertMemberParametersAsync(
             System.Data.IDbConnection connection,
             int workspaceId,
             int userId,
-            IReadOnlySet<string> presets,
+            IReadOnlySet<string> parameters,
             DbTransaction transaction,
             CancellationToken cancellationToken)
         {
-            foreach (var presetKey in presets)
+            foreach (var parameterKey in parameters)
             {
                 await connection.ExecuteAsync(
                     new CommandDefinition(
                         """
-                        INSERT INTO WorkspaceMemberPresets (WorkspaceId, UserId, PresetKey)
-                        VALUES (@WorkspaceId, @UserId, @PresetKey)
+                        INSERT INTO WorkspaceMemberParameters (WorkspaceId, UserId, ParameterKey)
+                        VALUES (@WorkspaceId, @UserId, @ParameterKey)
                         ON CONFLICT DO NOTHING;
                         """,
-                        new { WorkspaceId = workspaceId, UserId = userId, PresetKey = presetKey },
+                        new { WorkspaceId = workspaceId, UserId = userId, ParameterKey = parameterKey },
                         transaction: transaction,
                         cancellationToken: cancellationToken));
             }
         }
 
-        private static async Task ReplaceMemberPresetsAsync(
+        private static async Task<bool> GroupExistsInWorkspaceAsync(
             System.Data.IDbConnection connection,
             int workspaceId,
+            int groupId,
+            DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            return await connection.ExecuteScalarAsync<bool>(
+                new CommandDefinition(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM Groups
+                        WHERE Id = @GroupId AND WorkspaceId = @WorkspaceId);
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+        }
+
+        private static async Task AddGroupMemberAsync(
+            System.Data.IDbConnection connection,
+            int workspaceId,
+            int groupId,
             int userId,
-            IReadOnlySet<string> presets,
+            DateTimeOffset joinedAtUtc,
             DbTransaction transaction,
             CancellationToken cancellationToken)
         {
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    DELETE FROM WorkspaceMemberPresets
+                    INSERT INTO GroupMembers (GroupId, UserId, JoinedAtUtc)
+                    SELECT @GroupId, @UserId, @JoinedAtUtc
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM Groups g
+                        WHERE g.Id = @GroupId
+                          AND g.WorkspaceId = @WorkspaceId
+                    )
+                    ON CONFLICT (GroupId, UserId) DO NOTHING;
+                    """,
+                    new { GroupId = groupId, UserId = userId, JoinedAtUtc = joinedAtUtc, WorkspaceId = workspaceId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    UPDATE Groups
+                    SET UserCount = (
+                        SELECT COUNT(*)
+                        FROM GroupMembers
+                        WHERE GroupId = @GroupId
+                    )
+                    WHERE Id = @GroupId
+                      AND WorkspaceId = @WorkspaceId;
+                    """,
+                    new { GroupId = groupId, WorkspaceId = workspaceId },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken));
+        }
+
+        private static async Task ReplaceMemberParametersAsync(
+            System.Data.IDbConnection connection,
+            int workspaceId,
+            int userId,
+            IReadOnlySet<string> parameters,
+            DbTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    """
+                    DELETE FROM WorkspaceMemberParameters
                     WHERE WorkspaceId = @WorkspaceId
                       AND UserId = @UserId;
                     """,
@@ -1019,7 +1058,7 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: transaction,
                     cancellationToken: cancellationToken));
 
-            await InsertMemberPresetsAsync(connection, workspaceId, userId, presets, transaction, cancellationToken);
+            await InsertMemberParametersAsync(connection, workspaceId, userId, parameters, transaction, cancellationToken);
         }
 
         private sealed class LockedInvitationRow
@@ -1027,6 +1066,7 @@ namespace EduCollab.Infrastructure.Repositories
             public long Id { get; set; }
             public string Email { get; set; } = "";
             public string Role { get; set; } = "";
+            public int? GroupId { get; set; }
         }
 
         private sealed class ActiveInvitationRow
@@ -1035,19 +1075,20 @@ namespace EduCollab.Infrastructure.Repositories
             public int WorkspaceId { get; set; }
             public string Email { get; set; } = "";
             public string Role { get; set; } = "";
+            public int? GroupId { get; set; }
         }
 
-        private sealed class MemberPresetRow
+        private sealed class MemberParameterRow
         {
             public int UserId { get; set; }
-            public string PresetKey { get; set; } = "";
+            public string ParameterKey { get; set; } = "";
         }
 
-        private sealed class WorkspaceMemberPresetRow
+        private sealed class WorkspaceMemberParameterRow
         {
             public int WorkspaceId { get; set; }
             public int UserId { get; set; }
-            public string PresetKey { get; set; } = "";
+            public string ParameterKey { get; set; } = "";
         }
     }
 }

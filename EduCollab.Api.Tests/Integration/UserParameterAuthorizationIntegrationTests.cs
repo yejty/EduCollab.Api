@@ -8,7 +8,7 @@ using EduCollab.Contracts.Responses.Users;
 namespace EduCollab.Api.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class UserPresetAuthorizationIntegrationTests
+public sealed class UserParameterAuthorizationIntegrationTests
 {
     [Fact]
     public async Task SeeUsersTabOnly_CanListAndGetUsers_ButCannotManageMembersOrInvite()
@@ -21,16 +21,18 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var memberEmail = $"viewer-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "See Users Tab Gate", "User preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "See Users Tab Gate", "User parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["seeUsersTab", "loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["seeUsersTab", "loadScenes", "loadFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -39,8 +41,7 @@ public sealed class UserPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "See",
-                LastName = "Users",
+                FullName = "See Users",
                 Email = memberEmail,
                 Password = password,
             });
@@ -65,13 +66,14 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var inviteAttempt = await memberClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = $"blocked-{Guid.NewGuid():N}@example.com",
-            Presets = ["loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes", "loadFlows"],
         });
         Assert.Equal(HttpStatusCode.Forbidden, inviteAttempt.StatusCode);
 
         var updateAttempt = await memberClient.PutAsJsonAsync(
             $"/api/workspace/users/{owner.Id}",
-            new UpdateWorkspaceMemberRequest { Presets = ["loadScenesAndFlows"] });
+            new UpdateWorkspaceMemberRequest { Parameters = ["loadScenes", "loadFlows"] });
         Assert.Equal(HttpStatusCode.Forbidden, updateAttempt.StatusCode);
 
         var deleteAttempt = await memberClient.DeleteAsync($"/api/workspace/users/{owner.Id}");
@@ -91,16 +93,18 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Invite Users Gate", "User preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Invite Users Gate", "User parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteInviterResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = inviterEmail,
-            Presets = ["inviteUsers"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["inviteUsers"],
         });
         inviteInviterResponse.EnsureSuccessStatusCode();
 
@@ -109,8 +113,7 @@ public sealed class UserPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{inviterToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Invite",
-                LastName = "Only",
+                FullName = "Invite Only",
                 Email = inviterEmail,
                 Password = password,
             });
@@ -123,7 +126,8 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var inviteViewerResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = viewerEmail,
-            Presets = ["loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes", "loadFlows"],
         });
         inviteViewerResponse.EnsureSuccessStatusCode();
 
@@ -132,8 +136,7 @@ public sealed class UserPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{viewerToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "View",
-                LastName = "Only",
+                FullName = "View Only",
                 Email = viewerEmail,
                 Password = password,
             });
@@ -159,7 +162,8 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var createInviteResponse = await inviterClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = newInviteEmail,
-            Presets = ["inviteUsers", "loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["inviteUsers", "loadScenes", "loadFlows"],
         });
         Assert.Equal(HttpStatusCode.Forbidden, createInviteResponse.StatusCode);
 
@@ -167,18 +171,19 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var allowedInviteResponse = await inviterClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = newInviteEmail,
-            Presets = ["inviteUsers"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["inviteUsers"],
         });
         allowedInviteResponse.EnsureSuccessStatusCode();
 
         var updateViewerResponse = await inviterClient.PutAsJsonAsync(
             $"/api/workspace/users/{viewer.Id}",
-            new UpdateWorkspaceMemberRequest { Presets = ["inviteUsers", "loadScenesAndFlows"] });
+            new UpdateWorkspaceMemberRequest { Parameters = ["inviteUsers", "loadScenes", "loadFlows"] });
         Assert.Equal(HttpStatusCode.Forbidden, updateViewerResponse.StatusCode);
 
         var allowedUpdateResponse = await inviterClient.PutAsJsonAsync(
             $"/api/workspace/users/{viewer.Id}",
-            new UpdateWorkspaceMemberRequest { Presets = ["inviteUsers"] });
+            new UpdateWorkspaceMemberRequest { Parameters = ["inviteUsers"] });
         allowedUpdateResponse.EnsureSuccessStatusCode();
 
         var deleteViewerResponse = await inviterClient.DeleteAsync($"/api/workspace/users/{viewer.Id}");
@@ -196,16 +201,18 @@ public sealed class UserPresetAuthorizationIntegrationTests
         var memberEmail = $"creator-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "No User Preset Gate", "User preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "No User Parameter Gate", "User parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = WorkspacePresetTestHelpers.PresetsForRole(WorkspaceRole.Creator),
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Creator),
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -214,8 +221,7 @@ public sealed class UserPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Creator",
-                LastName = "Member",
+                FullName = "Creator Member",
                 Email = memberEmail,
                 Password = password,
             });

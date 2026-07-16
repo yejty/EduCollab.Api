@@ -30,22 +30,24 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Lists all workspace permission preset keys and role shortcuts.
+        /// Lists all workspace permission parameter keys and named presets.
         /// </summary>
-        /// <response code="200">Preset catalog returned.</response>
+        /// <response code="200">Parameter catalog and presets returned.</response>
         /// <response code="401">User is unauthorized.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true)]
-        [HttpGet(ApiEndpoints.Workspace.PermissionPresets)]
-        [ProducesResponseType(typeof(WorkspacePermissionPresetsResponse), StatusCodes.Status200OK)]
+        [RequiresWorkspaceParameter(MembershipOnly = true)]
+        [HttpGet(ApiEndpoints.Workspace.PermissionParameters)]
+        [ProducesResponseType(typeof(WorkspacePermissionParametersResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-        public IActionResult GetPermissionPresets()
+        public IActionResult GetPermissionParameters()
         {
             return Ok(ContractMapping.MapCatalogToResponse());
         }
 
         /// <summary>
-        /// Invite a new user.
+        /// Invite a user into the current workspace.
+        /// Requires <c>groupId</c>: on accept the invitee joins that group (access includes subgroups).
+        /// Inviter cannot assign parameters they do not hold, or target a group they cannot access.
         /// </summary>
         /// <param name="inviteUserRequest">Invitation payload.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
@@ -54,7 +56,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">User is unauthorized.</response>
         /// <response code="403">User is forbidden from accessing this resource.</response>
         [Authorize]
-        [RequiresWorkspacePreset("inviteUsers")]
+        [RequiresWorkspaceParameter("inviteUsers")]
         [HttpPost(ApiEndpoints.Workspace.Invite)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -62,12 +64,16 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> InviteToWorkspace([FromBody] InviteUserRequest inviteUserRequest, CancellationToken cancellationToken)
         {
-            if (!WorkspacePermissionPresets.TryNormalizeKeys(inviteUserRequest.Presets, out var presets, out var error))
+            if (!WorkspacePermissionParameters.TryNormalizeKeys(inviteUserRequest.Parameters, out var parameters, out var error))
             {
-                return ApiBadRequest("invalid_preset", error ?? "Invalid preset keys.");
+                return ApiBadRequest("invalid_parameter", error ?? "Invalid parameter keys.");
             }
 
-            await _workspaceService.InviteUserToCurrentWorkspaceAsync(inviteUserRequest.Email, presets, cancellationToken);
+            await _workspaceService.InviteUserToCurrentWorkspaceAsync(
+                inviteUserRequest.Email,
+                parameters,
+                inviteUserRequest.GroupId,
+                cancellationToken);
             return Ok();
         }
 
@@ -132,16 +138,16 @@ namespace EduCollab.Api.Controllers
 
         /// <summary>
         /// Get one workspace member (membership projection: role, groups, etc.).
-        /// Requires the <c>seeUsersTab</c> preset.
+        /// Requires the <c>seeUsersTab</c> parameter.
         /// </summary>
         /// <param name="userId">Workspace member user identifier.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <response code="200">Returns the workspace member.</response>
         /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="403">Caller lacks the seeUsersTab preset or cannot access this workspace member.</response>
+        /// <response code="403">Caller lacks the seeUsersTab parameter or cannot access this workspace member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("seeUsersTab", "inviteUsers")]
+        [RequiresWorkspaceParameter("seeUsersTab", "inviteUsers")]
         [HttpGet(ApiEndpoints.Workspace.GetMember)]
         [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -155,7 +161,7 @@ namespace EduCollab.Api.Controllers
                 return ApiNotFound();
             }
 
-            if (!WorkspacePresetPermissions.CanSeeUsersTab(myMembership))
+            if (!WorkspaceParameterPermissions.CanSeeUsersTab(myMembership))
             {
                 return ApiForbidden("forbidden", "You do not have permission to view workspace members.");
             }
@@ -188,6 +194,7 @@ namespace EduCollab.Api.Controllers
                 var created = await _workspaceCreationRequestService.SubmitRequestAsync(
                     request.Name,
                     request.Description,
+                    request.Type,
                     cancellationToken);
 
                 return StatusCode(StatusCodes.Status201Created, created.MapToResponse());
@@ -266,7 +273,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="404">Active workspace was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true)]
+        [RequiresWorkspaceParameter(MembershipOnly = true)]
         [HttpGet(ApiEndpoints.Workspace.Get)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -287,7 +294,7 @@ namespace EduCollab.Api.Controllers
 
         /// <summary>
         /// List members of the current workspace.
-        /// Requires the <c>seeUsersTab</c> preset.
+        /// Requires the <c>seeUsersTab</c> parameter.
         /// </summary>
         /// <param name="sort">Optional sort field (<c>userId</c>, <c>joinedAt</c>, <c>role</c>). Prefix with <c>-</c> for descending.</param>
         /// <param name="page">1-based page index. Default: 1.</param>
@@ -296,10 +303,10 @@ namespace EduCollab.Api.Controllers
         /// <response code="200">Paged list of workspace members.</response>
         /// <response code="400">Invalid sort or pagination.</response>
         /// <response code="401">Caller is not authenticated.</response>
-        /// <response code="403">Caller lacks the seeUsersTab preset or cannot access this workspace.</response>
+        /// <response code="403">Caller lacks the seeUsersTab parameter or cannot access this workspace.</response>
         /// <response code="404">Workspace was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("seeUsersTab", "inviteUsers")]
+        [RequiresWorkspaceParameter("seeUsersTab", "inviteUsers")]
         [HttpGet(ApiEndpoints.Workspace.GetAllMembers)]
         [ProducesResponseType(typeof(WorkspaceMembersResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -323,7 +330,7 @@ namespace EduCollab.Api.Controllers
                 return ApiNotFound();
             }
 
-            if (!WorkspacePresetPermissions.CanSeeUsersTab(myMembership))
+            if (!WorkspaceParameterPermissions.CanSeeUsersTab(myMembership))
             {
                 return ApiForbidden("forbidden", "You do not have permission to list workspace members.");
             }
@@ -357,7 +364,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller cannot access this workspace.</response>
         /// <response code="404">Workspace or thumbnail was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset(MembershipOnly = true)]
+        [RequiresWorkspaceParameter(MembershipOnly = true)]
         [HttpGet(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -384,7 +391,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot update this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("editWorkspace", EditWorkspaceBypass = false)]
+        [RequiresWorkspaceParameter("editWorkspace", EditWorkspaceBypass = false)]
         [HttpPut(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -410,7 +417,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="401">Caller is not authenticated.</response>
         /// <response code="403">Caller cannot update this workspace.</response>
         [Authorize]
-        [RequiresWorkspacePreset("editWorkspace", EditWorkspaceBypass = false)]
+        [RequiresWorkspaceParameter("editWorkspace", EditWorkspaceBypass = false)]
         [HttpDelete(ApiEndpoints.Workspace.Thumbnail)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -432,7 +439,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to update the workspace.</response>
         /// <response code="404">Workspace was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("editWorkspace", EditWorkspaceBypass = false)]
+        [RequiresWorkspaceParameter("editWorkspace", EditWorkspaceBypass = false)]
         [HttpPut(ApiEndpoints.Workspace.Update)]
         [ProducesResponseType(typeof(WorkspaceResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -463,7 +470,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to delete the workspace.</response>
         /// <response code="404">Workspace was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("editWorkspace", EditWorkspaceBypass = false)]
+        [RequiresWorkspaceParameter("editWorkspace", EditWorkspaceBypass = false)]
         [HttpDelete(ApiEndpoints.Workspace.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -491,7 +498,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to remove this member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("inviteUsers", Notes = "Members may remove themselves without inviteUsers.")]
+        [RequiresWorkspaceParameter("inviteUsers", Notes = "Members may remove themselves without inviteUsers.")]
         [HttpDelete(ApiEndpoints.Workspace.DeleteMember)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -505,7 +512,7 @@ namespace EduCollab.Api.Controllers
         }
 
         /// <summary>
-        /// Update a workspace member preset.
+        /// Update a workspace member parameter.
         /// </summary>
         /// <param name="userId">Member user identifier.</param>
         /// <param name="request">Workspace member update payload.</param>
@@ -516,7 +523,7 @@ namespace EduCollab.Api.Controllers
         /// <response code="403">Caller is not allowed to update this member.</response>
         /// <response code="404">Workspace or member was not found.</response>
         [Authorize]
-        [RequiresWorkspacePreset("inviteUsers")]
+        [RequiresWorkspaceParameter("inviteUsers")]
         [HttpPut(ApiEndpoints.Workspace.UpdateMember)]
         [ProducesResponseType(typeof(WorkspaceMemberResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -525,9 +532,9 @@ namespace EduCollab.Api.Controllers
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<WorkspaceMemberResponse>> UpdateWorkspaceMember(int userId, [FromBody] UpdateWorkspaceMemberRequest request, CancellationToken cancellationToken)
         {
-            if (!WorkspacePermissionPresets.TryNormalizeKeys(request.Presets, out _, out var error))
+            if (!WorkspacePermissionParameters.TryNormalizeKeys(request.Parameters, out _, out var error))
             {
-                return ApiBadRequest("invalid_preset", error ?? "Invalid preset keys.");
+                return ApiBadRequest("invalid_parameter", error ?? "Invalid parameter keys.");
             }
 
             var member = request.MapToWorkspaceMember(0, userId);

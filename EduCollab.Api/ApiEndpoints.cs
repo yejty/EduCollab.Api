@@ -1,4 +1,4 @@
-﻿namespace EduCollab.Api
+namespace EduCollab.Api
 
 {
 
@@ -109,7 +109,7 @@
 
             public const string Invite = $"{Base}/invitations";
 
-            public const string PermissionPresets = $"{Base}/permission-presets";
+            public const string PermissionParameters = $"{Base}/permission-parameters";
 
             public const string Thumbnail = $"{Base}/thumbnail";
 
@@ -303,6 +303,20 @@
 
 
 
+        public static class SceneAssets
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/scene-assets";
+
+            public const string GetAll = Base;
+
+            public const string Content = $"{Base}/content";
+
+        }
+
+
+
         public static class FlowGroups
 
         {
@@ -316,6 +330,20 @@
             public const string Update = Base;
 
             public const string Delete = Base;
+
+        }
+
+
+
+        public static class FlowScenes
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/flow-scenes";
+
+            public const string GetAll = Base;
+
+            public const string Content = $"{Base}/content";
 
         }
 

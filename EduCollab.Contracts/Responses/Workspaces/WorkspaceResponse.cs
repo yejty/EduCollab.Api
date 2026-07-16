@@ -7,6 +7,11 @@
         public string? Description { get; set; }
 
         /// <summary>
+        /// Optional workspace type used by clients to select UI/app functionality.
+        /// </summary>
+        public string? Type { get; set; }
+
+        /// <summary>
         /// The authenticated user's role in this workspace, when known.
         /// </summary>
         public string? CurrentUserRole { get; set; }

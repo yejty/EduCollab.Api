@@ -222,12 +222,18 @@ namespace EduCollab.Infrastructure.Repositories
 
         public async Task<List<int>> GetSceneGroupIdsAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
         {
+            var shares = await GetSceneGroupSharesAsync(workspaceId, sceneId, cancellationToken);
+            return shares.Select(share => share.GroupId).ToList();
+        }
+
+        public async Task<List<SceneGroupShare>> GetSceneGroupSharesAsync(int workspaceId, int sceneId, CancellationToken cancellationToken)
+        {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
 
-            var groupIds = await connection.QueryAsync<int>(
+            var shares = await connection.QueryAsync<SceneGroupShare>(
                 new CommandDefinition(
                     """
-                    SELECT sgs.GroupId
+                    SELECT sgs.GroupId, sgs.IncludeAssets
                     FROM SceneGroupShares sgs
                     INNER JOIN Scenes s ON s.Id = sgs.SceneId
                     WHERE sgs.SceneId = @SceneId
@@ -237,7 +243,7 @@ namespace EduCollab.Infrastructure.Repositories
                     new { SceneId = sceneId, WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
 
-            return groupIds.AsList();
+            return shares.AsList();
         }
 
         public async Task<Dictionary<int, List<int>>> GetSceneGroupIdsBySceneIdsAsync(
@@ -268,10 +274,23 @@ namespace EduCollab.Infrastructure.Repositories
                 .ToDictionary(group => group.Key, group => group.Select(row => row.GroupId).ToList());
         }
 
-        public async Task ReplaceSceneGroupSharesAsync(
+        public Task ReplaceSceneGroupSharesAsync(
             int workspaceId,
             int sceneId,
             IReadOnlyList<int> groupIds,
+            CancellationToken cancellationToken)
+        {
+            var shares = groupIds
+                .Distinct()
+                .Select(groupId => new SceneGroupShare { GroupId = groupId, IncludeAssets = false })
+                .ToList();
+            return ReplaceSceneGroupSharesAsync(workspaceId, sceneId, shares, cancellationToken);
+        }
+
+        public async Task ReplaceSceneGroupSharesAsync(
+            int workspaceId,
+            int sceneId,
+            IReadOnlyList<SceneGroupShare> shares,
             CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -291,13 +310,15 @@ namespace EduCollab.Infrastructure.Repositories
                     cancellationToken: cancellationToken));
 
             var createdAtUtc = DateTime.UtcNow;
-            foreach (var groupId in groupIds.Distinct())
+            foreach (var share in shares
+                         .GroupBy(item => item.GroupId)
+                         .Select(group => group.Last()))
             {
                 await connection.ExecuteAsync(
                     new CommandDefinition(
                         """
-                        INSERT INTO SceneGroupShares (SceneId, GroupId, CreatedAtUtc)
-                        SELECT @SceneId, @GroupId, @CreatedAtUtc
+                        INSERT INTO SceneGroupShares (SceneId, GroupId, IncludeAssets, CreatedAtUtc)
+                        SELECT @SceneId, @GroupId, @IncludeAssets, @CreatedAtUtc
                         WHERE EXISTS (
                             SELECT 1
                             FROM Scenes s
@@ -314,7 +335,8 @@ namespace EduCollab.Infrastructure.Repositories
                         new
                         {
                             SceneId = sceneId,
-                            GroupId = groupId,
+                            GroupId = share.GroupId,
+                            IncludeAssets = share.IncludeAssets,
                             CreatedAtUtc = createdAtUtc,
                             WorkspaceId = workspaceId
                         },
@@ -325,10 +347,18 @@ namespace EduCollab.Infrastructure.Repositories
             transaction.Commit();
         }
 
+        public Task<bool> AddSceneGroupShareAsync(
+            int workspaceId,
+            int sceneId,
+            int groupId,
+            CancellationToken cancellationToken) =>
+            AddSceneGroupShareAsync(workspaceId, sceneId, groupId, includeAssets: false, cancellationToken);
+
         public async Task<bool> AddSceneGroupShareAsync(
             int workspaceId,
             int sceneId,
             int groupId,
+            bool includeAssets,
             CancellationToken cancellationToken)
         {
             using var connection = await _dbConnectionFactory.CreateConnectionAsync();
@@ -336,8 +366,8 @@ namespace EduCollab.Infrastructure.Repositories
             var inserted = await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    INSERT INTO SceneGroupShares (SceneId, GroupId, CreatedAtUtc)
-                    SELECT @SceneId, @GroupId, @CreatedAtUtc
+                    INSERT INTO SceneGroupShares (SceneId, GroupId, IncludeAssets, CreatedAtUtc)
+                    SELECT @SceneId, @GroupId, @IncludeAssets, @CreatedAtUtc
                     WHERE EXISTS (
                         SELECT 1
                         FROM Scenes s
@@ -350,12 +380,14 @@ namespace EduCollab.Infrastructure.Repositories
                         WHERE g.Id = @GroupId
                           AND g.WorkspaceId = @WorkspaceId
                     )
-                    ON CONFLICT (SceneId, GroupId) DO NOTHING;
+                    ON CONFLICT (SceneId, GroupId) DO UPDATE
+                    SET IncludeAssets = EXCLUDED.IncludeAssets;
                     """,
                     new
                     {
                         SceneId = sceneId,
                         GroupId = groupId,
+                        IncludeAssets = includeAssets,
                         CreatedAtUtc = DateTime.UtcNow,
                         WorkspaceId = workspaceId
                     },

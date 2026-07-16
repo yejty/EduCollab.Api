@@ -10,7 +10,7 @@ using EduCollab.Contracts.Responses.Groups;
 namespace EduCollab.Api.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public sealed class AssetPresetAuthorizationIntegrationTests
+public sealed class AssetParameterAuthorizationIntegrationTests
 {
     [Fact]
     public async Task LoadAssetsOnly_CanReadAssets_ButCannotMutate()
@@ -23,16 +23,18 @@ public sealed class AssetPresetAuthorizationIntegrationTests
         var memberEmail = $"loader-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Load Assets Gate", "Asset preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Load Assets Gate", "Asset parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["loadAssets"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadAssets"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -41,8 +43,7 @@ public sealed class AssetPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Load",
-                LastName = "Only",
+                FullName = "Load Only",
                 Email = memberEmail,
                 Password = password,
             });
@@ -125,16 +126,18 @@ public sealed class AssetPresetAuthorizationIntegrationTests
         var memberEmail = $"creator-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Assets Gate", "Asset preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Add Assets Gate", "Asset parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = memberEmail,
-            Presets = ["addAssets"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["addAssets"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -143,8 +146,7 @@ public sealed class AssetPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "Add",
-                LastName = "Only",
+                FullName = "Add Only",
                 Email = memberEmail,
                 Password = password,
             });
@@ -218,7 +220,7 @@ public sealed class AssetPresetAuthorizationIntegrationTests
     }
 
     [Fact]
-    public async Task ViewerWithoutAssetPresets_CannotReadAssetsByIdOrContent()
+    public async Task ViewerWithoutAssetParameters_CannotReadAssetsByIdOrContent()
     {
         await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
         using var ownerClient = factory.CreateClient();
@@ -228,16 +230,18 @@ public sealed class AssetPresetAuthorizationIntegrationTests
         var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
         const string password = "Test123!";
 
-        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner", "User", ownerEmail, password);
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
         ownerClient.SetBearerToken(ownerTokens.AccessToken);
 
-        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Viewer Asset Detail Gate", "Asset preset authorization");
+        await ownerClient.CreateApprovedWorkspaceAsync(factory, ownerEmail, "Viewer Asset Detail Gate", "Asset parameter authorization");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
 
         factory.EmailSender.Clear();
         var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
         {
             Email = viewerEmail,
-            Presets = ["loadScenesAndFlows"],
+            GroupId = invitationGroup.Id,
+            Parameters = ["loadScenes", "loadFlows"],
         });
         inviteResponse.EnsureSuccessStatusCode();
 
@@ -246,8 +250,7 @@ public sealed class AssetPresetAuthorizationIntegrationTests
             $"/api/workspace-invitations/{invitationToken}/accept",
             new RegisterUserRequest
             {
-                FirstName = "View",
-                LastName = "Only",
+                FullName = "View Only",
                 Email = viewerEmail,
                 Password = password,
             });

@@ -1,4 +1,5 @@
 using EduCollab.Application.Models;
+using EduCollab.Application.Repositories;
 using EduCollab.Application.Services.Scenes;
 
 namespace EduCollab.Api.Tests.Fakes;
@@ -38,13 +39,22 @@ public sealed class FakeSceneService : ISceneService
     public Task<bool> CanCurrentUserManageSceneAsync(int ownerUserId, CancellationToken cancellationToken) =>
         CanCurrentUserManageSceneAsyncHandler?.Invoke(ownerUserId, cancellationToken) ?? Task.FromResult(true);
 
-    public Task<List<int>> GetSceneGroupIdsAsync(int sceneId, CancellationToken cancellationToken) =>
-        Task.FromResult(new List<int>());
+    public Task<SceneAssetsManifest> GetSceneAssetsAsync(int sceneId, int? flowId, CancellationToken cancellationToken) =>
+        Task.FromResult(new SceneAssetsManifest { SceneId = sceneId });
 
-    public Task<List<int>?> SetSceneGroupIdsAsync(int sceneId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken) =>
-        Task.FromResult<List<int>?>(groupIds.ToList());
+    public Task<AssetContent?> GetSceneAssetContentAsync(string downloadToken, CancellationToken cancellationToken) =>
+        Task.FromResult<AssetContent?>(null);
 
-    public Task<bool> AddSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken) =>
+    public Task<List<SceneGroupShare>> GetSceneGroupSharesAsync(int sceneId, CancellationToken cancellationToken) =>
+        Task.FromResult(new List<SceneGroupShare>());
+
+    public Task<List<SceneGroupShare>?> SetSceneGroupSharesAsync(
+        int sceneId,
+        IReadOnlyList<SceneGroupShare> shares,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<List<SceneGroupShare>?>(shares.ToList());
+
+    public Task<bool> AddSceneGroupAsync(int sceneId, int groupId, bool includeAssets, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
     public Task<bool> RemoveSceneGroupAsync(int sceneId, int groupId, CancellationToken cancellationToken) =>

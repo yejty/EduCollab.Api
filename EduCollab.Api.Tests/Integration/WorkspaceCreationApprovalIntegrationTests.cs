@@ -19,7 +19,7 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         var userEmail = $"requester-{Guid.NewGuid():N}@example.com";
         const string userPassword = "Requester123!";
 
-        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Request", "User", userEmail, userPassword);
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Request User", userEmail, userPassword);
         userClient.SetBearerToken(userTokens.AccessToken);
 
         var createWithoutTokenResponse = await userClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
@@ -34,13 +34,16 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         {
             Name = "Approved Workspace",
             Description = "Pending review",
+            Type = "classroom",
         });
         submitResponse.EnsureSuccessStatusCode();
         var pendingRequest = await submitResponse.ReadAsJsonAsync<WorkspaceCreationRequestResponse>();
         Assert.Equal("Pending", pendingRequest.Status);
+        Assert.Equal("classroom", pendingRequest.Type);
 
         var adminNotification = factory.EmailSender.GetLatest("admin@educollab.local", "New EduCollab workspace creation request");
         Assert.Contains("Approved Workspace", adminNotification.Content.PlainText, StringComparison.Ordinal);
+        Assert.Contains("Type: classroom", adminNotification.Content.PlainText, StringComparison.Ordinal);
         Assert.Contains("/approve", adminNotification.Content.PlainText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("/deny", adminNotification.Content.PlainText, StringComparison.OrdinalIgnoreCase);
 
@@ -60,7 +63,13 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         createResponse.EnsureSuccessStatusCode();
         var workspace = await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
         Assert.Equal("Approved Workspace", workspace.Name);
+        Assert.Equal("classroom", workspace.Type);
         Assert.Equal("Owner", workspace.CurrentUserRole);
+
+        var getWorkspaceResponse = await userClient.GetAsync("/api/workspace");
+        getWorkspaceResponse.EnsureSuccessStatusCode();
+        var currentWorkspace = await getWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("classroom", currentWorkspace.Type);
     }
 
     [Fact]
@@ -73,7 +82,7 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         var userEmail = $"multi-owner-{Guid.NewGuid():N}@example.com";
         const string userPassword = "Requester123!";
 
-        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Multi", "Owner", userEmail, userPassword);
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Multi Owner", userEmail, userPassword);
         userClient.SetBearerToken(userTokens.AccessToken);
 
         var firstWorkspace = await userClient.CreateApprovedWorkspaceAsync(factory, userEmail, "First Workspace");
@@ -121,7 +130,7 @@ public sealed class WorkspaceCreationApprovalIntegrationTests
         var userEmail = $"denied-{Guid.NewGuid():N}@example.com";
         const string userPassword = "Requester123!";
 
-        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Denied", "User", userEmail, userPassword);
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Denied User", userEmail, userPassword);
         userClient.SetBearerToken(userTokens.AccessToken);
 
         var submitResponse = await userClient.PostAsJsonAsync("/api/workspace/creation-requests", new RequestWorkspaceCreationRequest

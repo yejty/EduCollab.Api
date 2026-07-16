@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Security.Cryptography;
 using EduCollab.Application.Exceptions;
@@ -214,8 +214,7 @@ namespace EduCollab.Application.Services.Users
             var hashingUser = new PasswordHasherUser { Id = user.Email };
             var hash = _passwordHasher.HashPassword(hashingUser, password);
             user.Id = await _userRepository.InsertRegisteredUserAsync(
-                user.FirstName,
-                user.LastName,
+                user.FullName,
                 user.Email,
                 hash,
                 null,
@@ -355,7 +354,7 @@ namespace EduCollab.Application.Services.Users
             }
 
             var callerMember = await _workspaceRepository.GetWorkspaceMemberAsync(workspaceId.Value, callerId, cancellationToken);
-            if (callerMember is null || !WorkspacePresetPermissions.CanSeeUsersTab(callerMember))
+            if (callerMember is null || !WorkspaceParameterPermissions.CanSeeUsersTab(callerMember))
             {
                 throw new AccessDeniedException("You do not have permission to view user profiles.");
             }

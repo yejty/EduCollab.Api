@@ -24,7 +24,7 @@ public sealed class OpenApiSpecTests
     }
 
     [Fact]
-    public async Task WorkspaceOperations_documentRequiredPresets()
+    public async Task WorkspaceOperations_documentRequiredParameters()
     {
         await using var factory = new ApiWebApplicationFactory();
         using var client = factory.CreateClient();
@@ -35,15 +35,15 @@ public sealed class OpenApiSpecTests
         var document = JsonNode.Parse(await response.Content.ReadAsStringAsync());
         var createAsset = document?["paths"]?["/api/workspace/assets"]?["post"];
         Assert.NotNull(createAsset);
-        Assert.NotNull(createAsset["x-workspace-presets"]);
+        Assert.NotNull(createAsset["x-workspace-parameters"]);
 
-        var presets = createAsset["x-workspace-presets"]?["presets"]?.AsArray();
-        Assert.NotNull(presets);
-        Assert.Contains(presets, preset => preset?.GetValue<string>() == "addAssets");
+        var parameters = createAsset["x-workspace-parameters"]?["parameters"]?.AsArray();
+        Assert.NotNull(parameters);
+        Assert.Contains(parameters, parameter => parameter?.GetValue<string>() == "addAssets");
 
         var description = createAsset["description"]?.GetValue<string>();
         Assert.NotNull(description);
-        Assert.Contains("Workspace presets", description, StringComparison.Ordinal);
+        Assert.Contains("Workspace parameters", description, StringComparison.Ordinal);
     }
 
     [Fact]

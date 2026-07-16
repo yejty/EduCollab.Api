@@ -12,9 +12,12 @@ namespace EduCollab.Application.Repositories
         Task<Scene?> UpdateSceneAsync(int workspaceId, Scene scene, CancellationToken cancellationToken);
         Task<bool> DeleteSceneAsync(int workspaceId, int sceneId, CancellationToken cancellationToken);
         Task<List<int>> GetSceneGroupIdsAsync(int workspaceId, int sceneId, CancellationToken cancellationToken);
+        Task<List<SceneGroupShare>> GetSceneGroupSharesAsync(int workspaceId, int sceneId, CancellationToken cancellationToken);
         Task<Dictionary<int, List<int>>> GetSceneGroupIdsBySceneIdsAsync(int workspaceId, IReadOnlyCollection<int> sceneIds, CancellationToken cancellationToken);
         Task ReplaceSceneGroupSharesAsync(int workspaceId, int sceneId, IReadOnlyList<int> groupIds, CancellationToken cancellationToken);
+        Task ReplaceSceneGroupSharesAsync(int workspaceId, int sceneId, IReadOnlyList<SceneGroupShare> shares, CancellationToken cancellationToken);
         Task<bool> AddSceneGroupShareAsync(int workspaceId, int sceneId, int groupId, CancellationToken cancellationToken);
+        Task<bool> AddSceneGroupShareAsync(int workspaceId, int sceneId, int groupId, bool includeAssets, CancellationToken cancellationToken);
         Task<bool> RemoveSceneGroupShareAsync(int workspaceId, int sceneId, int groupId, CancellationToken cancellationToken);
         Task SyncScenePrimaryGroupIdAsync(int workspaceId, int sceneId, CancellationToken cancellationToken);
     }
