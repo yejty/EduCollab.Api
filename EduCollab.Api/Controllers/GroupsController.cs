@@ -4,6 +4,8 @@ using EduCollab.Api.Query;
 
 using EduCollab.Api.Swagger;
 
+using EduCollab.Application.Models;
+
 using EduCollab.Application.Services.Assets;
 
 using EduCollab.Application.Services.Flows;
@@ -95,14 +97,10 @@ namespace EduCollab.Api.Controllers
 
 
 
-        private async Task<IReadOnlyDictionary<int, string>> GetWorkspaceRolesByUserIdAsync(CancellationToken cancellationToken)
-
+        private async Task<IReadOnlyDictionary<int, WorkspaceMember>> GetWorkspaceMembersByUserIdAsync(CancellationToken cancellationToken)
         {
-
             var members = await _workspaceService.GetCurrentWorkspaceMembersAsync(cancellationToken);
-
-            return members.ToDictionary(m => m.UserId, m => m.Role.ToString());
-
+            return members.ToDictionary(m => m.UserId);
         }
 
 
@@ -729,9 +727,9 @@ namespace EduCollab.Api.Controllers
 
             var pagedMembers = PaginationApplier.Apply(sortedMembers, paginationSpecification);
 
-            var rolesByUserId = await GetWorkspaceRolesByUserIdAsync(cancellationToken);
+            var workspaceMembersByUserId = await GetWorkspaceMembersByUserIdAsync(cancellationToken);
 
-            return Ok(pagedMembers.MapToResponse(rolesByUserId));
+            return Ok(pagedMembers.MapToResponse(workspaceMembersByUserId));
 
         }
 
@@ -770,9 +768,7 @@ namespace EduCollab.Api.Controllers
 
             var workspaceMember = await _workspaceService.GetCurrentWorkspaceMemberAsync(created.UserId, cancellationToken);
 
-            var role = workspaceMember?.Role.ToString() ?? string.Empty;
-
-            return CreatedAtAction(nameof(GetMember), new { groupId, userId = created.UserId }, created.MapToResponse(role));
+            return CreatedAtAction(nameof(GetMember), new { groupId, userId = created.UserId }, created.MapToResponse(workspaceMember));
 
         }
 
@@ -808,9 +804,7 @@ namespace EduCollab.Api.Controllers
 
             var workspaceMember = await _workspaceService.GetCurrentWorkspaceMemberAsync(userId, cancellationToken);
 
-            var role = workspaceMember?.Role.ToString() ?? string.Empty;
-
-            return Ok(member.MapToResponse(role));
+            return Ok(member.MapToResponse(workspaceMember));
 
         }
 

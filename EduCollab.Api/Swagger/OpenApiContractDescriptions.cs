@@ -52,7 +52,7 @@ namespace EduCollab.Api.Swagger
                 "",
                 "### Allowed `sort` fields by resource",
                 "- **Assets, scenes, groups, flows, admin workspaces**: `name`, `createdAt`, `updatedAt`, `id` (default `name` ascending).",
-                "- **Workspace / group members**: `userId`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).",
+                "- **Workspace / group members**: `userId`, `email`, `joinedAt`, `role` where applicable (default `joinedAt` ascending).",
                 "- **Workspace creation requests**: `name`, `createdAt`, `status`, `id` (default `createdAt` descending).",
                 "",
                 "Paged list responses include `page`, `pageSize`, and `totalCount` alongside the collection.",

@@ -66,14 +66,14 @@ namespace EduCollab.Api.Mapping
 
         public static GroupMembersResponse MapToResponse(
             this PagedResult<GroupMember> paged,
-            IReadOnlyDictionary<int, string> workspaceRolesByUserId) =>
+            IReadOnlyDictionary<int, WorkspaceMember> workspaceMembersByUserId) =>
             new()
             {
                 Members = paged.Items
                     .Select(member => member.MapToResponse(
-                        workspaceRolesByUserId.TryGetValue(member.UserId, out var role)
-                            ? role
-                            : string.Empty))
+                        workspaceMembersByUserId.TryGetValue(member.UserId, out var workspaceMember)
+                            ? workspaceMember
+                            : null))
                     .ToList(),
                 Page = paged.Page,
                 PageSize = paged.PageSize,

@@ -71,7 +71,7 @@ namespace EduCollab.Api.Query
         public static class WorkspaceMember
         {
             public static readonly IReadOnlyCollection<string> AllowedFields =
-                ["userId", "joinedAt", "role"];
+                ["userId", "email", "joinedAt", "role"];
 
             public static readonly SortSpecification Default =
                 new() { Field = "joinedAt", Direction = SortDirection.Asc };
@@ -85,6 +85,7 @@ namespace EduCollab.Api.Query
                 new(StringComparer.Ordinal)
                 {
                     ["userId"] = static x => x.UserId,
+                    ["email"] = static x => x.Email,
                     ["joinedAt"] = static x => x.JoinedAtUtc,
                     ["role"] = static x => x.Role.ToString(),
                 };

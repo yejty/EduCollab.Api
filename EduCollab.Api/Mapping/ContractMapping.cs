@@ -289,6 +289,7 @@ namespace EduCollab.Api.Mapping
             return new WorkspaceMemberResponse
             {
                 UserId = workspaceMember.UserId,
+                Email = workspaceMember.Email,
                 Parameters = parameters,
                 Role = WorkspacePermissionParameters.ToRoleKey(WorkspacePermissionParameters.ResolveMemberRole(workspaceMember)),
                 JoinedAt = workspaceMember.JoinedAtUtc
@@ -367,23 +368,35 @@ namespace EduCollab.Api.Mapping
             };
         }
 
-        public static GroupMemberResponse MapToResponse(this GroupMember member, string workspaceRole)
+        public static GroupMemberResponse MapToResponse(this GroupMember member, WorkspaceMember? workspaceMember)
         {
+            var parameters = workspaceMember is null
+                ? new List<string>()
+                : WorkspacePermissionParameters.ResolveMemberParameterKeys(workspaceMember)
+                    .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
             return new GroupMemberResponse
             {
                 UserId = member.UserId,
-                Role = workspaceRole,
+                Email = workspaceMember?.Email ?? string.Empty,
+                Parameters = parameters,
+                Role = workspaceMember?.Role.ToString() ?? string.Empty,
                 JoinedAt = member.JoinedAtUtc
             };
         }
 
-        public static GroupMembersResponse MapToResponse(this List<GroupMember> members, IReadOnlyDictionary<int, string> workspaceRolesByUserId)
+        public static GroupMembersResponse MapToResponse(
+            this List<GroupMember> members,
+            IReadOnlyDictionary<int, WorkspaceMember> workspaceMembersByUserId)
         {
             return new GroupMembersResponse
             {
                 Members = members
                     .Select(m => m.MapToResponse(
-                        workspaceRolesByUserId.TryGetValue(m.UserId, out var role) ? role : string.Empty))
+                        workspaceMembersByUserId.TryGetValue(m.UserId, out var workspaceMember)
+                            ? workspaceMember
+                            : null))
                     .ToList()
             };
         }

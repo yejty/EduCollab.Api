@@ -114,6 +114,7 @@ public sealed class WorkspacesControllerEndpointTests
         {
             UserId = userId,
             WorkspaceId = 5,
+            Email = "invitee@example.com",
             Role = WorkspaceRole.Viewer,
             Parameters = WorkspacePermissionParameters.GetParameterKeysForRole(WorkspaceRole.Viewer),
             JoinedAtUtc = new DateTime(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc),
@@ -131,6 +132,7 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal(41, body.UserId);
+        Assert.Equal("invitee@example.com", body.Email);
         Assert.Equal("viewer", body.Role);
         Assert.Contains("loadScenes", body.Parameters);
         Assert.Contains("loadFlows", body.Parameters);

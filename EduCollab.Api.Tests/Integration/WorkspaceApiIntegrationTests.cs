@@ -71,6 +71,7 @@ public sealed class WorkspaceApiIntegrationTests
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
         var membership = await acceptResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
         Assert.Equal("manager", membership.Role);
+        Assert.Equal(memberEmail, membership.Email);
         Assert.Contains("inviteUsers", membership.Parameters);
 
         var memberTokens = await memberClient.LoginAsync(memberEmail, memberPassword);
@@ -78,11 +79,16 @@ public sealed class WorkspaceApiIntegrationTests
 
         var getMemberResponse = await ownerClient.GetAsync($"/api/workspace/users/{membership.UserId}");
         getMemberResponse.EnsureSuccessStatusCode();
+        var getMember = await getMemberResponse.ReadAsJsonAsync<WorkspaceMemberResponse>();
+        Assert.Equal(memberEmail, getMember.Email);
+        Assert.Contains("inviteUsers", getMember.Parameters);
 
         var getMembersResponse = await ownerClient.GetAsync("/api/workspace/users");
         getMembersResponse.EnsureSuccessStatusCode();
         var members = await getMembersResponse.ReadAsJsonAsync<WorkspaceMembersResponse>();
         Assert.Equal(2, members.Members.Count);
+        Assert.Contains(members.Members, m => m.Email == memberEmail && m.Parameters.Contains("inviteUsers"));
+        Assert.Contains(members.Members, m => m.Email == ownerEmail);
 
         var promoteResponse = await ownerClient.PutAsJsonAsync($"/api/workspace/users/{membership.UserId}", new UpdateWorkspaceMemberRequest
         {

@@ -73,13 +73,15 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     """
                     SELECT
-                        WorkspaceId,
-                        UserId,
-                        Role,
-                        JoinedAtUtc
-                    FROM WorkspaceMembers
-                    WHERE WorkspaceId = @WorkspaceId
-                      AND UserId = @UserId
+                        wm.WorkspaceId,
+                        wm.UserId,
+                        wm.Role,
+                        wm.JoinedAtUtc,
+                        u.Email
+                    FROM WorkspaceMembers wm
+                    INNER JOIN Users u ON u.Id = wm.UserId
+                    WHERE wm.WorkspaceId = @WorkspaceId
+                      AND wm.UserId = @UserId
                     LIMIT 1;
                     """,
                     new { UserId = userId, WorkspaceId = workspaceId },
@@ -101,13 +103,15 @@ namespace EduCollab.Infrastructure.Repositories
                 new CommandDefinition(
                     """
                     SELECT
-                        WorkspaceId,
-                        UserId,
-                        Role,
-                        JoinedAtUtc
-                    FROM WorkspaceMembers
-                    WHERE WorkspaceId = @WorkspaceId
-                    ORDER BY JoinedAtUtc, UserId;
+                        wm.WorkspaceId,
+                        wm.UserId,
+                        wm.Role,
+                        wm.JoinedAtUtc,
+                        u.Email
+                    FROM WorkspaceMembers wm
+                    INNER JOIN Users u ON u.Id = wm.UserId
+                    WHERE wm.WorkspaceId = @WorkspaceId
+                    ORDER BY wm.JoinedAtUtc, wm.UserId;
                     """,
                     new { WorkspaceId = workspaceId },
                     cancellationToken: cancellationToken));
@@ -183,10 +187,16 @@ namespace EduCollab.Infrastructure.Repositories
             var members = await connection.QueryAsync<WorkspaceMember>(
                 new CommandDefinition(
                     """
-                    SELECT WorkspaceId, UserId, Role, JoinedAtUtc
-                    FROM WorkspaceMembers
-                    WHERE UserId = @UserId
-                    ORDER BY JoinedAtUtc, WorkspaceId;
+                    SELECT
+                        wm.WorkspaceId,
+                        wm.UserId,
+                        wm.Role,
+                        wm.JoinedAtUtc,
+                        u.Email
+                    FROM WorkspaceMembers wm
+                    INNER JOIN Users u ON u.Id = wm.UserId
+                    WHERE wm.UserId = @UserId
+                    ORDER BY wm.JoinedAtUtc, wm.WorkspaceId;
                     """,
                     new { UserId = userId },
                     cancellationToken: cancellationToken));
@@ -615,6 +625,7 @@ namespace EduCollab.Infrastructure.Repositories
                     transaction: tx,
                     cancellationToken: cancellationToken));
 
+            member.Email = email.Trim();
             await InsertMemberParametersAsync(
                 connection,
                 workspaceId,
@@ -868,6 +879,12 @@ namespace EduCollab.Infrastructure.Repositories
             await ReplaceMemberParametersAsync(connection, id, userId, member.Parameters, tx, cancellationToken);
             updated.Parameters = member.Parameters;
             updated.Role = WorkspacePermissionParameters.ResolveMemberRole(updated);
+            updated.Email = await connection.QuerySingleAsync<string>(
+                new CommandDefinition(
+                    "SELECT Email FROM Users WHERE Id = @UserId;",
+                    new { UserId = userId },
+                    transaction: tx,
+                    cancellationToken: cancellationToken));
 
             await tx.CommitAsync(cancellationToken);
             return updated;
