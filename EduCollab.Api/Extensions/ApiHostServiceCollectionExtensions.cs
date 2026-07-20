@@ -50,6 +50,7 @@ namespace EduCollab.Api.Extensions
                         new System.Text.Json.Serialization.JsonStringEnumConverter());
                 });
             services.AddEduCollabOpenApi();
+            services.AddHostedService<Services.AbandonedSessionCleanupService>();
 
             return services;
         }

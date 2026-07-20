@@ -1,24 +1,20 @@
 import { Client, Room } from '@colyseus/core'
-import { authenticateBearer, extractBearer } from '../auth'
+import type { EduCollabClient } from '../api/educollabClient'
+import { extractBearer } from '../auth'
 import type { CollabServerConfig } from '../config'
-import {
-  alternatePrincipalsForIdentity,
-  getSessionById,
-  resolveRoleForUser,
-  updateSession,
-} from '../sessions'
+import { verifyJoinTicket } from '../joinTicket'
+import { claimsToSessionMeta, type RoomSessionMeta } from '../sessionMeta'
 import {
   isParticipantRole,
-  type AuthIdentity,
+  type JoinIdentity,
   type ParticipantRole,
-  type SessionRecord,
 } from '../types'
 import { ParticipantState, SessionState } from './schema'
 
 interface CollabRoomOptions {
   sessionId?: string
-  /** Optional bearer token; only used if Authorization header is missing on the WS handshake. */
-  token?: string
+  /** Short-lived join ticket minted by EduCollab API. */
+  joinTicket?: string
   /**
    * If true, this client opts in to receive `sceneSync` broadcasts (it's
    * actually rendering the scene — i.e. the editor). Join-page clients should
@@ -30,9 +26,9 @@ interface CollabRoomOptions {
 }
 
 interface ClientUserData {
-  identity: AuthIdentity
+  identity: JoinIdentity
   role: ParticipantRole
-  session: SessionRecord
+  session: RoomSessionMeta
   /** Mirrors `CollabRoomOptions.wantsSceneSync` after onAuth. */
   wantsSceneSync: boolean
 }
@@ -249,6 +245,7 @@ const NUMERIC = (value: unknown): number | null => {
 
 export interface CollabRoomDeps {
   config: CollabServerConfig
+  educollabClient: EduCollabClient
 }
 
 interface CollabRoomShape {
@@ -263,7 +260,7 @@ interface CollabRoomShape {
 
 export class CollabRoom extends Room<CollabRoomShape> {
   private deps!: CollabRoomDeps
-  private session!: SessionRecord
+  private sessionMeta!: RoomSessionMeta
   private static deps: CollabRoomDeps | null = null
   /** Last scene JSON from an author; replayed to new joins (same cap as relay). */
   private lastSceneSyncJson: string | null = null
@@ -279,35 +276,52 @@ export class CollabRoom extends Room<CollabRoomShape> {
     }
     this.deps = deps
 
-    const sessionId = options.sessionId
-    if (!sessionId) {
+    const sessionIdRaw = options.sessionId
+    if (!sessionIdRaw) {
       throw new Error('Missing sessionId on room create')
     }
-    const session = getSessionById(sessionId)
-    if (!session) {
-      throw new Error(`Session ${sessionId} not found`)
+
+    const joinTicket =
+      extractBearer({ queryToken: options.joinTicket ?? null }) ??
+      options.joinTicket ??
+      null
+    if (!joinTicket) {
+      throw new Error('Missing joinTicket on room create')
     }
-    this.session = session
-    this.roomId = sessionId
+
+    const claims = verifyJoinTicket(
+      joinTicket,
+      this.deps.config.sessionJoinSecret,
+      this.deps.config.sessionJoinIssuer,
+      this.deps.config.sessionJoinAudience,
+    )
+    if (!claims) {
+      throw new Error('Invalid join ticket on room create')
+    }
+    if (String(claims.sessionId) !== String(sessionIdRaw)) {
+      throw new Error('Join ticket session mismatch on room create')
+    }
+
+    this.sessionMeta = claimsToSessionMeta(claims)
+    this.roomId = String(this.sessionMeta.sessionId)
     this.maxClients = 64
 
     const state = new SessionState()
-    state.sessionId = session.id
-    state.name = session.name
-    state.assetKind = session.assetKind ?? ''
-    state.assetId = session.assetId ?? ''
-    state.assetName = session.assetName ?? ''
+    state.sessionId = String(this.sessionMeta.sessionId)
+    state.name = this.sessionMeta.name
+    state.assetKind = this.sessionMeta.assetKind ?? ''
+    state.assetId = this.sessionMeta.assetId ?? ''
+    state.assetName = this.sessionMeta.assetName ?? ''
     this.state = state
 
     void this.setMetadata({
-      sessionId: session.id,
-      name: session.name,
-      assetKind: session.assetKind,
-      assetId: session.assetId,
+      sessionId: String(this.sessionMeta.sessionId),
+      name: this.sessionMeta.name,
+      assetKind: this.sessionMeta.assetKind,
+      assetId: this.sessionMeta.assetId,
     })
 
-    // Mark the session as live so the admin UI knows a room is up.
-    updateSession(session.id, { status: 'live' })
+    void this.deps.educollabClient.notifyRoomStarted(this.sessionMeta.sessionId)
 
     // Wrap every message handler: errors thrown here propagate up to the
     // ws-transport message frame and look like a generic 4002 close from
@@ -378,30 +392,48 @@ export class CollabRoom extends Room<CollabRoomShape> {
         return null
       })()
 
-      const token = extractBearer({
-        headers: { authorization: headerToken },
-        queryToken: options.token ?? null,
-      })
-      if (!token) {
+      const joinTicket =
+        extractBearer({
+          headers: { authorization: headerToken },
+          queryToken: options.joinTicket ?? null,
+        }) ?? options.joinTicket ?? null
+      if (!joinTicket) {
         console.warn(
-          `[collab-room ${this.roomId}] onAuth rejected: missing bearer token (sessionId=${client.sessionId})`,
+          `[collab-room ${this.roomId}] onAuth rejected: missing join ticket (sessionId=${client.sessionId})`,
         )
-        throw new Error('Missing bearer token')
+        throw new Error('Missing join ticket')
       }
-      const identity = await authenticateBearer(token, this.deps.config)
-      if (!identity) {
+
+      const claims = verifyJoinTicket(
+        joinTicket,
+        this.deps.config.sessionJoinSecret,
+        this.deps.config.sessionJoinIssuer,
+        this.deps.config.sessionJoinAudience,
+      )
+      if (!claims) {
         console.warn(
-          `[collab-room ${this.roomId}] onAuth rejected: invalid/expired token (sessionId=${client.sessionId})`,
+          `[collab-room ${this.roomId}] onAuth rejected: invalid/expired join ticket (sessionId=${client.sessionId})`,
         )
-        throw new Error('Invalid or expired bearer token')
+        throw new Error('Invalid or expired join ticket')
       }
-      const alternates = alternatePrincipalsForIdentity(identity)
-      const role = resolveRoleForUser(this.session, identity.userId, alternates)
+      if (String(claims.sessionId) !== String(this.sessionMeta.sessionId)) {
+        console.warn(
+          `[collab-room ${this.roomId}] onAuth rejected: session mismatch (sessionId=${client.sessionId})`,
+        )
+        throw new Error('Join ticket session mismatch')
+      }
+
+      const identity: JoinIdentity = {
+        principal: claims.sub,
+        displayName: claims.displayName,
+        isGuest: claims.sub.startsWith('guest:'),
+      }
+      const role = claims.colyseusRole
       const wantsSceneSync = options.wantsSceneSync === true
       console.info(
-        `[collab-room ${this.roomId}] onAuth ok user=${identity.userId} role=${role} wantsSceneSync=${wantsSceneSync} sessionId=${client.sessionId}`,
+        `[collab-room ${this.roomId}] onAuth ok user=${identity.principal} role=${role} wantsSceneSync=${wantsSceneSync} sessionId=${client.sessionId}`,
       )
-      return { identity, role, session: this.session, wantsSceneSync }
+      return { identity, role, session: this.sessionMeta, wantsSceneSync }
     } catch (err) {
       console.error(
         `[collab-room ${this.roomId}] onAuth threw (sessionId=${client.sessionId}):`,
@@ -424,8 +456,8 @@ export class CollabRoom extends Room<CollabRoomShape> {
       client.userData = data
 
       const participant = new ParticipantState()
-      participant.userId = data.identity.userId
-      participant.userName = data.identity.userName ?? data.identity.email ?? 'guest'
+      participant.userId = data.identity.principal
+      participant.userName = data.identity.displayName || 'guest'
       participant.role = data.role
       participant.connected = true
       participant.camNav = 'orbit'
@@ -434,7 +466,7 @@ export class CollabRoom extends Room<CollabRoomShape> {
       this.state.participants.set(client.sessionId, participant)
 
       console.info(
-        `[collab-room ${this.roomId}] onJoin ok user=${data.identity.userId} role=${data.role} sessionId=${client.sessionId} clients=${this.clients.length}`,
+        `[collab-room ${this.roomId}] onJoin ok user=${data.identity.principal} role=${data.role} sessionId=${client.sessionId} clients=${this.clients.length}`,
       )
 
       // Send the cached scene to the late joiner *after* JOIN_ROOM has been
@@ -492,9 +524,8 @@ export class CollabRoom extends Room<CollabRoomShape> {
   }
 
   override onDispose(): void {
-    if (this.session) {
-      // Don't permanently close — flip back to idle so users can rejoin.
-      updateSession(this.session.id, { status: 'idle' })
+    if (this.sessionMeta) {
+      void this.deps.educollabClient.notifyRoomEnded(this.sessionMeta.sessionId)
     }
   }
 
@@ -717,7 +748,7 @@ export class CollabRoom extends Room<CollabRoomShape> {
     const targetUserId = typeof payload.userId === 'string' ? payload.userId : null
     if (!targetUserId) return
     if (!isParticipantRole(payload.role)) return
-    if (targetUserId === this.session.hostUserId) return
+    if (targetUserId === this.sessionMeta.hostUserId) return
     // Update everyone in the room with that user id.
     for (const [sessionId, participant] of this.state.participants.entries()) {
       if (participant.userId === targetUserId) {

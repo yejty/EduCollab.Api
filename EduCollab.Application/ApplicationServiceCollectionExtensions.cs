@@ -5,6 +5,7 @@ using EduCollab.Application.Services.Flows;
 using EduCollab.Application.Services.Groups;
 using EduCollab.Application.Services.Notifications;
 using EduCollab.Application.Services.Scenes;
+using EduCollab.Application.Services.Sessions;
 using EduCollab.Application.Services.Users;
 using EduCollab.Application.Services.Workspaces;
 using Microsoft.AspNetCore.Identity;
@@ -25,6 +26,8 @@ namespace EduCollab.Application
             services.Configure<PlatformAdminOptions>(configuration.GetSection(PlatformAdminOptions.SectionName));
             services.Configure<WorkspaceContentStorageOptions>(configuration.GetSection(WorkspaceContentStorageOptions.SectionName));
             services.Configure<WorkspaceCreationApprovalSettings>(configuration.GetSection(WorkspaceCreationApprovalSettings.SectionName));
+            services.Configure<SessionJoinSettings>(configuration.GetSection(SessionJoinSettings.SectionName));
+            services.Configure<InternalApiSettings>(configuration.GetSection(InternalApiSettings.SectionName));
             services.AddSingleton<IPasswordHasher<PasswordHasherUser>, PasswordHasher<PasswordHasherUser>>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             services.AddScoped<INotificationService, NotificationService>();
@@ -39,6 +42,7 @@ namespace EduCollab.Application
             services.AddScoped<IAssetService, AssetService>();
             services.AddScoped<ISceneService, SceneService>();
             services.AddScoped<IFlowService, FlowService>();
+            services.AddScoped<ISessionService, SessionService>();
             return services;
         }
     }

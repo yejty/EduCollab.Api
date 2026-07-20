@@ -13,6 +13,7 @@ using EduCollab.Contracts.Responses.Groups;
 using EduCollab.Contracts.Requests.Scenes;
 using EduCollab.Contracts.Responses.Flows;
 using EduCollab.Contracts.Responses.Scenes;
+using EduCollab.Contracts.Responses.Sessions;
 using EduCollab.Contracts.Responses.Users;
 using EduCollab.Contracts.Responses.Workspaces;
 
@@ -487,5 +488,93 @@ namespace EduCollab.Api.Mapping
                 Groups = groups.Select(g => g.MapToResponse()).ToList()
             };
         }
+
+        public static LiveSessionResponse MapToResponse(this LiveSession session) =>
+            new()
+            {
+                Id = session.Id,
+                WorkspaceId = session.WorkspaceId,
+                HostUserId = session.HostUserId,
+                HostDisplayName = session.HostDisplayName,
+                SceneId = session.SceneId,
+                SceneName = session.SceneName,
+                FlowId = session.FlowId,
+                FlowName = session.FlowName,
+                Status = session.Status,
+                IncludeAssets = session.IncludeAssets,
+                AllowGuestLink = session.AllowGuestLink,
+                GuestLinkUrl = session.GuestLinkUrl,
+                Name = session.Name,
+                Description = session.Description,
+                DefaultRole = session.DefaultRole,
+                GroupIds = session.GroupIds.ToList(),
+                UserIds = session.UserIds.ToList(),
+                EffectiveRole = session.EffectiveRole,
+                CanJoin = session.CanJoin,
+                CreatedAtUtc = session.CreatedAtUtc,
+                StartedAtUtc = session.StartedAtUtc,
+                EndedAtUtc = session.EndedAtUtc,
+            };
+
+        public static LiveSessionsResponse MapToResponse(this IEnumerable<LiveSession> sessions) =>
+            new()
+            {
+                Sessions = sessions.Select(s => s.MapToResponse()).ToList(),
+            };
+
+        public static SessionJoinTicketResponse MapToResponse(this SessionJoinTicketResult ticket) =>
+            new()
+            {
+                JoinTicket = ticket.JoinTicket,
+                SessionId = ticket.SessionId,
+                ColyseusEndpoint = ticket.ColyseusEndpoint,
+                Role = ticket.Role,
+                ColyseusRole = ticket.ColyseusRole,
+                ExpiresAtUtc = ticket.ExpiresAtUtc,
+            };
+
+        public static SessionBootstrapResponse MapToResponse(this SessionBootstrap bootstrap) =>
+            new()
+            {
+                SessionId = bootstrap.SessionId,
+                Name = bootstrap.Name,
+                Status = bootstrap.Status,
+                IncludeAssets = bootstrap.IncludeAssets,
+                AssetKind = bootstrap.AssetKind,
+                AssetId = bootstrap.AssetId,
+                AssetName = bootstrap.AssetName,
+                ColyseusEndpoint = bootstrap.ColyseusEndpoint,
+                Message = bootstrap.Message,
+                Scenes = bootstrap.Scenes.Select(s => new SessionBootstrapSceneResponse
+                {
+                    SceneId = s.SceneId,
+                    Name = s.Name,
+                    ContentUrl = s.ContentUrl,
+                }).ToList(),
+                Assets = bootstrap.Assets.Select(MapBootstrapAsset).ToList(),
+            };
+
+        public static SessionAssetsResponse MapToResponse(this SessionAssetManifest manifest) =>
+            new()
+            {
+                SessionId = manifest.SessionId,
+                SceneId = manifest.SceneId,
+                IncludeAssets = manifest.IncludeAssets,
+                Message = manifest.Message,
+                Assets = manifest.Assets.Select(MapBootstrapAsset).ToList(),
+            };
+
+        private static SessionBootstrapAssetResponse MapBootstrapAsset(SessionBootstrapAsset asset) =>
+            new()
+            {
+                AssetId = asset.AssetId,
+                SceneId = asset.SceneId,
+                Name = asset.Name,
+                AssetType = asset.AssetType,
+                DownloadAvailable = asset.DownloadAvailable,
+                ContentUrl = asset.ContentUrl,
+                CacheKey = asset.CacheKey,
+                Message = asset.Message,
+            };
     }
 }

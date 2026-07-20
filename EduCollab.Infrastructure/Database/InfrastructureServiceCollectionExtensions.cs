@@ -41,6 +41,7 @@ namespace EduCollab.Infrastructure.Database
             services.AddScoped<IAssetRepository, AssetRepository>();
             services.AddScoped<ISceneRepository, SceneRepository>();
             services.AddScoped<IFlowRepository, FlowRepository>();
+            services.AddScoped<ISessionRepository, SessionRepository>();
             services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();

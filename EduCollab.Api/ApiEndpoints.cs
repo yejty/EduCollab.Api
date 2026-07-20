@@ -347,6 +347,106 @@ namespace EduCollab.Api
 
         }
 
+
+
+        public static class Sessions
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/sessions";
+
+            public const string Create = Base;
+
+            public const string GetAll = Base;
+
+            public const string Get = $"{Base}/{{sessionId}}";
+
+            public const string JoinTicket = $"{Base}/{{sessionId}}/join-ticket";
+
+            public const string Bootstrap = $"{Base}/{{sessionId}}/bootstrap";
+
+            public const string End = $"{Base}/{{sessionId}}/end";
+
+        }
+
+
+
+        public static class SessionAssets
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/session-assets";
+
+            public const string GetAll = Base;
+
+            public const string Content = $"{Base}/content";
+
+        }
+
+
+
+        public static class SessionScenes
+
+        {
+
+            private const string Base = $"{ApiCurrentWorkspaceBase}/session-scenes";
+
+            public const string Content = $"{Base}/content";
+
+        }
+
+
+
+        public static class InternalSessions
+
+        {
+
+            private const string Base = $"{ApiBase}/internal/sessions";
+
+            public const string RoomStarted = $"{Base}/{{sessionId}}/room-started";
+
+            public const string RoomEnded = $"{Base}/{{sessionId}}/room-ended";
+
+        }
+
+
+
+        public static class PublicSessions
+
+        {
+
+            private const string Base = $"{ApiBase}/public/sessions";
+
+            public const string Join = $"{Base}/join";
+
+            public const string Bootstrap = $"{Base}/bootstrap";
+
+        }
+
+
+
+        public static class PublicSessionAssets
+
+        {
+
+            private const string Base = $"{ApiBase}/public/session-assets";
+
+            public const string Content = $"{Base}/content";
+
+        }
+
+
+
+        public static class PublicSessionScenes
+
+        {
+
+            private const string Base = $"{ApiBase}/public/session-scenes";
+
+            public const string Content = $"{Base}/content";
+
+        }
+
     }
 
 }

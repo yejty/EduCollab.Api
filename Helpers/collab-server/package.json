@@ -1,8 +1,8 @@
 {
-  "name": "alphacollab-collab-server",
-  "version": "0.1.0",
+  "name": "educollab-collab-server",
+  "version": "0.2.0",
   "private": true,
-  "description": "Self-hosted Colyseus realtime server for AlphaCollab sessions (Hetzner).",
+  "description": "Self-hosted Colyseus realtime server for EduCollab live sessions.",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
@@ -18,14 +18,11 @@
     "@colyseus/monitor": "^0.17.8",
     "@colyseus/schema": "^4.0.25",
     "@colyseus/ws-transport": "^0.17.13",
-    "better-sqlite3": "^12.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "express": "^5.1.0",
-    "uuid": "^11.0.0"
+    "express": "^5.1.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",

@@ -458,12 +458,108 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS LiveSessions (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    HostUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    SceneId INT NULL REFERENCES Scenes(Id) ON DELETE RESTRICT,
+                    FlowId INT NULL REFERENCES Flows(Id) ON DELETE RESTRICT,
+                    Status VARCHAR(32) NOT NULL DEFAULT 'Pending',
+                    IncludeAssets BOOLEAN NOT NULL DEFAULT FALSE,
+                    AllowGuestLink BOOLEAN NOT NULL DEFAULT FALSE,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    DefaultRole VARCHAR(32) NOT NULL DEFAULT 'viewer',
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    StartedAtUtc TIMESTAMPTZ NULL,
+                    EndedAtUtc TIMESTAMPTZ NULL,
+                    CONSTRAINT CK_LiveSessions_SceneOrFlow CHECK (
+                        (SceneId IS NOT NULL AND FlowId IS NULL)
+                        OR (SceneId IS NULL AND FlowId IS NOT NULL)
+                    ),
+                    CONSTRAINT CK_LiveSessions_Status CHECK (Status IN ('Pending', 'Active', 'Ended'))
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_LiveSessions_WorkspaceId ON LiveSessions (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_LiveSessions_WorkspaceId_Status ON LiveSessions (WorkspaceId, Status);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_LiveSessions_HostUserId ON LiveSessions (HostUserId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SessionGroupShares (
+                    SessionId INT NOT NULL REFERENCES LiveSessions(Id) ON DELETE CASCADE,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE CASCADE,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (SessionId, GroupId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SessionGroupShares_GroupId ON SessionGroupShares (GroupId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SessionUserShares (
+                    SessionId INT NOT NULL REFERENCES LiveSessions(Id) ON DELETE CASCADE,
+                    UserId INT NOT NULL REFERENCES Users(Id) ON DELETE CASCADE,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (SessionId, UserId)
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SessionUserShares_UserId ON SessionUserShares (UserId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SessionGuestLinks (
+                    Id SERIAL PRIMARY KEY,
+                    SessionId INT NOT NULL REFERENCES LiveSessions(Id) ON DELETE CASCADE,
+                    TokenHash VARCHAR(64) NOT NULL UNIQUE,
+                    TokenPlaintext VARCHAR(128) NULL,
+                    ExpiresAtUtc TIMESTAMPTZ NULL,
+                    MaxUses INT NULL,
+                    UseCount INT NOT NULL DEFAULT 0,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SessionGuestLinks_SessionId ON SessionGuestLinks (SessionId);");
+
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS SessionParticipants (
+                    Id BIGSERIAL PRIMARY KEY,
+                    SessionId INT NOT NULL REFERENCES LiveSessions(Id) ON DELETE CASCADE,
+                    UserId INT NULL REFERENCES Users(Id) ON DELETE SET NULL,
+                    GuestId VARCHAR(64) NULL,
+                    DisplayName VARCHAR(200) NOT NULL,
+                    JoinedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    LeftAtUtc TIMESTAMPTZ NULL
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_SessionParticipants_SessionId ON SessionParticipants (SessionId);");
+
             await MigrateToHierarchicalGroupsAsync(connection);
             await MigrateToMultiGroupSharingAsync(connection);
             await MigrateSceneGroupShareIncludeAssetsAsync(connection);
             await MigrateFlowGroupShareIncludeAssetsAsync(connection);
             await MigrateViewerParametersToLoadFlowsOnlyAsync(connection);
+            await MigrateSessionGuestLinkPlaintextAsync(connection);
             await SeedPlatformAdminUserAsync(connection);
+        }
+
+        private static async Task MigrateSessionGuestLinkPlaintextAsync(System.Data.IDbConnection connection)
+        {
+            await connection.ExecuteAsync(
+                """
+                ALTER TABLE SessionGuestLinks
+                ADD COLUMN IF NOT EXISTS TokenPlaintext VARCHAR(128) NULL;
+                """);
         }
 
         private static async Task MigrateSceneGroupShareIncludeAssetsAsync(System.Data.IDbConnection connection)

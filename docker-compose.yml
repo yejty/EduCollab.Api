@@ -32,6 +32,15 @@ services:
       Jwt__Audience: EduCollab.Client
       Jwt__SecretKey: replace-this-with-a-long-dev-secret-key
       Jwt__ExpirationMinutes: 60
+      SessionJoin__SecretKey: replace-this-with-a-long-session-join-secret-key
+      SessionJoin__Issuer: EduCollab.Api
+      SessionJoin__Audience: EduCollab.CollabServer
+      SessionJoin__ExpirationMinutes: "10"
+      SessionJoin__ColyseusEndpoint: ws://localhost:2567
+      SessionJoin__FrontendGuestJoinUrl: ${SessionJoin__FrontendGuestJoinUrl:-http://localhost:8080/sessions/join}
+      SessionJoin__GuestLinkExpirationHours: "168"
+      SessionJoin__AbandonedSessionIdleHours: "24"
+      InternalApi__ApiKey: dev-internal-api-key-change-me
       Email__Enabled: ${Email__Enabled:-true}
       Email__SmtpHost: ${Email__SmtpHost:-}
       Email__SmtpPort: ${Email__SmtpPort:-587}
@@ -46,6 +55,28 @@ services:
       - "8080:8080"
     volumes:
       - app-data:/app/App_Data
+
+  collab-server:
+    build:
+      context: ./Helpers/collab-server
+      dockerfile: Dockerfile
+    container_name: educollab-collab-server
+    depends_on:
+      - api
+    environment:
+      COLLAB_PORT: "2567"
+      COLLAB_BIND_ADDR: "0.0.0.0"
+      COLLAB_ALLOWED_ORIGINS: ${COLLAB_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8080}
+      EDUCOLLAB_API_BASE: http://api:8080
+      SESSION_JOIN_SECRET: replace-this-with-a-long-session-join-secret-key
+      SESSION_JOIN_ISSUER: EduCollab.Api
+      SESSION_JOIN_AUDIENCE: EduCollab.CollabServer
+      EDUCOLLAB_INTERNAL_API_KEY: dev-internal-api-key-change-me
+      COLLAB_LOG_LEVEL: info
+      COLLAB_MONITOR_USER: admin
+      COLLAB_MONITOR_PASSWORD: collab-dev
+    ports:
+      - "2567:2567"
 
 volumes:
   postgres-data:

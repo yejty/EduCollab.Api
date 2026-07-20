@@ -3,19 +3,19 @@
 import 'dotenv/config'
 
 import { createServer } from 'node:http'
+import path from 'node:path'
 import express from 'express'
 import cors from 'cors'
 import { Server, matchMaker } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
 import { monitor } from '@colyseus/monitor'
+import { createEduCollabClient } from './api/educollabClient'
 import { loadConfig } from './config'
-import { openDatabase } from './db'
-import { createRestRouter } from './rest'
 import { CollabRoom } from './rooms/CollabRoom'
 
 async function main(): Promise<void> {
   const config = loadConfig()
-  openDatabase(config.dbPath)
+  const educollabClient = createEduCollabClient(config)
 
   const app = express()
   app.disable('x-powered-by')
@@ -38,16 +38,30 @@ async function main(): Promise<void> {
   })()
   app.use(corsConfig)
 
-  app.get('/', (_req, res) => {
+  app.get('/healthz', (_req, res) => {
     res.json({
-      name: 'alphacollab-collab-server',
+      name: 'educollab-collab-server',
       ok: true,
       buildTime: new Date().toISOString(),
     })
   })
 
-  const restRouter = createRestRouter(config)
-  app.use(restRouter)
+  app.get('/', (_req, res) => {
+    res.json({
+      name: 'educollab-collab-server',
+      ok: true,
+      buildTime: new Date().toISOString(),
+    })
+  })
+
+  // Local visual smoke page (join ticket → Colyseus room)
+  const smokeTestPath = path.join(__dirname, '..', 'smoke-test.html')
+  app.get('/smoke-test', (_req, res) => {
+    res.sendFile(smokeTestPath)
+  })
+  app.get('/smoke-test.html', (_req, res) => {
+    res.sendFile(smokeTestPath)
+  })
 
   // Optional Colyseus monitor at /colyseus (HTTP basic auth)
   if (config.monitorUser && config.monitorPassword) {
@@ -69,7 +83,7 @@ async function main(): Promise<void> {
   }
 
   const httpServer = createServer(app)
-  CollabRoom.configure({ config })
+  CollabRoom.configure({ config, educollabClient })
 
   // `ws` defaults `maxPayload` to 100 MB. Any inbound WebSocket frame larger
   // than this triggers an unprefixed "Max payload size exceeded" error and
@@ -84,8 +98,6 @@ async function main(): Promise<void> {
     }),
   })
 
-  // Surface unhandled errors with a prefix so we don't see bare
-  // `Max payload size exceeded` lines without context.
   process.on('uncaughtException', (err) => {
     console.error('[collab-server] uncaughtException:', err)
   })
@@ -94,7 +106,6 @@ async function main(): Promise<void> {
   })
 
   // The room name is "collab"; clients pass {sessionId} so each session gets its own room.
-  // We use filterBy + matchmaker.joinOrCreate from the REST layer to ensure unique rooms per session.
   gameServer.define('collab', CollabRoom).filterBy(['sessionId'])
 
   await gameServer.listen(config.port, config.bindAddr)

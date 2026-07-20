@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EduCollab Colyseus smoke test</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3d8bfd;
+      --ok: #3dd68c;
+      --err: #ff6b6b;
+      --border: #2a3548;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2a44, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+    p.lead { color: var(--muted); margin: 0 0 1.5rem; }
+    .grid { display: grid; gap: 1rem; max-width: 920px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input, textarea {
+      width: 100%;
+      background: #0d121a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.75rem;
+      font: inherit;
+    }
+    textarea { min-height: 72px; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary { background: #2b364a; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #log {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      max-height: 320px;
+      overflow: auto;
+      margin: 0;
+    }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; background: var(--muted); }
+    .dot.ok { background: var(--ok); }
+    .dot.err { background: var(--err); }
+    .status { color: var(--muted); font-size: 0.9rem; }
+    .hint { font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
+    code { color: #9ec1ff; }
+    a { color: #9ec1ff; }
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <div>
+      <h1>EduCollab ↔ Colyseus smoke test</h1>
+      <p class="lead">Paste a join ticket from the API, connect to the room, and watch Colyseus monitor.</p>
+    </div>
+
+    <div class="card hint">
+      <strong>Flow</strong><br />
+      1. Login to API → create session → <code>POST /api/workspace/sessions/{id}/join-ticket</code><br />
+      2. Paste <code>sessionId</code> + <code>joinTicket</code> below → Connect<br />
+      3. Open monitor: <a href="/colyseus">/colyseus</a> (admin / collab-dev)
+    </div>
+
+    <div class="card">
+      <label>Colyseus endpoint</label>
+      <input id="endpoint" value="ws://localhost:2567" />
+
+      <label>sessionId</label>
+      <input id="sessionId" placeholder="e.g. 12" />
+
+      <label>joinTicket</label>
+      <textarea id="joinTicket" placeholder="Paste JWT from join-ticket response"></textarea>
+
+      <label>
+        <input id="wantsSceneSync" type="checkbox" checked style="width:auto; margin-right:0.4rem" />
+        wantsSceneSync
+      </label>
+
+      <div class="row" style="margin-top:0.75rem">
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" class="secondary" disabled>Disconnect</button>
+      </div>
+      <p class="status" style="margin-top:0.75rem">
+        <span id="dot" class="dot"></span><span id="statusText">Disconnected</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <label>Log</label>
+      <pre id="log"></pre>
+    </div>
+  </div>
+
+  <!-- Match server @colyseus/core 0.17 with client 0.16.x -->
+  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.16.19/dist/colyseus.js"></script>
+  <script>
+    const logEl = document.getElementById('log')
+    const statusText = document.getElementById('statusText')
+    const dot = document.getElementById('dot')
+    const connectBtn = document.getElementById('connectBtn')
+    const disconnectBtn = document.getElementById('disconnectBtn')
+
+    let room = null
+
+    function resolveClientCtor() {
+      const root = globalThis.Colyseus
+      if (!root) return null
+      if (typeof root.Client === 'function') return root.Client
+      if (root.default && typeof root.default.Client === 'function') return root.default.Client
+      if (typeof root === 'function') return root
+      return null
+    }
+
+    function log(msg, obj) {
+      const line = obj === undefined
+        ? `[${new Date().toLocaleTimeString()}] ${msg}`
+        : `[${new Date().toLocaleTimeString()}] ${msg} ${JSON.stringify(obj, null, 2)}`
+      logEl.textContent = line + '\n' + logEl.textContent
+    }
+
+    function setStatus(text, ok) {
+      statusText.textContent = text
+      dot.className = 'dot' + (ok === true ? ' ok' : ok === false ? ' err' : '')
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      const endpoint = document.getElementById('endpoint').value.trim()
+      const sessionId = document.getElementById('sessionId').value.trim()
+      const joinTicket = document.getElementById('joinTicket').value.trim()
+      const wantsSceneSync = document.getElementById('wantsSceneSync').checked
+
+      if (!sessionId || !joinTicket) {
+        setStatus('Missing sessionId or joinTicket', false)
+        return
+      }
+
+      const ClientCtor = resolveClientCtor()
+      if (!ClientCtor) {
+        setStatus('Colyseus SDK failed to load', false)
+        log('Colyseus global missing/invalid', {
+          hasColyseus: !!globalThis.Colyseus,
+          keys: globalThis.Colyseus ? Object.keys(globalThis.Colyseus) : [],
+        })
+        return
+      }
+
+      try {
+        connectBtn.disabled = true
+        setStatus('Connecting…')
+        log('Connecting', { endpoint, sessionId, wantsSceneSync })
+
+        const client = new ClientCtor(endpoint)
+        room = await client.joinOrCreate('collab', {
+          sessionId,
+          joinTicket,
+          wantsSceneSync,
+        })
+
+        disconnectBtn.disabled = false
+        setStatus(`Connected (room ${room.roomId})`, true)
+        log('Joined room', {
+          roomId: room.roomId,
+          sessionId: room.sessionId,
+        })
+
+        room.onStateChange((state) => {
+          log('state', {
+            sessionId: state.sessionId,
+            name: state.name,
+            assetKind: state.assetKind,
+            assetId: state.assetId,
+            participants: state.participants?.size,
+          })
+        })
+
+        room.onError((code, message) => {
+          setStatus(`Error ${code}: ${message}`, false)
+          log('onError', { code, message })
+        })
+
+        room.onLeave((code) => {
+          setStatus(`Left (code ${code})`, false)
+          log('onLeave', { code })
+          connectBtn.disabled = false
+          disconnectBtn.disabled = true
+          room = null
+        })
+      } catch (err) {
+        setStatus(err?.message || String(err), false)
+        log('join failed', { message: err?.message || String(err) })
+        connectBtn.disabled = false
+      }
+    })
+
+    disconnectBtn.addEventListener('click', async () => {
+      if (room) {
+        await room.leave()
+        room = null
+      }
+      connectBtn.disabled = false
+      disconnectBtn.disabled = true
+      setStatus('Disconnected')
+    })
+  </script>
+</body>
+</html>
