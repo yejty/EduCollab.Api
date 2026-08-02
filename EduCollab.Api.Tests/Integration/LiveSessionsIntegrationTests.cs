@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
+using EduCollab.Application.Models;
 using EduCollab.Contracts.Requests.Scenes;
 using EduCollab.Contracts.Requests.Sessions;
+using EduCollab.Contracts.Requests.Users;
+using EduCollab.Contracts.Requests.Workspaces;
 using EduCollab.Contracts.Responses.Scenes;
 using EduCollab.Contracts.Responses.Sessions;
 
@@ -114,6 +117,84 @@ public sealed class LiveSessionsIntegrationTests
         endResponse.EnsureSuccessStatusCode();
         var ended = await endResponse.ReadAsJsonAsync<LiveSessionResponse>();
         Assert.Equal("Ended", ended.Status);
+    }
+
+    [Fact]
+    public async Task ViewerWithoutCreateSessions_CannotCreate_ButCanListAndJoinSharedSession()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var hostClient = factory.CreateClient();
+        using var viewerClient = factory.CreateClient();
+
+        var hostEmail = $"host-{Guid.NewGuid():N}@example.com";
+        var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
+        const string password = "Host123!";
+
+        var hostTokens = await hostClient.RegisterAndConfirmAsync(factory, "Host User", hostEmail, password);
+        hostClient.SetBearerToken(hostTokens.AccessToken);
+        await hostClient.CreateApprovedWorkspaceAsync(factory, hostEmail, "Create Sessions Gate");
+
+        var invitationGroup = await hostClient.CreateGroupAsync();
+        factory.EmailSender.Clear();
+        var inviteResponse = await hostClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = viewerEmail,
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Viewer),
+        });
+        inviteResponse.EnsureSuccessStatusCode();
+
+        var invitationToken = factory.GetInvitationToken(viewerEmail);
+        var acceptResponse = await viewerClient.PostAsJsonAsync(
+            $"/api/workspace-invitations/{invitationToken}/accept",
+            new RegisterUserRequest
+            {
+                FullName = "Viewer User",
+                Email = viewerEmail,
+                Password = password,
+            });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var viewerTokens = await viewerClient.LoginAsync(viewerEmail, password);
+        viewerClient.SetBearerToken(viewerTokens.AccessToken);
+
+        var viewerMeResponse = await viewerClient.GetAsync("/api/users/me");
+        viewerMeResponse.EnsureSuccessStatusCode();
+        var viewer = await viewerMeResponse.ReadAsJsonAsync<EduCollab.Contracts.Responses.Users.UserResponse>();
+
+        var createSceneResponse = await hostClient.PostAsJsonAsync("/api/workspace/scenes", new CreateSceneRequest
+        {
+            Name = "Shared Lab",
+            JsonContent = JsonNode.Parse("""{ "objects": [] }"""),
+        });
+        createSceneResponse.EnsureSuccessStatusCode();
+        var scene = await createSceneResponse.ReadAsJsonAsync<SceneResponse>();
+
+        var deniedCreate = await viewerClient.PostAsJsonAsync("/api/workspace/sessions", new CreateLiveSessionRequest
+        {
+            Name = "Viewer should not create",
+            SceneId = checked((int)scene.Id),
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, deniedCreate.StatusCode);
+
+        var createSessionResponse = await hostClient.PostAsJsonAsync("/api/workspace/sessions", new CreateLiveSessionRequest
+        {
+            Name = "Shared with viewer",
+            SceneId = checked((int)scene.Id),
+            UserIds = [checked((int)viewer.Id)],
+        });
+        createSessionResponse.EnsureSuccessStatusCode();
+        var session = await createSessionResponse.ReadAsJsonAsync<LiveSessionResponse>();
+
+        var listResponse = await viewerClient.GetAsync("/api/workspace/sessions?sharedWith=me");
+        listResponse.EnsureSuccessStatusCode();
+        var listed = await listResponse.ReadAsJsonAsync<LiveSessionsResponse>();
+        Assert.Contains(listed.Sessions, s => s.Id == session.Id);
+
+        var joinTicketResponse = await viewerClient.PostAsync(
+            $"/api/workspace/sessions/{session.Id}/join-ticket",
+            null);
+        joinTicketResponse.EnsureSuccessStatusCode();
     }
 
     [Fact]

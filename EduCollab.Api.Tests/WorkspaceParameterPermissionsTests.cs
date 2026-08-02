@@ -236,6 +236,22 @@ public sealed class WorkspaceParameterPermissionsTests
         Assert.False(WorkspaceParameterPermissions.HasParameter(addOnly, "loadAssets"));
     }
 
+    [Theory]
+    [InlineData(WorkspaceRole.Owner, true)]
+    [InlineData(WorkspaceRole.Manager, true)]
+    [InlineData(WorkspaceRole.Creator, true)]
+    [InlineData(WorkspaceRole.Viewer, false)]
+    public void CanCreateSessions_MatchesRoleTemplate(WorkspaceRole role, bool expected)
+    {
+        var member = new WorkspaceMember
+        {
+            Role = role,
+            Parameters = WorkspacePermissionParameters.GetParameterKeysForRole(role),
+        };
+
+        Assert.Equal(expected, WorkspaceParameterPermissions.CanCreateSessions(member));
+    }
+
     [Fact]
     public void AddScenes_ImplicitlyGrantsLoadScenesPermission()
     {

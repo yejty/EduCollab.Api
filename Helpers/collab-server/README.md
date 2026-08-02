@@ -124,8 +124,42 @@ curl http://localhost:2567/healthz
 
 ## Docker
 
+### Local development
+
+Joins the existing EduCollab API Docker network (`educollab-collab-server` on port `2567`):
+
 ```sh
 docker compose up --build
+```
+
+### Full split deploy (API host + collab host)
+
+Hetzner files use the `*.hetzner.*` naming. Root `docker-compose.hetzner.yml` runs **postgres + api only**. Collab is this folder’s Hetzner compose.
+
+**1. API host** (repo root):
+
+```sh
+cp .env.hetzner.example .env.hetzner
+# Edit: Jwt__SecretKey, SessionJoin__*, InternalApi__ApiKey,
+#       SessionJoin__ColyseusEndpoint=wss://<collab-host-or-proxy>
+docker compose -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+```
+
+**2. Collab host** (this directory):
+
+```sh
+cp .env.hetzner.example .env.hetzner
+# Edit: EDUCOLLAB_API_BASE, COLLAB_ALLOWED_ORIGINS,
+#       SESSION_JOIN_SECRET + EDUCOLLAB_INTERNAL_API_KEY (same as API .env.hetzner)
+docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+```
+
+Publishes `educollab-collab-server-v2` on host port `2568` by default (does not replace an existing `:2567` collab). Prefer a reverse proxy so clients use `wss://collab…` without the port.
+
+Stop only the v2 instance:
+
+```sh
+docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml down
 ```
 
 The server is **stateless** (no SQLite volume). Room state is in-memory only.

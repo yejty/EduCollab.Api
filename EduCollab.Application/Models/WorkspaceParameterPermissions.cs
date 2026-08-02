@@ -44,6 +44,9 @@ namespace EduCollab.Application.Models
         public static bool CanCreateFlows(WorkspaceMember member) =>
             HasParameter(member, "addFlows");
 
+        public static bool CanCreateSessions(WorkspaceMember member) =>
+            HasParameter(member, "createSessions");
+
         public static bool CanLoadAssets(WorkspaceMember member) =>
             HasParameter(member, "loadAssets") || HasParameter(member, "addAssets");
 

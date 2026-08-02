@@ -1,0 +1,49 @@
+# Hetzner collab instance (*.hetzner.*). Does NOT replace a local :2567 collab.
+#
+# Deploy (from this directory on the collab host):
+#   cp .env.hetzner.example .env.hetzner
+#   docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+#
+# Tear down only this instance:
+#   docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml down
+#
+# On the API host (.env.hetzner):
+#   SessionJoin__ColyseusEndpoint=wss://<your-host-or-proxy>:2568
+
+name: educollab-collab-v2
+
+services:
+  collab-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: educollab-collab-server-v2
+    restart: unless-stopped
+    ports:
+      # Host 2568 keeps existing collab on 2567 untouched
+      - "${COLLAB_HOST_PORT:-2568}:2567"
+    environment:
+      COLLAB_PORT: "2567"
+      COLLAB_BIND_ADDR: "0.0.0.0"
+      COLLAB_ALLOWED_ORIGINS: ${COLLAB_ALLOWED_ORIGINS}
+      # Public URL of the API on the other server (HTTPS, no trailing slash)
+      EDUCOLLAB_API_BASE: ${EDUCOLLAB_API_BASE}
+      SESSION_JOIN_SECRET: ${SESSION_JOIN_SECRET}
+      SESSION_JOIN_ISSUER: ${SESSION_JOIN_ISSUER:-EduCollab.Api}
+      SESSION_JOIN_AUDIENCE: ${SESSION_JOIN_AUDIENCE:-EduCollab.CollabServer}
+      EDUCOLLAB_INTERNAL_API_KEY: ${EDUCOLLAB_INTERNAL_API_KEY}
+      COLLAB_LOG_LEVEL: ${COLLAB_LOG_LEVEL:-info}
+      COLLAB_MONITOR_USER: ${COLLAB_MONITOR_USER:-}
+      COLLAB_MONITOR_PASSWORD: ${COLLAB_MONITOR_PASSWORD:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:2567/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

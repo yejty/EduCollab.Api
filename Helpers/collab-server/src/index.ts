@@ -21,6 +21,9 @@ async function main(): Promise<void> {
   app.disable('x-powered-by')
   app.use(express.json({ limit: '1mb' }))
 
+  // Deny unknown origins with `callback(null, false)` — never throw.
+  // Throwing makes Express return 500 HTML, which breaks the Colyseus monitor
+  // (module scripts send Origin: http://localhost:2567 for /colyseus assets).
   const corsConfig = (() => {
     if (config.allowedOrigins.includes('*')) {
       return cors({ origin: true, credentials: false })
@@ -31,7 +34,7 @@ async function main(): Promise<void> {
         if (config.allowedOrigins.includes(origin)) {
           return callback(null, true)
         }
-        callback(new Error(`Origin ${origin} not allowed`))
+        callback(null, false)
       },
       credentials: false,
     })

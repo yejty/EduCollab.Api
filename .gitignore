@@ -48,5 +48,5 @@ mono_crash.*.blob
 .env
 .env.*
 !.env.example
-!.env.production.example
+!.env.hetzner.example
 TestResults/

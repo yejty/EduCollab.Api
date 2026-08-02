@@ -1,0 +1,55 @@
+1. POST /api/workspace/sessions
+      → sessionId, guestLinkUrl (if allowGuestLink), status=Pending
+
+2. GET  /api/workspace/sessions/{id}/bootstrap   (optional if editor already has content)
+      → scenes[].contentUrl, assets[].contentUrl, colyseusEndpoint
+
+3. GET  scenes/assets contentUrls (only if you need to load/download)
+      → /api/workspace/session-scenes/content?...
+      → /api/workspace/session-assets/content?...
+
+4. POST /api/workspace/sessions/{id}/join-ticket
+      → joinTicket JWT
+
+5. Colyseus joinOrCreate('collab', { sessionId, joinTicket, wantsSceneSync })
+      → room-started webhook → status=Active
+
+6. (later) POST /api/workspace/sessions/{id}/end   // host only
+      → status=Ended
+
+
+Shared user (join)
+1. GET  /api/workspace/sessions
+   or GET /api/workspace/sessions/{id}
+      → find session shared with you
+
+2. GET  /api/workspace/sessions/{id}/bootstrap
+      → contentUrls + colyseusEndpoint
+
+3. GET  session-scenes / session-assets contentUrls
+      → download scene JSON / asset ZIPs as needed
+
+4. POST /api/workspace/sessions/{id}/join-ticket
+      → joinTicket JWT
+
+5. Colyseus joinOrCreate('collab', { sessionId, joinTicket, wantsSceneSync })
+
+Guest
+1. Open guestLinkUrl  (from create response / host share)
+      → contains guestToken
+
+2. POST /api/public/sessions/join
+      { guestToken, displayName }
+      → joinTicket + sessionId
+
+3. GET  /api/public/sessions/bootstrap?guestToken=...
+      → contentUrls (public)
+
+4. GET  public contentUrls
+      → /api/public/session-scenes/content?guestToken=&sceneId=
+      → /api/public/session-assets/content?guestToken=&sceneId=&assetId=
+
+5. Colyseus joinOrCreate('collab', { sessionId, joinTicket, wantsSceneSync })
+
+
+

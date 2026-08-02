@@ -458,6 +458,27 @@ namespace EduCollab.Infrastructure.Database
             await connection.ExecuteAsync(
                 "CREATE INDEX IF NOT EXISTS IX_WorkspaceCreationAdminReviewTokens_RequestId ON WorkspaceCreationAdminReviewTokens (RequestId);");
 
+            // Flows must exist before LiveSessions (FK FlowId -> Flows.Id).
+            await connection.ExecuteAsync(
+                """
+                CREATE TABLE IF NOT EXISTS Flows (
+                    Id SERIAL PRIMARY KEY,
+                    WorkspaceId INT NOT NULL REFERENCES Workspaces(Id) ON DELETE CASCADE,
+                    OwnerUserId INT NOT NULL REFERENCES Users(Id) ON DELETE RESTRICT,
+                    GroupId INT NOT NULL REFERENCES Groups(Id) ON DELETE RESTRICT,
+                    Name VARCHAR(200) NOT NULL,
+                    Description TEXT NULL,
+                    CreatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UpdatedAtUtc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                """);
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_WorkspaceId ON Flows (WorkspaceId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_GroupId ON Flows (GroupId);");
+            await connection.ExecuteAsync(
+                "CREATE INDEX IF NOT EXISTS IX_Flows_OwnerUserId ON Flows (OwnerUserId);");
+
             await connection.ExecuteAsync(
                 """
                 CREATE TABLE IF NOT EXISTS LiveSessions (

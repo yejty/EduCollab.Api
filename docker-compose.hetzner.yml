@@ -1,0 +1,73 @@
+﻿# Hetzner API host (postgres + api only — no collab).
+# Collab: Helpers/collab-server/docker-compose.hetzner.yml
+#
+#   cp .env.hetzner.example .env.hetzner
+#   docker compose -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+services:
+  postgres:
+    image: postgres:16
+    container_name: educollab-postgres
+    environment:
+      POSTGRES_DB: EduCollab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d EduCollab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: educollab-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      Database__ConnectionString: Server=postgres;Port=5432;Database=EduCollab;User Id=postgres;Password=postgres;
+      Jwt__Issuer: EduCollab.Api
+      Jwt__Audience: EduCollab.Client
+      Jwt__SecretKey: ${Jwt__SecretKey:-replace-this-with-a-long-dev-secret-key}
+      Jwt__ExpirationMinutes: 60
+      # Must match SESSION_JOIN_* / EDUCOLLAB_INTERNAL_API_KEY on the remote collab host
+      SessionJoin__SecretKey: ${SessionJoin__SecretKey:-replace-this-with-a-long-session-join-secret-key}
+      SessionJoin__Issuer: ${SessionJoin__Issuer:-EduCollab.Api}
+      SessionJoin__Audience: ${SessionJoin__Audience:-EduCollab.CollabServer}
+      SessionJoin__ExpirationMinutes: "10"
+      # Public WebSocket URL of the remote collab-server (not localhost when collab runs elsewhere)
+      SessionJoin__ColyseusEndpoint: ${SessionJoin__ColyseusEndpoint:-wss://collab.example.com}
+      SessionJoin__FrontendGuestJoinUrl: ${SessionJoin__FrontendGuestJoinUrl:-http://localhost:8080/sessions/join}
+      SessionJoin__GuestLinkExpirationHours: "168"
+      SessionJoin__AbandonedSessionIdleHours: "24"
+      InternalApi__ApiKey: ${InternalApi__ApiKey:-dev-internal-api-key-change-me}
+      Email__Enabled: ${Email__Enabled:-true}
+      Email__SmtpHost: ${Email__SmtpHost:-}
+      Email__SmtpPort: ${Email__SmtpPort:-587}
+      Email__UseSsl: ${Email__UseSsl:-true}
+      Email__UserName: ${Email__UserName:-}
+      Email__Password: ${Email__Password:-}
+      Email__FromAddress: ${Email__FromAddress:-noreply@skyform.space}
+      Email__FromDisplayName: ${Email__FromDisplayName:-SkyForm}
+      WorkspaceInvitation__FrontendAcceptUrl: ${WorkspaceInvitation__FrontendAcceptUrl:-https://skyform.space/workspace/join}
+      EmailConfirmation__FrontendConfirmUrl: ${EmailConfirmation__FrontendConfirmUrl:-https://skyform.space/auth/confirm-email}
+    ports:
+      - "8080:8080"
+    volumes:
+      - app-data:/app/App_Data
+
+  # collab-server is not in this stack â€” deploy it separately, e.g.:
+  #   Helpers/collab-server/docker-compose.hetzner.yml
+  # Keep SessionJoin / InternalApi secrets in sync with that host.
+
+volumes:
+  postgres-data:
+  app-data:
+

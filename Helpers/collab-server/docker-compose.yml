@@ -1,3 +1,8 @@
+# Local development only — joins the existing API Docker network.
+# For Hetzner (parallel to production collab), use docker-compose.hetzner.yml.
+#
+#   docker compose up --build
+
 services:
   collab-server:
     build:
@@ -10,7 +15,7 @@ services:
     environment:
       COLLAB_PORT: "2567"
       COLLAB_BIND_ADDR: "0.0.0.0"
-      COLLAB_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080"
+      COLLAB_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://localhost:2567"
       # Same Docker network as educollab-api (container DNS name)
       EDUCOLLAB_API_BASE: "http://educollab-api:8080"
       SESSION_JOIN_SECRET: "replace-this-with-a-long-session-join-secret-key"

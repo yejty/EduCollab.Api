@@ -80,7 +80,10 @@ namespace EduCollab.Application.Services.Sessions
             var trimmedName = RequireTrimmed(name, nameof(name));
             var role = NormalizeDefaultRole(defaultRole);
 
-            var (workspaceId, _) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            var (workspaceId, membership) = await RequireWorkspaceMembershipAsync(cancellationToken);
+            if (!WorkspaceParameterPermissions.CanCreateSessions(membership))
+                throw new AccessDeniedException("You do not have permission to create sessions.");
+
             var userId = RequireCurrentUserId();
 
             if (hasScene)

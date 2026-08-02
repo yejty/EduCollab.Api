@@ -78,7 +78,7 @@
   <div class="grid">
     <div>
       <h1>EduCollab ↔ Colyseus smoke test</h1>
-      <p class="lead">Paste a join ticket from the API, connect to the room, and watch Colyseus monitor.</p>
+      <p class="lead">Paste a join ticket from the API, connect with <code>@colyseus/sdk@0.17</code>, and watch the monitor.</p>
     </div>
 
     <div class="card hint">
@@ -118,8 +118,8 @@
     </div>
   </div>
 
-  <!-- Match server @colyseus/core 0.17 with client 0.16.x -->
-  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.16.19/dist/colyseus.js"></script>
+  <!-- Must match server @colyseus/core 0.17 + @colyseus/schema 4.x (colyseus.js 0.16 uses schema 3 and breaks join) -->
+  <script src="https://cdn.jsdelivr.net/npm/@colyseus/sdk@0.17.35/dist/colyseus.js"></script>
   <script>
     const logEl = document.getElementById('log')
     const statusText = document.getElementById('statusText')

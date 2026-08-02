@@ -52,6 +52,8 @@ export function loadConfig(): CollabServerConfig {
     allowedOrigins: readList('COLLAB_ALLOWED_ORIGINS', [
       'http://localhost:5173',
       'http://localhost:3000',
+      // Same-origin monitor UI at /colyseus (module scripts send this Origin)
+      'http://localhost:2567',
     ]),
     educollabApiBase: requireEnv('EDUCOLLAB_API_BASE').replace(/\/+$/, ''),
     sessionJoinSecret: requireEnv('SESSION_JOIN_SECRET'),
