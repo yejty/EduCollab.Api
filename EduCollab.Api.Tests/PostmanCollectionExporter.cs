@@ -279,7 +279,7 @@ public static class PostmanCollectionExporter
                     ["script"] = new JsonObject
                     {
                         ["type"] = "text/javascript",
-                        ["exec"] = new JsonArray(SaveTokensTestScript.Split('\n').Select(static line => (JsonNode)line).ToArray()),
+                        ["exec"] = new JsonArray(SplitLines(SaveTokensTestScript).Select(static line => (JsonNode)line).ToArray()),
                     },
                 },
             };
@@ -489,7 +489,9 @@ public static class PostmanCollectionExporter
     private static string BuildExampleFromSchema(JsonNode? schemaNode, JsonObject? components)
     {
         var exampleNode = BuildExampleNode(schemaNode, components, []);
-        return exampleNode?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "{}";
+        return exampleNode is null
+            ? "{}"
+            : NormalizeNewLines(exampleNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static JsonNode? BuildExampleNode(JsonNode? schemaNode, JsonObject? components, HashSet<string> visitedRefs)
@@ -591,6 +593,12 @@ public static class PostmanCollectionExporter
             _ => JsonValue.Create(string.Empty),
         };
     }
+
+    private static string[] SplitLines(string value) =>
+        NormalizeNewLines(value).Split('\n');
+
+    private static string NormalizeNewLines(string value) =>
+        value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
     private static async Task WriteJsonAsync(string outputPath, JsonObject document, CancellationToken cancellationToken)
     {

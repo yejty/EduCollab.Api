@@ -149,7 +149,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022reason\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022reason\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -505,7 +505,7 @@
             "description": "**Workspace parameters:** \u0060addAssets\u0060 (Add assets).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the asset.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022groupIds\u0022: [\r\n    1\r\n  ]\r\n}",
+              "raw": "{\n  \u0022groupIds\u0022: [\n    1\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -552,7 +552,7 @@
             "description": "**Workspace parameters:** \u0060addAssets\u0060 (Add assets).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the asset.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022assetId\u0022: 1,\r\n  \u0022groupId\u0022: 1\r\n}",
+              "raw": "{\n  \u0022assetId\u0022: 1,\n  \u0022groupId\u0022: 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -830,7 +830,7 @@
             "description": "**Workspace parameters:** \u0060addAssets\u0060 (Add assets).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the asset.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022assetType\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022,\n  \u0022assetType\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1026,7 +1026,7 @@
             "description": "**Workspace parameters:** \u0060addFlows\u0060 (Add flows).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the flow.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022groups\u0022: [\r\n    {\r\n      \u0022groupId\u0022: 1,\r\n      \u0022includeAssets\u0022: true\r\n    }\r\n  ]\r\n}",
+              "raw": "{\n  \u0022groups\u0022: [\n    {\n      \u0022groupId\u0022: 1,\n      \u0022includeAssets\u0022: true\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1073,7 +1073,7 @@
             "description": "**Workspace parameters:** \u0060addFlows\u0060 (Add flows).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the flow.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022flowId\u0022: 1,\r\n  \u0022groupId\u0022: 1,\r\n  \u0022includeAssets\u0022: true\r\n}",
+              "raw": "{\n  \u0022flowId\u0022: 1,\n  \u0022groupId\u0022: 1,\n  \u0022includeAssets\u0022: true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1233,7 +1233,7 @@
             "description": "**Workspace parameters:** \u0060addFlows\u0060 (Add flows).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022groupIds\u0022: [\r\n    1\r\n  ],\r\n  \u0022sceneIds\u0022: [\r\n    1\r\n  ]\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022,\n  \u0022groupIds\u0022: [\n    1\n  ],\n  \u0022sceneIds\u0022: [\n    1\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1411,7 +1411,7 @@
             "description": "**Workspace parameters:** \u0060addFlows\u0060 (Add flows).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the flow.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022sceneIds\u0022: [\r\n    1\r\n  ]\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022,\n  \u0022sceneIds\u0022: [\n    1\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1465,7 +1465,7 @@
             "description": "**Workspace parameters:** \u0060addGroups\u0060 (Add groups).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** editWorkspace also allows managing group members. Caller must be a direct member of the group unless they have editWorkspace.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022userId\u0022: 1\r\n}",
+              "raw": "{\n  \u0022userId\u0022: 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1572,7 +1572,7 @@
             "description": "**Workspace parameters:** \u0060addGroups\u0060 (Add groups).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2043,7 +2043,7 @@
             "description": "**Workspace parameters:** \u0060addGroups\u0060 (Add groups).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the group.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022parentGroupId\u0022: 1\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022,\n  \u0022parentGroupId\u0022: 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2297,7 +2297,7 @@
             "description": "Returns a short-lived Colyseus join ticket. Guests connect with\r\n\u0060joinOrCreate(\u0027collab\u0027, { sessionId, joinTicket })\u0060.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022guestToken\u0022: \u0022string\u0022,\r\n  \u0022displayName\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022guestToken\u0022: \u0022string\u0022,\n  \u0022displayName\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2551,7 +2551,7 @@
             "description": "**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the scene.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022groups\u0022: [\r\n    {\r\n      \u0022groupId\u0022: 1,\r\n      \u0022includeAssets\u0022: true\r\n    }\r\n  ]\r\n}",
+              "raw": "{\n  \u0022groups\u0022: [\n    {\n      \u0022groupId\u0022: 1,\n      \u0022includeAssets\u0022: true\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2598,7 +2598,7 @@
             "description": "**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires manage access to the scene.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022sceneId\u0022: 1,\r\n  \u0022groupId\u0022: 1,\r\n  \u0022includeAssets\u0022: true\r\n}",
+              "raw": "{\n  \u0022sceneId\u0022: 1,\n  \u0022groupId\u0022: 1,\n  \u0022includeAssets\u0022: true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2650,7 +2650,7 @@
             "description": "Send \u0060jsonContent\u0060 inline in the JSON body. Scene objects reference workspace assets via an \u0060assetId\u0060\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a \u0060.json\u0060 file instead.\n\n**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022jsonContent\u0022: {\r\n    \u0022objects\u0022: []\r\n  }\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022jsonContent\u0022: {\n    \u0022objects\u0022: []\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2828,7 +2828,7 @@
             "description": "**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.\n**Notes:** Also requires ownership, editWorkspace, or addGroups-based manage access to the scene.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022,\r\n  \u0022jsonContent\u0022: {\r\n    \u0022objects\u0022: []\r\n  }\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022,\n  \u0022jsonContent\u0022: {\n    \u0022objects\u0022: []\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3074,7 +3074,7 @@
             "description": "Set \u0060allowGuestLink\u0060 to mint an anonymous share URL returned as \u0060guestLinkUrl\u0060.\r\nGuests redeem it via \u0060POST /api/public/sessions/join\u0060.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3276,7 +3276,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022password\u0022: \u0022{{password}}\u0022,\r\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\r\n}",
+              "raw": "{\n  \u0022password\u0022: \u0022{{password}}\u0022,\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3322,7 +3322,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022token\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022token\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3336,14 +3336,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "    const body = pm.response.json();\r",
-                  "    if (body.accessToken) {\r",
-                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
-                  "    }\r",
-                  "    if (body.refreshToken) {\r",
-                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
-                  "    }\r",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.accessToken) {",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);",
+                  "    }",
+                  "    if (body.refreshToken) {",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);",
+                  "    }",
                   "}"
                 ]
               }
@@ -3445,7 +3445,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022code\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022code\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3459,14 +3459,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "    const body = pm.response.json();\r",
-                  "    if (body.accessToken) {\r",
-                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
-                  "    }\r",
-                  "    if (body.refreshToken) {\r",
-                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
-                  "    }\r",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.accessToken) {",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);",
+                  "    }",
+                  "    if (body.refreshToken) {",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);",
+                  "    }",
                   "}"
                 ]
               }
@@ -3500,7 +3500,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022password\u0022: \u0022{{password}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3514,14 +3514,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "    const body = pm.response.json();\r",
-                  "    if (body.accessToken) {\r",
-                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
-                  "    }\r",
-                  "    if (body.refreshToken) {\r",
-                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
-                  "    }\r",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.accessToken) {",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);",
+                  "    }",
+                  "    if (body.refreshToken) {",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);",
+                  "    }",
                   "}"
                 ]
               }
@@ -3555,7 +3555,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022refreshToken\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022refreshToken\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3569,14 +3569,14 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "    const body = pm.response.json();\r",
-                  "    if (body.accessToken) {\r",
-                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);\r",
-                  "    }\r",
-                  "    if (body.refreshToken) {\r",
-                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);\r",
-                  "    }\r",
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.accessToken) {",
+                  "        pm.collectionVariables.set(\u0027accessToken\u0027, body.accessToken);",
+                  "    }",
+                  "    if (body.refreshToken) {",
+                  "        pm.collectionVariables.set(\u0027refreshToken\u0027, body.refreshToken);",
+                  "    }",
                   "}"
                 ]
               }
@@ -3610,7 +3610,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022fullName\u0022: \u0022string\u0022,\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
+              "raw": "{\n  \u0022fullName\u0022: \u0022string\u0022,\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022password\u0022: \u0022{{password}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3648,7 +3648,7 @@
             "description": "The request body is stored as opaque JSON without schema binding or validation.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022objects\u0022: []\r\n}",
+              "raw": "{\n  \u0022objects\u0022: []\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3695,7 +3695,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3731,7 +3731,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022token\u0022: \u0022string\u0022,\r\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022token\u0022: \u0022string\u0022,\n  \u0022newPassword\u0022: \u0022{{password}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3767,7 +3767,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3905,7 +3905,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3942,7 +3942,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022workspaceId\u0022: 1\r\n}",
+              "raw": "{\n  \u0022workspaceId\u0022: 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3988,7 +3988,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022fullName\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022fullName\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4093,7 +4093,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022approvalToken\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022approvalToken\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4140,7 +4140,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022fullName\u0022: \u0022string\u0022,\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022password\u0022: \u0022{{password}}\u0022\r\n}",
+              "raw": "{\n  \u0022fullName\u0022: \u0022string\u0022,\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022password\u0022: \u0022{{password}}\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4280,7 +4280,7 @@
             "description": "**Workspace parameters:** \u0060inviteUsers\u0060 (Invite users).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022email\u0022: \u0022{{email}}\u0022,\r\n  \u0022groupId\u0022: 1,\r\n  \u0022parameters\u0022: [\r\n    \u0022string\u0022\r\n  ]\r\n}",
+              "raw": "{\n  \u0022email\u0022: \u0022{{email}}\u0022,\n  \u0022groupId\u0022: 1,\n  \u0022parameters\u0022: [\n    \u0022string\u0022\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4583,7 +4583,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4631,7 +4631,7 @@
             "description": "**Workspace parameters:** \u0060inviteUsers\u0060 (Invite users).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022parameters\u0022: [\r\n    \u0022string\u0022\r\n  ]\r\n}",
+              "raw": "{\n  \u0022parameters\u0022: [\n    \u0022string\u0022\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -4677,7 +4677,7 @@
             "description": "**Workspace parameters:** \u0060editWorkspace\u0060 (Edit workspace).",
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \u0022name\u0022: \u0022string\u0022,\r\n  \u0022description\u0022: \u0022string\u0022\r\n}",
+              "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022description\u0022: \u0022string\u0022\n}",
               "options": {
                 "raw": {
                   "language": "json"
