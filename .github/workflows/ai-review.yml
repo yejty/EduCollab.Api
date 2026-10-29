@@ -1,0 +1,146 @@
+name: AI review
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Review diff
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Review diff with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GEMINI_API_KEY:-}" ]; then
+            echo "::error::Secret GEMINI_API_KEY is missing. Add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git diff --unified=3 "$BASE_SHA" "$HEAD_SHA" > /tmp/full.diff
+
+          if [ ! -s /tmp/full.diff ]; then
+            echo "Diff is empty. Skipping review."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          diff = open("/tmp/full.diff", encoding="utf-8", errors="replace").read()
+          limit = 80_000
+          truncated = len(diff) > limit
+          if truncated:
+              diff = diff[:limit]
+
+          system = (
+              "Si reviewer pull requestu. Vráť iba JSON bez markdownu. "
+              "severity môže byť len high, medium alebo low. "
+              "high je chyba správania, ktorá by mala zastaviť merge. "
+              "medium je reálne riziko. low je údržba. "
+              "Nevymýšľaj problémy. Keď je diff v poriadku, findings nechaj prázdne. "
+              "Texty píš po slovensky."
+          )
+          user = (
+              "Posúď tento git diff.\n"
+              + ("Diff je skrátený na 80 kB.\n" if truncated else "")
+              + "JSON tvar: "
+              + '{"summary":"","findings":[{"severity":"high","file":"","line":1,"title":"","detail":""}]}\n\n'
+              + diff
+          )
+          body = {
+              "model": "gemini-3.8-flash",
+              "temperature": 0.2,
+              "messages": [
+                  {"role": "system", "content": system},
+                  {"role": "user", "content": user},
+              ],
+          }
+          request = urllib.request.Request(
+              "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+              data=json.dumps(body).encode(),
+              headers={
+                  "Authorization": "Bearer " + os.environ["GEMINI_API_KEY"],
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=120) as response:
+                  payload = json.load(response)
+          except urllib.error.HTTPError as error:
+              detail = error.read().decode("utf-8", errors="replace")
+              raise SystemExit(f"Gemini request failed: {error.code} {detail}") from error
+
+          text = payload["choices"][0]["message"]["content"].strip()
+          if text.startswith("```"):
+              text = text.split("\n", 1)[1]
+              if text.rstrip().endswith("```"):
+                  text = text.rstrip()[:-3]
+          review = json.loads(text)
+          findings = review.get("findings") or []
+          allowed = {"high", "medium", "low"}
+          for finding in findings:
+              severity = str(finding.get("severity", "")).lower()
+              if severity not in allowed:
+                  finding["severity"] = "low"
+              else:
+                  finding["severity"] = severity
+
+          with open("review.json", "w", encoding="utf-8") as handle:
+              json.dump({"summary": review.get("summary") or "", "findings": findings}, handle)
+
+          lines = ["## AI review", "", review.get("summary") or "Bez súhrnu.", ""]
+          if not findings:
+              lines.append("Žiadne nálezy.")
+          else:
+              labels = {"high": "High", "medium": "Medium", "low": "Low"}
+              for finding in findings:
+                  where = finding.get("file") or "?"
+                  if finding.get("line"):
+                      where += f":{finding['line']}"
+                  lines.append(f"### {labels[finding['severity']]}: {finding.get('title') or 'Nález'}")
+                  lines.append("")
+                  lines.append(f"`{where}`")
+                  lines.append("")
+                  lines.append(finding.get("detail") or "")
+                  lines.append("")
+          if truncated:
+              lines.append("Diff bol skrátený na 80 kB.")
+          with open("comment.md", "w", encoding="utf-8") as handle:
+              handle.write("\n".join(lines).strip() + "\n")
+          PY
+
+          jq -e . review.json >/dev/null
+          high="$(jq '[.findings[] | select(.severity == "high")] | length' review.json)"
+          echo "High findings: $high"
+          jq . review.json
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file comment.md
+
+          if [ "$high" -gt 0 ]; then
+            echo "::error::Review found $high high-severity finding(s)."
+            exit 1
+          fi
