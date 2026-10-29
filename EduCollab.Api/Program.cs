@@ -17,15 +17,13 @@ var app = builder.Build();
 app.UseMiddleware<RequestIdMiddleware>();
 app.UseExceptionHandler();
 
-//if (app.Environment.IsDevelopment())
-if (!app.Environment.IsEnvironment("Testing"))
+// Swagger stays on in Testing so contract tests can read /swagger/v1/swagger.json.
+// HTTPS redirection and database startup stay off in that environment.
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint($"/swagger/{OpenApiContractDescriptions.DocumentName}/swagger.json", "EduCollab API v1");
-    });
-}
+    options.SwaggerEndpoint($"/swagger/{OpenApiContractDescriptions.DocumentName}/swagger.json", "EduCollab API v1");
+});
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
