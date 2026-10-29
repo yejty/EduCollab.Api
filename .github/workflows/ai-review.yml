@@ -57,18 +57,18 @@ jobs:
               diff = diff[:limit]
 
           system = (
-              "Si reviewer pull requestu. Vráť iba JSON bez markdownu. "
-              "severity môže byť len high, medium alebo low. "
-              "high je chyba správania, ktorá by mala zastaviť merge. "
-              "medium je reálne riziko. low je údržba. "
-              "Nevymýšľaj problémy. Neznalosť verzie akcie alebo modelu nie je high. "
-              "Keď je diff v poriadku, findings nechaj prázdne. "
-              "Texty píš po slovensky."
+              "You review a pull request. Return JSON only, with no markdown. "
+              "severity must be high, medium, or low. "
+              "high is a behavior bug that should block the merge. "
+              "medium is a real risk. low is maintenance. "
+              "Do not invent problems. Do not judge whether a GitHub Action version or model name exists. "
+              "When the diff is fine, leave findings empty. "
+              "Write every summary, title, and detail in English."
           )
           user = (
-              "Posúď tento git diff.\n"
-              + ("Diff je skrátený na 80 kB.\n" if truncated else "")
-              + "JSON tvar: "
+              "Review this git diff.\n"
+              + ("The diff is truncated to 80 KB.\n" if truncated else "")
+              + "JSON shape: "
               + '{"summary":"","findings":[{"severity":"high","file":"","line":1,"title":"","detail":""}]}\n\n'
               + diff
           )
@@ -82,7 +82,22 @@ jobs:
                   {"role": "user", "content": user},
               ],
           }
-          payload = None
+          def parse_review(payload):
+              text = payload["choices"][0]["message"]["content"].strip()
+              if text.startswith("```"):
+                  text = text.split("\n", 1)[1]
+                  if text.rstrip().endswith("```"):
+                      text = text.rstrip()[:-3]
+              start = text.find("{")
+              end = text.rfind("}")
+              if start >= 0 and end > start:
+                  text = text[start:end + 1]
+              review = json.loads(text)
+              if not isinstance(review, dict):
+                  raise json.JSONDecodeError("Review is not an object", text, 0)
+              return review
+
+          review = None
           last_error = "Gemini request failed."
           for attempt in range(1, 4):
               request = urllib.request.Request(
@@ -97,6 +112,7 @@ jobs:
               try:
                   with urllib.request.urlopen(request, timeout=180) as response:
                       payload = json.load(response)
+                  review = parse_review(payload)
                   break
               except urllib.error.HTTPError as error:
                   detail = error.read().decode("utf-8", errors="replace")
@@ -105,19 +121,21 @@ jobs:
                       raise SystemExit(last_error) from error
               except (TimeoutError, urllib.error.URLError) as error:
                   last_error = f"Gemini request timed out on attempt {attempt}: {error}"
+              except (json.JSONDecodeError, KeyError, IndexError, TypeError) as error:
+                  last_error = f"Gemini returned invalid JSON on attempt {attempt}: {error}"
               print(last_error, flush=True)
               if attempt < 3:
                   time.sleep(5 * attempt)
-          if payload is None:
+          if review is None:
               raise SystemExit(last_error)
-
-          text = payload["choices"][0]["message"]["content"].strip()
-          if text.startswith("```"):
-              text = text.split("\n", 1)[1]
-              if text.rstrip().endswith("```"):
-                  text = text.rstrip()[:-3]
-          review = json.loads(text)
           findings = review.get("findings") or []
+          def is_false_version_claim(finding):
+              text = f"{finding.get('title', '')} {finding.get('detail', '')}".lower()
+              mentions_checkout = "checkout" in text
+              claims_missing = any(phrase in text for phrase in ("neexistuj", "does not exist", "doesn't exist", "do not exist", "not exist"))
+              return mentions_checkout and claims_missing
+
+          findings = [finding for finding in findings if not is_false_version_claim(finding)]
           allowed = {"high", "medium", "low"}
           for finding in findings:
               severity = str(finding.get("severity", "")).lower()
@@ -129,23 +147,23 @@ jobs:
           with open("review.json", "w", encoding="utf-8") as handle:
               json.dump({"summary": review.get("summary") or "", "findings": findings}, handle)
 
-          lines = ["## AI review", "", review.get("summary") or "Bez súhrnu.", ""]
+          lines = ["## AI review", "", review.get("summary") or "No summary.", ""]
           if not findings:
-              lines.append("Žiadne nálezy.")
+              lines.append("No findings.")
           else:
               labels = {"high": "High", "medium": "Medium", "low": "Low"}
               for finding in findings:
                   where = finding.get("file") or "?"
                   if finding.get("line"):
                       where += f":{finding['line']}"
-                  lines.append(f"### {labels[finding['severity']]}: {finding.get('title') or 'Nález'}")
+                  lines.append(f"### {labels[finding['severity']]}: {finding.get('title') or 'Finding'}")
                   lines.append("")
                   lines.append(f"`{where}`")
                   lines.append("")
                   lines.append(finding.get("detail") or "")
                   lines.append("")
           if truncated:
-              lines.append("Diff bol skrátený na 80 kB.")
+              lines.append("The diff was truncated to 80 KB.")
           with open("comment.md", "w", encoding="utf-8") as handle:
               handle.write("\n".join(lines).strip() + "\n")
           PY
