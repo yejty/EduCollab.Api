@@ -134,8 +134,7 @@ public sealed class WorkspacesControllerEndpointTests
         Assert.Equal(41, body.UserId);
         Assert.Equal("invitee@example.com", body.Email);
         Assert.Equal("viewer", body.Role);
-        Assert.Contains("loadScenes", body.Parameters);
-        Assert.Contains("loadFlows", body.Parameters);
+        Assert.Equal(["loadFlows"], body.Parameters);
     }
 
     [Fact]
@@ -375,7 +374,7 @@ public sealed class WorkspacesControllerEndpointTests
     }
 
     [Fact]
-    public async Task UpdateWorkspaceMember_ReturnsViewerRole_WhenOnlyLoadScenesPresetAssigned()
+    public async Task UpdateWorkspaceMember_ReturnsCustomRole_WhenLoadScenesAndLoadFlowsAreAssigned()
     {
         await using var factory = new ApiWebApplicationFactory();
         factory.WorkspaceService.UpdateCurrentWorkspaceMemberAsyncHandler = (_, member, _) => Task.FromResult<WorkspaceMember?>(new WorkspaceMember
@@ -396,7 +395,7 @@ public sealed class WorkspacesControllerEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.ReadAsJsonAsync<WorkspaceMemberResponse>();
-        Assert.Equal("viewer", body.Role);
+        Assert.Equal("custom", body.Role);
         Assert.Equal(["loadFlows", "loadScenes"], body.Parameters);
     }
 
