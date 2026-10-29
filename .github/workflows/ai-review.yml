@@ -61,7 +61,8 @@ jobs:
               "severity môže byť len high, medium alebo low. "
               "high je chyba správania, ktorá by mala zastaviť merge. "
               "medium je reálne riziko. low je údržba. "
-              "Nevymýšľaj problémy. Keď je diff v poriadku, findings nechaj prázdne. "
+              "Nevymýšľaj problémy. Neznalosť verzie akcie alebo modelu nie je high. "
+              "Keď je diff v poriadku, findings nechaj prázdne. "
               "Texty píš po slovensky."
           )
           user = (
