@@ -11,7 +11,10 @@ namespace EduCollab.Api.Swagger
             var attribute = context.MethodInfo?
                 .GetCustomAttributes(typeof(RequiresWorkspaceParameterAttribute), inherit: true)
                 .OfType<RequiresWorkspaceParameterAttribute>()
-                .FirstOrDefault();
+                .FirstOrDefault()
+                ?? context.ApiDescription.ActionDescriptor.EndpointMetadata
+                    .OfType<RequiresWorkspaceParameterAttribute>()
+                    .FirstOrDefault();
 
             if (attribute is null)
                 return;

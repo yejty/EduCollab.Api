@@ -404,7 +404,7 @@
                   "key": "assetId",
                   "value": "{{assetId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -446,13 +446,13 @@
                   "key": "assetId",
                   "value": "{{assetId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "groupId",
                   "value": "{{groupId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -498,7 +498,7 @@
                   "key": "assetId",
                   "value": "{{assetId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -577,7 +577,7 @@
       "name": "Assets",
       "item": [
         {
-          "name": "Create a new asset with required ZIP content. Omit \u0060groupIds\u0060 to keep the asset in your personal space.",
+          "name": "Create a new asset with required ZIP content.",
           "request": {
             "method": "POST",
             "header": [
@@ -602,23 +602,8 @@
               "mode": "formdata",
               "formdata": [
                 {
-                  "key": "name",
+                  "key": "request",
                   "type": "text",
-                  "value": "Example name"
-                },
-                {
-                  "key": "groupIds",
-                  "type": "text",
-                  "value": ""
-                },
-                {
-                  "key": "description",
-                  "type": "text",
-                  "value": "Optional description"
-                },
-                {
-                  "key": "file",
-                  "type": "file",
                   "value": ""
                 }
               ]
@@ -730,7 +715,7 @@
                 {
                   "key": "owner",
                   "value": "me",
-                  "description": "Optional filter. Set to \u0060me\u0060 to return only assets owned by the caller.",
+                  "description": "",
                   "disabled": true
                 },
                 {
@@ -925,7 +910,7 @@
                   "key": "flowId",
                   "value": "{{flowId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -967,13 +952,13 @@
                   "key": "flowId",
                   "value": "{{flowId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "groupId",
                   "value": "{{groupId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -1019,7 +1004,7 @@
                   "key": "flowId",
                   "value": "{{flowId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -1127,7 +1112,6 @@
                 }
               ]
             },
-            "description": "Requires the caller access token and a \u0060downloadToken\u0060 from the flow-scenes manifest.\r\nPeer-visible scenes should use \u0060GET /scenes/{sceneId}\u0060 instead.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1165,7 +1149,7 @@
                   "key": "flowId",
                   "value": "{{flowId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "sort",
@@ -1187,7 +1171,6 @@
                 }
               ]
             },
-            "description": "Peer-visible scenes have \u0060canViewDirectly=true\u0060 and should be loaded via\r\n\u0060GET /scenes/{sceneId}\u0060. Contextual scenes include a short-lived\r\n\u0060downloadToken\u0060 when the flow share has \u0060includeAssets=true\u0060.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -1206,7 +1189,7 @@
       "name": "Flows",
       "item": [
         {
-          "name": "Create a new flow. Omit \u0060groupIds\u0060 to keep the flow in your personal space.",
+          "name": "Create a new flow.",
           "request": {
             "method": "POST",
             "header": [
@@ -1311,7 +1294,7 @@
                 {
                   "key": "owner",
                   "value": "me",
-                  "description": "Optional filter. Set to \u0060me\u0060 to return only flows owned by the caller.",
+                  "description": "",
                   "disabled": true
                 },
                 {
@@ -1508,7 +1491,7 @@
                 {
                   "key": "parentId",
                   "value": "{{parentId}}",
-                  "description": "Optional parent group. Omit for root entry groups; set to drill down into subgroups.",
+                  "description": "",
                   "disabled": true
                 },
                 {
@@ -1627,7 +1610,7 @@
           }
         },
         {
-          "name": "List all accessible groups in a flat layout (pickers, search, admin views).",
+          "name": "List all accessible groups in a flat layout.",
           "request": {
             "method": "GET",
             "header": [
@@ -1682,7 +1665,7 @@
           }
         },
         {
-          "name": "List assets placed in a group (group library).",
+          "name": "List assets placed in a group.",
           "request": {
             "method": "GET",
             "header": [
@@ -1738,7 +1721,7 @@
           }
         },
         {
-          "name": "List flows placed in a group (group library).",
+          "name": "List flows placed in a group.",
           "request": {
             "method": "GET",
             "header": [
@@ -1850,7 +1833,7 @@
           }
         },
         {
-          "name": "List scenes placed in a group (group library).",
+          "name": "List scenes placed in a group.",
           "request": {
             "method": "GET",
             "header": [
@@ -2181,13 +2164,13 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "assetId",
                   "value": "{{assetId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             }
@@ -2225,7 +2208,7 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             }
@@ -2237,7 +2220,7 @@
       "name": "PublicSessions",
       "item": [
         {
-          "name": "Content bootstrap for a guest invite link (scenes \u002B asset URLs).",
+          "name": "Content bootstrap for a guest invite link.",
           "request": {
             "method": "GET",
             "header": [
@@ -2294,7 +2277,6 @@
                 "join"
               ]
             },
-            "description": "Returns a short-lived Colyseus join ticket. Guests connect with\r\n\u0060joinOrCreate(\u0027collab\u0027, { sessionId, joinTicket })\u0060.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \u0022guestToken\u0022: \u0022string\u0022,\n  \u0022displayName\u0022: \u0022string\u0022\n}",
@@ -2341,7 +2323,6 @@
                 }
               ]
             },
-            "description": "Requires the caller access token and a \u0060downloadToken\u0060 from the scene-assets manifest.\r\nPeer-visible assets should use \u0060GET /assets/{assetId}/content\u0060 instead.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2355,7 +2336,7 @@
           }
         },
         {
-          "name": "List assets referenced by a scene (JSON assetId values).",
+          "name": "List assets referenced by a scene.",
           "request": {
             "method": "GET",
             "header": [
@@ -2379,7 +2360,7 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "flowId",
@@ -2407,7 +2388,6 @@
                 }
               ]
             },
-            "description": "Peer-visible assets have \u0060canViewDirectly=true\u0060 and should be downloaded via\r\n\u0060GET /assets/{assetId}/content\u0060. Contextual assets include a short-lived\r\n\u0060downloadToken\u0060 when the scene (or flow, when \u0060flowId\u0060 is set) share has\r\n\u0060includeAssets=true\u0060. Pass \u0060flowId\u0060 when loading assets nested under a flow.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2450,7 +2430,7 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -2492,13 +2472,13 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "groupId",
                   "value": "{{groupId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -2544,7 +2524,7 @@
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -2623,7 +2603,7 @@
       "name": "Scenes",
       "item": [
         {
-          "name": "Create a new scene. Omit \u0060groupIds\u0060 to keep the scene in your personal space.",
+          "name": "Create a new scene from JSON or a multipart JSON file.",
           "request": {
             "method": "POST",
             "header": [
@@ -2647,7 +2627,7 @@
                 "scenes"
               ]
             },
-            "description": "Send \u0060jsonContent\u0060 inline in the JSON body. Scene objects reference workspace assets via an \u0060assetId\u0060\r\nproperty anywhere in the JSON tree. Use M:EduCollab.Api.Controllers.ScenesController.CreateSceneFromForm(EduCollab.Api.Requests.Scenes.CreateSceneFormRequest,System.Threading.CancellationToken) to upload a \u0060.json\u0060 file instead.\n\n**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
+            "description": "**Workspace parameters:** \u0060addScenes\u0060 (Add scenes).\n**Bypass:** \u0060editWorkspace\u0060 grants full workspace access.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \u0022name\u0022: \u0022string\u0022,\n  \u0022jsonContent\u0022: {\n    \u0022objects\u0022: []\n  }\n}",
@@ -2728,7 +2708,7 @@
                 {
                   "key": "owner",
                   "value": "me",
-                  "description": "Optional filter. Set to \u0060me\u0060 to return only scenes owned by the caller.",
+                  "description": "",
                   "disabled": true
                 },
                 {
@@ -2800,7 +2780,7 @@
           }
         },
         {
-          "name": "Update scene metadata and inline JSON content.",
+          "name": "Update scene metadata and JSON content from JSON or a multipart JSON file.",
           "request": {
             "method": "PUT",
             "header": [
@@ -2878,19 +2858,19 @@
                   "key": "sessionId",
                   "value": "{{sessionId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "assetId",
                   "value": "{{assetId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -2931,13 +2911,13 @@
                   "key": "sessionId",
                   "value": "{{sessionId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -2984,13 +2964,13 @@
                   "key": "sessionId",
                   "value": "{{sessionId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 },
                 {
                   "key": "sceneId",
                   "value": "{{sceneId}}",
                   "description": "",
-                  "disabled": true
+                  "disabled": false
                 }
               ]
             },
@@ -3012,7 +2992,7 @@
       "name": "Sessions",
       "item": [
         {
-          "name": "Content bootstrap package for a session (scenes \u002B asset manifest URLs).",
+          "name": "Content bootstrap package for a session.",
           "request": {
             "method": "GET",
             "header": [
@@ -3071,7 +3051,6 @@
                 "sessions"
               ]
             },
-            "description": "Set \u0060allowGuestLink\u0060 to mint an anonymous share URL returned as \u0060guestLinkUrl\u0060.\r\nGuests redeem it via \u0060POST /api/public/sessions/join\u0060.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \u0022name\u0022: \u0022string\u0022\n}",
@@ -3198,7 +3177,7 @@
           }
         },
         {
-          "name": "List live sessions shared with the current user (host, user share, or group share).",
+          "name": "List live sessions shared with the current user.",
           "request": {
             "method": "GET",
             "header": [
@@ -3351,7 +3330,7 @@
           ]
         },
         {
-          "name": "Delete user by user Id. The id must match the authenticated user (JWT subject).",
+          "name": "Delete user by user Id. The id must match the authenticated user.",
           "request": {
             "method": "DELETE",
             "header": [
@@ -3668,7 +3647,7 @@
           }
         },
         {
-          "name": "Resend the confirmation email for an unconfirmed account. For privacy, the same response is returned even when the email does not exist.",
+          "name": "Resend the confirmation email for an unconfirmed account.",
           "request": {
             "method": "POST",
             "header": [
@@ -3798,7 +3777,7 @@
                 "preferences"
               ]
             },
-            "description": "The backend treats this document as opaque JSON and stores it outside the database.\r\nIt is intended for web-client profile preferences only.",
+            "description": "The backend treats this document as opaque JSON and stores it outside the database.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3962,7 +3941,7 @@
           }
         },
         {
-          "name": "Update user information by user Id. The id must match the authenticated user (JWT subject).",
+          "name": "Update user information by user Id. The id must match the authenticated user.",
           "request": {
             "method": "PUT",
             "header": [
@@ -4184,7 +4163,7 @@
           }
         },
         {
-          "name": "Get one workspace member (membership projection: role, groups, etc.).\r\nRequires the \u0060seeUsersTab\u0060 parameter.",
+          "name": "Get one workspace member.",
           "request": {
             "method": "GET",
             "header": [
@@ -4253,7 +4232,7 @@
           }
         },
         {
-          "name": "Invite a user into the current workspace.\r\nRequires \u0060groupId\u0060: on accept the invitee joins that group (access includes subgroups).\r\nInviter cannot assign parameters they do not hold, or target a group they cannot access.",
+          "name": "Invite a user into the current workspace.",
           "request": {
             "method": "POST",
             "header": [
@@ -4300,7 +4279,7 @@
           }
         },
         {
-          "name": "Joins the current user to a workspace using an invitation token (existing accounts).",
+          "name": "Joins the current user to a workspace using an invitation token.",
           "request": {
             "method": "POST",
             "header": [
@@ -4334,7 +4313,7 @@
           }
         },
         {
-          "name": "List members of the current workspace.\r\nRequires the \u0060seeUsersTab\u0060 parameter.",
+          "name": "List members of the current workspace.",
           "request": {
             "method": "GET",
             "header": [
@@ -4422,7 +4401,7 @@
           }
         },
         {
-          "name": "Removes a member from the workspace, or the caller leaves (when userId is self).",
+          "name": "Removes a member from the workspace, or the caller leaves when userId is self.",
           "request": {
             "method": "DELETE",
             "header": [

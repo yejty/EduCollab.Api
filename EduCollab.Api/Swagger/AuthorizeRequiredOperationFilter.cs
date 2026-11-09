@@ -29,21 +29,28 @@ namespace EduCollab.Api.Swagger
 
         private static bool RequiresAuthorization(OperationFilterContext context)
         {
+            var metadata = context.ApiDescription.ActionDescriptor.EndpointMetadata;
+            if (metadata.OfType<IAllowAnonymous>().Any())
+                return false;
+
+            if (metadata.OfType<IAuthorizeData>().Any())
+                return true;
+
             var methodInfo = context.MethodInfo;
             if (methodInfo == null)
                 return false;
 
-            if (methodInfo.GetCustomAttributes(inherit: true).OfType<AllowAnonymousAttribute>().Any())
+            if (methodInfo.GetCustomAttributes(inherit: true).OfType<IAllowAnonymous>().Any())
                 return false;
 
-            if (methodInfo.GetCustomAttributes(inherit: true).OfType<AuthorizeAttribute>().Any())
+            if (methodInfo.GetCustomAttributes(inherit: true).OfType<IAuthorizeData>().Any())
                 return true;
 
             var controllerType = methodInfo.DeclaringType;
-            if (controllerType?.GetCustomAttributes(inherit: true).OfType<AllowAnonymousAttribute>().Any() == true)
+            if (controllerType?.GetCustomAttributes(inherit: true).OfType<IAllowAnonymous>().Any() == true)
                 return false;
 
-            return controllerType?.GetCustomAttributes(inherit: true).OfType<AuthorizeAttribute>().Any() == true;
+            return controllerType?.GetCustomAttributes(inherit: true).OfType<IAuthorizeData>().Any() == true;
         }
     }
 }

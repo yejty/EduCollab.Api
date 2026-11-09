@@ -6,7 +6,8 @@ using EduCollab.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using EduCollab.Api.Swagger;
 using EduCollab.Application.Identity;
-using Microsoft.AspNetCore.Mvc;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EduCollab.Api.Extensions
@@ -27,28 +28,16 @@ namespace EduCollab.Api.Extensions
                     ApiProblemDetailsCustomizer.Apply(context.HttpContext, context.ProblemDetails);
                 };
             });
-            services.Configure<ApiBehaviorOptions>(options =>
+            services.Configure<JsonOptions>(options =>
             {
-                options.InvalidModelStateResponseFactory = context =>
-                {
-                    var problem = ApiProblemDetailsFactory.CreateValidationProblem(
-                        context.HttpContext,
-                        context.ModelState);
-
-                    return new BadRequestObjectResult(problem)
-                    {
-                        ContentTypes = { ApiProblemDetailsFactory.ProblemJsonMediaType },
-                    };
-                };
+                options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
+            services.Configure<RouteHandlerOptions>(options =>
+            {
+                options.ThrowOnBadRequest = true;
             });
             services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>(DatabaseHealthCheck.Name);
-            services.AddControllers()
-                .AddJsonOptions(options =>
-                {
-                    options.JsonSerializerOptions.Converters.Add(
-                        new System.Text.Json.Serialization.JsonStringEnumConverter());
-                });
             services.AddEduCollabOpenApi();
             services.AddHostedService<Services.AbandonedSessionCleanupService>();
 

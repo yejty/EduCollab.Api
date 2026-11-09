@@ -1,6 +1,7 @@
 using EduCollab.Api.Config;
 using EduCollab.Api.Extensions;
 using EduCollab.Api.Middleware;
+using EduCollab.Api.MinimalApis;
 using EduCollab.Api.Swagger;
 using EduCollab.Application;
 using EduCollab.Infrastructure.Database;
@@ -33,7 +34,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapEduCollabApi();
 app.MapHealthChecks("/_health");
 
 if (!app.Environment.IsEnvironment("Testing"))

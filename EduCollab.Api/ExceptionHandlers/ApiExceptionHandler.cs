@@ -3,6 +3,7 @@ using EduCollab.Api.Problems;
 using EduCollab.Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace EduCollab.Api.ExceptionHandlers
 {
@@ -15,8 +16,24 @@ namespace EduCollab.Api.ExceptionHandlers
             Exception exception,
             CancellationToken cancellationToken)
         {
-            var (statusCode, error, description) = MapException(exception);
             var requestId = RequestIdMiddleware.GetRequestId(httpContext);
+            if (exception is BadHttpRequestException badRequest)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Handled exception while processing request {RequestId}.",
+                    requestId);
+
+                var modelState = new ModelStateDictionary();
+                modelState.AddModelError(
+                    string.Empty,
+                    string.IsNullOrWhiteSpace(badRequest.Message) ? "The request was invalid." : badRequest.Message);
+                var validationProblem = ApiProblemDetailsFactory.CreateValidationProblem(httpContext, modelState);
+                await ApiProblemDetailsWriter.WriteAsync(httpContext, validationProblem, cancellationToken);
+                return true;
+            }
+
+            var (statusCode, error, description) = MapException(exception);
 
             if (statusCode >= StatusCodes.Status500InternalServerError)
             {
