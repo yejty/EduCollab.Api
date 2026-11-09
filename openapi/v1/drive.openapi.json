@@ -1,0 +1,1019 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "EduCollab Drive API",
+    "version": "1.0",
+    "description": "Versioned contract for the Drive app. Hand-written. `scripts/export-openapi.ps1` does not generate this file, and it does not replace `openapi/v1/openapi.json`.\n\nThe field set and call behavior follow `Drive-API-contracts.openapi.json`. Paths that put a verb or a child collection in the URL are reshaped. Current EduCollab routes under `/api/workspace` and `/api/users` stay as they are.\n\n## Base URL\nAll routes are under `/api/v1`.\n\n## Authentication\n`POST /api/v1/sign-ins` and `POST /api/v1/two-factor-confirmations` are anonymous.\nEvery other route requires `Authorization: Bearer`.\nThe `token` from sign-in authorizes `POST /api/v1/app-tokens`. Later calls send the issued app token. Both are bearer tokens on this surface.\n\n## Identifiers\nIdentifiers are server-generated opaque strings. Callers do not parse them. The server form is:\n- `workspace:{int}` workspace\n- `namespace:personal:{userId}` and `namespace:workspace:{workspaceId}`\n- `root:personal:{userId}` and `root:workspace:{workspaceId}`\n- `group:{int}`, `asset:{int}`, `scene:{int}`, `flow:{int}`\nApp token ids, login challenges, and dispatch ids are new server-generated strings. They are not today's integer keys.\n\n## Methods\n- `POST` that creates an addressable resource returns `201 Created`, the resource, and a `Location` header. Addressable creates are app tokens and storage nodes.\n- Sign-in, two-factor confirmation, and dispatch notification return `201` with the Drive body and no `Location`. Those bodies have no resource URL.\n- `POST /api/v1/storage-dispatches` returns `200` and an `application/x-ndjson` stream. The body is the event stream, not a stored dispatch document.\n- `PATCH` returns `200` and the same `StorageNode` as `GET` with `Accept: application/json`.\n\n## Lists\n`GET /api/v1/storage-nodes` uses `page` (default 1), `pageSize` (default 20, maximum 100), and `sort` (default `name`). `page` below 1 or `pageSize` outside 1–100 returns `400` with `error: invalid_pagination` and is not clamped. Unknown `sort` fields return `400` with `error: invalid_sort`. `=` means equality. Allowed `sort` fields are `name`, `createdAt`, `updatedAt`, and `id`. Prefix `-` for descending.\nOmitted or `trashed=false` hides nodes with `trashedAt` set. `trashed=true` includes them.\n`GET /api/v1/storage-changes` is continued with `cursor`, not `page`.\n\n## Content negotiation\n`GET /api/v1/storage-nodes/{id}`:\n- omitted `Accept`, `*/*`, or `application/json` returns the node\n- `application/octet-stream` returns the file bytes\n- any other type returns `406 Not Acceptable`\n`PUT /api/v1/storage-nodes/{id}` accepts only `application/octet-stream`. A JSON body returns `415 Unsupported Media Type`. The success body is the `StorageNode`.\nByte read and write are supported for `kind` `asset` and `scene`. `group`, `root`, and `flow` return `406` for byte read and write. Scene bytes are the scene JSON file. Asset bytes are the stored file, including a ZIP package when that is what is stored.\n`POST /api/v1/storage-dispatches` requires `Accept: application/x-ndjson`. Any other value returns `406`.\n\n## Errors\nEvery `4xx` and `5xx` response is `application/problem+json` (`ProblemDetails`): `type`, `title`, `status`, `detail`, `instance`, `error`, `requestId`. Validation failures use `error: validation_failed` and an `errors` object keyed by camelCase field name.\nEvery response includes `X-Request-Id`, matching `requestId` in error bodies. The server generates the request id. A client-supplied correlation id is not the request id.\nWhen several failures apply, the first match wins: `401` authentication, `403` authenticated but not allowed, `400` validation, `404` missing resource, `406` unacceptable `Accept`, `415` unsupported request `Content-Type`.\n\n## Domain mapping\nThis surface is a view over workspaces, groups, assets, scenes, and flows. It does not remove those routes.\n\n`StorageNamespace` is one personal namespace plus one namespace for each workspace membership.\n- `id`, `kind` (`personal` or `workspace`), `title`, `userId`, and `rootNodeId` are always set.\n- `workspaceId` is the workspace id, or `null` on the personal namespace.\n- `organizationId` is `null` until an organization resource exists.\n- `roots` on `DriveListing` are the synthetic root nodes for those namespaces.\n\n`StorageNode.kind` is `root`, `group`, `asset`, `scene`, or `flow`. `appKind` is the asset type or the workspace type when one exists, otherwise `null`.\n- `name`, `createdAt`, and `updatedAt` come from the group, asset, scene, flow, or workspace.\n- `parentId` is the parent group, or the namespace root when the item sits at the top of that namespace. Roots use `null`.\n- `namespaceId` is the personal namespace or the workspace namespace that contains the node.\n- `assetId` is the asset id when the node is an asset, otherwise `null`.\n- `groupId` is the primary group. Further memberships stay on the current group-link routes. Personal items and roots use `null`.\n- `role` is the caller's `currentUserRole`, or `null` when the source resource has none.\n- `isPersonal` is true for personal-space items and the personal root.\n- `mime`, `extension`, `byteSize`, and `contentHash` come from stored bytes when those values exist, otherwise `null`.\n- `inheritGrants`, `readOnly`, and `cloudOnly` are `false` until the product stores them.\n- `trashedAt` is `null` until `DELETE /api/v1/storage-nodes/{id}` writes it. Delete sets `trashedAt` and leaves the row in place.\n\nNo table exists yet for app tokens, login challenges, `trashedAt`, the change cursor log, dispatches, or open links (`spaceUrl`, `href`). This contract defines those fields. The implementation has to store them."
+  },
+  "tags": [
+    { "name": "Sign-in" },
+    { "name": "App tokens" },
+    { "name": "Storage" }
+  ],
+  "paths": {
+    "/api/v1/sign-ins": {
+      "post": {
+        "tags": ["Sign-in"],
+        "summary": "Sign in with user name and password.",
+        "operationId": "createSignIn",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Login succeeded. The token is in the body and has no resource URL, so there is no Location header.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginSuccess" }
+              }
+            }
+          },
+          "200": {
+            "description": "A second factor is required.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TwoFactorChallenge" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/two-factor-confirmations": {
+      "post": {
+        "tags": ["Sign-in"],
+        "summary": "Complete sign-in with a two-factor code.",
+        "operationId": "createTwoFactorConfirmation",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginTwoFactorRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Login succeeded. The token is in the body and has no resource URL, so there is no Location header.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginSuccess" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/app-tokens": {
+      "post": {
+        "tags": ["App tokens"],
+        "summary": "Issue an app token.",
+        "operationId": "createAppToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAppTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "App token issued.",
+            "headers": {
+              "Location": { "$ref": "#/components/headers/Location" },
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/v1/app-tokens/{tokenId}": {
+      "delete": {
+        "tags": ["App tokens"],
+        "summary": "Revoke an app token.",
+        "operationId": "deleteAppToken",
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "description": "Server-generated app token id.",
+            "schema": { "type": "string", "minLength": 1 }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The app token was revoked. No response body.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/app-token-refreshes": {
+      "post": {
+        "tags": ["App tokens"],
+        "summary": "Refresh the current app token.",
+        "description": "Authorized by the bearer app token being refreshed. The body is an empty object.",
+        "operationId": "createAppTokenRefresh",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshAppTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A new app token was issued. Location is the new token URL.",
+            "headers": {
+              "Location": { "$ref": "#/components/headers/Location" },
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/storage-listings/current": {
+      "get": {
+        "tags": ["Storage"],
+        "summary": "Get the caller's storage listing.",
+        "description": "`current` is the authenticated caller's listing: one personal namespace and one namespace per workspace membership, with their root nodes.",
+        "operationId": "getCurrentStorageListing",
+        "responses": {
+          "200": {
+            "description": "The caller's namespaces and root nodes.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DriveListing" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/storage-nodes": {
+      "get": {
+        "tags": ["Storage"],
+        "summary": "List child storage nodes.",
+        "description": "Returns the children of `parentId` as a paged collection. The parent node is `GET /api/v1/storage-nodes/{id}`. Follow `page` until `totalCount` is covered.",
+        "operationId": "listStorageNodes",
+        "parameters": [
+          { "$ref": "#/components/parameters/ParentId" },
+          { "$ref": "#/components/parameters/Trashed" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" },
+          { "$ref": "#/components/parameters/Sort" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged child nodes.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNodePage" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Storage"],
+        "summary": "Create a storage node.",
+        "operationId": "createStorageNode",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateStorageNodeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Storage node created.",
+            "headers": {
+              "Location": { "$ref": "#/components/headers/Location" },
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/storage-nodes/{id}": {
+      "get": {
+        "tags": ["Storage"],
+        "summary": "Get a storage node or its file bytes.",
+        "operationId": "getStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" },
+          { "$ref": "#/components/parameters/Accept" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The node, or its file bytes when Accept is application/octet-stream.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              },
+              "application/octet-stream": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "406": { "$ref": "#/components/responses/NotAcceptable" }
+        }
+      },
+      "patch": {
+        "tags": ["Storage"],
+        "summary": "Rename a storage node or move it under another parent.",
+        "description": "Send `name`, `parentId`, or both. `parentId` is the move. At least one field is required. The response is the same StorageNode as GET.",
+        "operationId": "updateStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateStorageNodeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated storage node.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Storage"],
+        "summary": "Replace the file bytes of a storage node.",
+        "description": "Content-Type must be application/octet-stream. JSON returns 415. kind group, root, and flow return 406. Success returns the StorageNode.",
+        "operationId": "putStorageNodeContent",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": { "type": "string", "format": "binary" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bytes replaced. Body is the storage node.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "406": { "$ref": "#/components/responses/NotAcceptable" },
+          "415": { "$ref": "#/components/responses/UnsupportedMediaType" }
+        }
+      },
+      "delete": {
+        "tags": ["Storage"],
+        "summary": "Trash a storage node.",
+        "description": "Sets trashedAt and leaves the row in place. Lists hide the node until trashed=true.",
+        "operationId": "deleteStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "204": {
+            "description": "The node was trashed. No response body.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/storage-changes": {
+      "get": {
+        "tags": ["Storage"],
+        "summary": "List storage changes for a namespace.",
+        "description": "Omit cursor on the first call. Continue with the cursor of the last StorageChange. An empty changes array means the client is caught up. This list does not use page or pageSize.",
+        "operationId": "listStorageChanges",
+        "parameters": [
+          {
+            "name": "namespaceId",
+            "in": "query",
+            "required": true,
+            "description": "Namespace to read. Equality match.",
+            "schema": { "type": "string", "minLength": 1 }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Return changes after this cursor. Omit on the first call.",
+            "schema": { "type": "string", "minLength": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes after the cursor.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageChangeList" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/storage-node-links/{id}": {
+      "get": {
+        "tags": ["Storage"],
+        "summary": "Get the Space link for a storage node.",
+        "operationId": "getStorageNodeLink",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Space URL and href for the node.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageOpen" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/storage-dispatches": {
+      "post": {
+        "tags": ["Storage"],
+        "summary": "Dispatch storage nodes.",
+        "description": "Accept must be application/x-ndjson. The response is one DispatchEvent JSON object per line. Status is 200 because the body is the event stream, not a stored dispatch document.",
+        "operationId": "createStorageDispatch",
+        "parameters": [
+          {
+            "name": "Accept",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["application/x-ndjson"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "NDJSON stream of DispatchEvent.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/x-ndjson": {
+                "schema": { "$ref": "#/components/schemas/DispatchEvent" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "406": { "$ref": "#/components/responses/NotAcceptable" }
+        }
+      }
+    },
+    "/api/v1/storage-dispatch-notifications": {
+      "post": {
+        "tags": ["Storage"],
+        "summary": "Email a notification for a dispatch.",
+        "operationId": "createStorageDispatchNotification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotifyDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Notification accepted. The body has no resource id, so there is no Location header.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DispatchNotification" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Login token or issued app token. Not used by POST /api/v1/sign-ins or POST /api/v1/two-factor-confirmations."
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Server-generated request id. Matches requestId in ProblemDetails.",
+        "schema": { "type": "string" }
+      },
+      "Location": {
+        "description": "URL of the created resource.",
+        "schema": { "type": "string", "format": "uri-reference" }
+      }
+    },
+    "parameters": {
+      "NodeId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Storage node id.",
+        "schema": { "type": "string", "minLength": 1 }
+      },
+      "ParentId": {
+        "name": "parentId",
+        "in": "query",
+        "required": true,
+        "description": "Parent node whose children are listed. Equality match.",
+        "schema": { "type": "string", "minLength": 1 }
+      },
+      "Trashed": {
+        "name": "trashed",
+        "in": "query",
+        "required": false,
+        "description": "When false or omitted, nodes with trashedAt set are hidden. When true, those nodes are included.",
+        "schema": { "type": "boolean", "default": false }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "1-based page index. Default 1. Values below 1 return 400 invalid_pagination.",
+        "schema": { "type": "integer", "format": "int32", "minimum": 1, "default": 1 }
+      },
+      "PageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "description": "Page size. Default 20. Values outside 1–100 return 400 invalid_pagination and are not clamped.",
+        "schema": { "type": "integer", "format": "int32", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "Sort": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Ascending field, or -field for descending. Allowed: name, createdAt, updatedAt, id. Default name. Unknown fields return 400 invalid_sort.",
+        "schema": { "type": "string", "default": "name" }
+      },
+      "Accept": {
+        "name": "Accept",
+        "in": "header",
+        "required": false,
+        "description": "application/json, or omitted, or */*, returns the node. application/octet-stream returns file bytes. Any other value returns 406.",
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The query or body is invalid. error is validation_failed, invalid_pagination, or invalid_sort.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication failed. This wins over validation, a missing resource, and an unacceptable Accept value.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The caller is authenticated and is not allowed to use this resource.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The resource does not exist or is not visible to the caller.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "NotAcceptable": {
+        "description": "The Accept value cannot be produced, or this node kind has no file bytes.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "PUT storage node content requires Content-Type application/octet-stream.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/RequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "description": "RFC 9457 problem body used for every 4xx and 5xx response.",
+        "required": ["type", "title", "status", "detail", "error", "requestId"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Problem type, such as urn:educollab:error:validation_failed.",
+            "example": "urn:educollab:error:not_found"
+          },
+          "title": { "type": "string" },
+          "status": { "type": "integer", "format": "int32" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string", "nullable": true },
+          "error": {
+            "type": "string",
+            "description": "Machine-readable code. Validation uses validation_failed. Pagination uses invalid_pagination. Sort uses invalid_sort."
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Server-generated request id. Matches the X-Request-Id header."
+          },
+          "errors": {
+            "type": "object",
+            "nullable": true,
+            "description": "Present when error is validation_failed. Keys are camelCase field names.",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["userName", "password"],
+        "properties": {
+          "userName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Account email. The Drive field name is userName."
+          },
+          "password": { "type": "string", "minLength": 1, "format": "password" }
+        }
+      },
+      "LoginTwoFactorRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["loginChallenge", "code"],
+        "properties": {
+          "loginChallenge": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Challenge from TwoFactorChallenge. Server-generated. Not stored on the current user routes."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6,
+            "description": "One-time sign-in code."
+          }
+        }
+      },
+      "LoginUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Current user fields. id and workspaceIds are opaque strings on this surface.",
+        "required": ["id", "fullName", "email", "description", "workspaceIds"],
+        "properties": {
+          "id": { "type": "string", "description": "String form of the user id." },
+          "fullName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "description": { "type": "string", "nullable": true },
+          "workspaceIds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Opaque workspace ids, the same form as StorageNamespace.workspaceId."
+          }
+        }
+      },
+      "LoginSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "user"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Bearer token that authorizes POST /api/v1/app-tokens."
+          },
+          "user": { "$ref": "#/components/schemas/LoginUser" }
+        }
+      },
+      "TwoFactorChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requiresTwoFactor", "loginChallenge", "method", "email", "message"],
+        "properties": {
+          "requiresTwoFactor": { "type": "boolean" },
+          "loginChallenge": { "type": "string" },
+          "method": { "type": "string", "description": "How the code was sent, such as email." },
+          "email": { "type": "string", "format": "email" },
+          "message": { "type": "string" }
+        }
+      },
+      "CreateAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["app", "name"],
+        "properties": {
+          "app": { "type": "string", "minLength": 1, "description": "App identifier supplied by the Drive client." },
+          "name": { "type": "string", "minLength": 1, "description": "Device or installation name." }
+        }
+      },
+      "RefreshAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Empty object."
+      },
+      "IssuedAppToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "New persistence. No app-token table exists on the current API.",
+        "required": ["token", "app", "id", "expiresAt", "pairingExpiresAt"],
+        "properties": {
+          "token": { "type": "string" },
+          "app": { "type": "string" },
+          "id": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "pairingExpiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DriveListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespaces", "roots"],
+        "properties": {
+          "namespaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StorageNamespace" }
+          },
+          "roots": {
+            "type": "array",
+            "description": "Synthetic root node for each namespace.",
+            "items": { "$ref": "#/components/schemas/StorageNode" }
+          }
+        }
+      },
+      "StorageNamespace": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One personal namespace for the caller, plus one namespace per workspace membership. organizationId is null until an organization resource exists. workspaceId is null on the personal namespace.",
+        "required": ["id", "kind", "title", "userId", "organizationId", "workspaceId", "rootNodeId"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "description": "personal or workspace.",
+            "enum": ["personal", "workspace"]
+          },
+          "title": { "type": "string", "description": "Workspace name, or the personal namespace title." },
+          "userId": { "type": "string" },
+          "organizationId": { "type": "string", "nullable": true },
+          "workspaceId": { "type": "string", "nullable": true },
+          "rootNodeId": { "type": "string" }
+        }
+      },
+      "StorageNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One view over a workspace root, group, asset, scene, or flow. kind is root, group, asset, scene, or flow. name, createdAt, and updatedAt come from that resource. parentId is the parent group or the namespace root, and is null on roots. namespaceId is the personal or workspace namespace. assetId is set on assets and otherwise null. groupId is the primary group; personal items and roots use null; extra memberships stay on the current group-link routes. role is currentUserRole or null. isPersonal is true for personal-space items. mime, extension, byteSize, and contentHash come from stored bytes, or are null. inheritGrants, readOnly, and cloudOnly are false until the product stores them. trashedAt is null until this surface trashes the node. Byte read and write apply to asset and scene. group, root, and flow return 406 for bytes. Scene bytes are the scene JSON file. Asset bytes are the stored file.",
+        "required": [
+          "id",
+          "namespaceId",
+          "parentId",
+          "name",
+          "kind",
+          "appKind",
+          "mime",
+          "assetId",
+          "groupId",
+          "inheritGrants",
+          "byteSize",
+          "contentHash",
+          "readOnly",
+          "cloudOnly",
+          "extension",
+          "role",
+          "isPersonal",
+          "trashedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "namespaceId": { "type": "string" },
+          "parentId": { "type": "string", "nullable": true },
+          "name": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["root", "group", "asset", "scene", "flow"]
+          },
+          "appKind": {
+            "type": "string",
+            "nullable": true,
+            "description": "Asset type or workspace type when one exists."
+          },
+          "mime": { "type": "string", "nullable": true },
+          "assetId": { "type": "string", "nullable": true },
+          "groupId": { "type": "string", "nullable": true },
+          "inheritGrants": { "type": "boolean", "description": "False until the product stores this flag." },
+          "byteSize": { "type": "integer", "format": "int64", "nullable": true },
+          "contentHash": { "type": "string", "nullable": true },
+          "readOnly": { "type": "boolean", "description": "False until the product stores this flag." },
+          "cloudOnly": { "type": "boolean", "description": "False until the product stores this flag." },
+          "extension": { "type": "string", "nullable": true },
+          "role": { "type": "string", "nullable": true, "description": "Caller's currentUserRole when the source resource has one." },
+          "isPersonal": { "type": "boolean" },
+          "trashedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Null until DELETE on this surface writes it. No trash column exists yet."
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StorageNodePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Same page envelope as the current collection responses: page, pageSize, totalCount, and the nodes.",
+        "required": ["page", "pageSize", "totalCount", "storageNodes"],
+        "properties": {
+          "page": { "type": "integer", "format": "int32" },
+          "pageSize": { "type": "integer", "format": "int32" },
+          "totalCount": { "type": "integer", "format": "int32" },
+          "storageNodes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StorageNode" }
+          }
+        }
+      },
+      "StorageChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One change in the namespace log. The log is new persistence. op values produced by this surface are create, update, move, content, and trash.",
+        "required": ["cursor", "namespaceId", "nodeId", "op"],
+        "properties": {
+          "cursor": { "type": "string", "description": "Pass as the cursor query on the next call." },
+          "namespaceId": { "type": "string" },
+          "nodeId": { "type": "string" },
+          "op": { "type": "string", "enum": ["create", "update", "move", "content", "trash"] }
+        }
+      },
+      "StorageChangeList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["changes"],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StorageChange" }
+          }
+        }
+      },
+      "CreateStorageNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parentId", "name", "kind"],
+        "properties": {
+          "parentId": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "kind": {
+            "type": "string",
+            "description": "Creates a group, asset, scene, or flow under the parent. Roots are not created by this call.",
+            "enum": ["group", "asset", "scene", "flow"]
+          }
+        }
+      },
+      "UpdateStorageNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "At least one of name or parentId. parentId moves the node.",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "parentId": { "type": "string", "minLength": 1 }
+        }
+      },
+      "StorageOpen": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Open link for a node. spaceUrl and href have no column today; the implementation has to store or derive them.",
+        "required": ["spaceUrl", "href"],
+        "properties": {
+          "spaceUrl": { "type": "string" },
+          "href": { "type": "string" }
+        }
+      },
+      "CreateDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodeIds"],
+        "properties": {
+          "nodeIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "DispatchEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One JSON object in the application/x-ndjson stream. The source lists these fields and does not say which appear on every event. Dispatch state is new persistence.",
+        "properties": {
+          "event": { "type": "string" },
+          "id": { "type": "string" },
+          "publicId": { "type": "string" },
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "name": { "type": "string" },
+          "index": { "type": "integer" },
+          "fileCount": { "type": "integer" },
+          "copiedBytes": { "type": "integer", "format": "int64" },
+          "totalBytes": { "type": "integer", "format": "int64" },
+          "message": { "type": "string" }
+        }
+      },
+      "NotifyDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dispatchId", "email"],
+        "properties": {
+          "dispatchId": { "type": "string", "minLength": 1 },
+          "email": { "type": "string", "format": "email", "minLength": 1 }
+        }
+      },
+      "DispatchNotification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "bearerAuth": [] }
+  ]
+}
