@@ -1,0 +1,756 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Drive API contracts",
+    "description": "Requests the Drive app makes to the Space API through DriveAPI. 9 November 2026.\n\nEvery call uses a Bearer app token except `POST /login` and `POST /login/2fa`.\n\nThis document transcribes `Drive-API-contracts.pdf`. The source names methods, paths, request fields, and response shapes. It does not name HTTP status codes, error bodies, or nullability. Success responses below use `200` when the source shows a body and `204` when it shows no body.\n\nTwo response fields are named but not typed in the source and are modeled here as follows:\n- `DriveListing.roots` items are `StorageNode`.\n- `GET /storage/nodes/{id}/children` returns `parent` as `StorageNode` and `children` as `StorageNode[]`.",
+    "version": "2026-11-09"
+  },
+  "tags": [
+    { "name": "Sign-in" },
+    { "name": "Device token" },
+    { "name": "Listing and nodes" },
+    { "name": "Dispatch" }
+  ],
+  "paths": {
+    "/login": {
+      "post": {
+        "tags": ["Sign-in"],
+        "summary": "Sign in with user name and password.",
+        "operationId": "login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "LoginSuccess, or TwoFactorChallenge when a second factor is required. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/LoginSuccess" },
+                    { "$ref": "#/components/schemas/TwoFactorChallenge" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/login/2fa": {
+      "post": {
+        "tags": ["Sign-in"],
+        "summary": "Complete sign-in with a two-factor code.",
+        "operationId": "loginTwoFactor",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginTwoFactorRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "LoginSuccess. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginSuccess" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/apps/tokens": {
+      "post": {
+        "tags": ["Device token"],
+        "summary": "Issue an app token.",
+        "operationId": "createAppToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateAppTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "IssuedAppToken. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/apps/tokens/refresh": {
+      "post": {
+        "tags": ["Device token"],
+        "summary": "Refresh the current app token.",
+        "operationId": "refreshAppToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshAppTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "IssuedAppToken. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/apps/tokens/{tokenId}": {
+      "delete": {
+        "tags": ["Device token"],
+        "summary": "Revoke an app token.",
+        "operationId": "deleteAppToken",
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The source shows no response body and does not name an HTTP status."
+          }
+        }
+      }
+    },
+    "/storage/listing": {
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "List storage namespaces and roots.",
+        "operationId": "getStorageListing",
+        "responses": {
+          "200": {
+            "description": "DriveListing. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DriveListing" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/nodes/{id}": {
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "Get one storage node.",
+        "operationId": "getStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "StorageNode. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Listing and nodes"],
+        "summary": "Rename a storage node.",
+        "operationId": "updateStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateStorageNodeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "StorageNode. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Listing and nodes"],
+        "summary": "Delete a storage node.",
+        "operationId": "deleteStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "204": {
+            "description": "The source shows no response body and does not name an HTTP status."
+          }
+        }
+      }
+    },
+    "/storage/nodes/{id}/children": {
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "List the children of a storage node.",
+        "operationId": "getStorageNodeChildren",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Parent node and its children. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNodeChildren" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/changes": {
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "List storage changes for a namespace.",
+        "operationId": "listStorageChanges",
+        "parameters": [
+          {
+            "name": "namespaceId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Storage changes. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageChangeList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/nodes": {
+      "post": {
+        "tags": ["Listing and nodes"],
+        "summary": "Create a storage node.",
+        "operationId": "createStorageNode",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateStorageNodeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "StorageNode. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/nodes/{id}/move": {
+      "post": {
+        "tags": ["Listing and nodes"],
+        "summary": "Move a storage node under another parent.",
+        "operationId": "moveStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MoveStorageNodeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "StorageNode. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/nodes/{id}/content": {
+      "put": {
+        "tags": ["Listing and nodes"],
+        "summary": "Replace the bytes of a storage node.",
+        "operationId": "putStorageNodeContent",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Raw file bytes. The source does not name a Content-Type.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "StorageNode. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageNode" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "Download the bytes of a storage node.",
+        "operationId": "getStorageNodeContent",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "File bytes. The source does not name an HTTP status or a Content-Type.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/nodes/{id}/open": {
+      "get": {
+        "tags": ["Listing and nodes"],
+        "summary": "Open a storage node in Space.",
+        "operationId": "openStorageNode",
+        "parameters": [
+          { "$ref": "#/components/parameters/NodeId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "StorageOpen. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StorageOpen" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/dispatches": {
+      "post": {
+        "tags": ["Dispatch"],
+        "summary": "Dispatch storage nodes.",
+        "description": "The source requires `Accept: application/x-ndjson`. The response is a stream of `DispatchEvent` objects, one JSON object per line.",
+        "operationId": "createStorageDispatch",
+        "parameters": [
+          {
+            "name": "Accept",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["application/x-ndjson"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "NDJSON stream of DispatchEvent. The source does not name an HTTP status.",
+            "content": {
+              "application/x-ndjson": {
+                "schema": { "$ref": "#/components/schemas/DispatchEvent" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/dispatches/{id}/notify": {
+      "post": {
+        "tags": ["Dispatch"],
+        "summary": "Email a notification for a dispatch.",
+        "operationId": "notifyStorageDispatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Dispatch id.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotifyDispatchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification result. The source does not name an HTTP status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DispatchNotification" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer app token. Not used by POST /login or POST /login/2fa."
+      }
+    },
+    "parameters": {
+      "NodeId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Storage node id.",
+        "schema": { "type": "string" }
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["userName", "password"],
+        "properties": {
+          "userName": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "LoginTwoFactorRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["loginChallenge", "code"],
+        "properties": {
+          "loginChallenge": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      },
+      "LoginSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "user"],
+        "properties": {
+          "token": { "type": "string" },
+          "user": {
+            "type": "object",
+            "description": "Authenticated user. The source names this property and does not list its fields.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "TwoFactorChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requiresTwoFactor", "loginChallenge", "method", "email", "message"],
+        "properties": {
+          "requiresTwoFactor": { "type": "boolean" },
+          "loginChallenge": { "type": "string" },
+          "method": { "type": "string" },
+          "email": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "CreateAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["app", "name"],
+        "properties": {
+          "app": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "RefreshAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Empty object, as shown in the source."
+      },
+      "IssuedAppToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "app", "id", "expiresAt", "pairingExpiresAt"],
+        "properties": {
+          "token": { "type": "string" },
+          "app": { "type": "string" },
+          "id": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "pairingExpiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DriveListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["namespaces", "roots"],
+        "properties": {
+          "namespaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StorageNamespace" }
+          },
+          "roots": {
+            "type": "array",
+            "description": "The source names `roots` and does not give the item schema. Each item is modeled as StorageNode.",
+            "items": { "$ref": "#/components/schemas/StorageNode" }
+          }
+        }
+      },
+      "StorageNamespace": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "title", "userId", "organizationId", "workspaceId", "rootNodeId"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "title": { "type": "string" },
+          "userId": { "type": "string" },
+          "organizationId": { "type": "string" },
+          "workspaceId": { "type": "string" },
+          "rootNodeId": { "type": "string" }
+        }
+      },
+      "StorageNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Fields listed in the source shapes section. The source does not state which values may be null.",
+        "required": [
+          "id",
+          "namespaceId",
+          "parentId",
+          "name",
+          "kind",
+          "appKind",
+          "mime",
+          "assetId",
+          "groupId",
+          "inheritGrants",
+          "byteSize",
+          "contentHash",
+          "readOnly",
+          "cloudOnly",
+          "extension",
+          "role",
+          "isPersonal",
+          "trashedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "namespaceId": { "type": "string" },
+          "parentId": { "type": "string" },
+          "name": { "type": "string" },
+          "kind": { "type": "string" },
+          "appKind": { "type": "string" },
+          "mime": { "type": "string" },
+          "assetId": { "type": "string" },
+          "groupId": { "type": "string" },
+          "inheritGrants": { "type": "boolean" },
+          "byteSize": { "type": "integer", "format": "int64" },
+          "contentHash": { "type": "string" },
+          "readOnly": { "type": "boolean" },
+          "cloudOnly": { "type": "boolean" },
+          "extension": { "type": "string" },
+          "role": { "type": "string" },
+          "isPersonal": { "type": "boolean" },
+          "trashedAt": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "StorageNodeChildren": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parent", "children"],
+        "properties": {
+          "parent": {
+            "description": "The source names `parent` and does not give its schema. Modeled as StorageNode.",
+            "allOf": [{ "$ref": "#/components/schemas/StorageNode" }]
+          },
+          "children": {
+            "type": "array",
+            "description": "The source names `children` and does not give the item schema. Each item is modeled as StorageNode.",
+            "items": { "$ref": "#/components/schemas/StorageNode" }
+          }
+        }
+      },
+      "StorageChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cursor", "namespaceId", "nodeId", "op"],
+        "properties": {
+          "cursor": { "type": "string" },
+          "namespaceId": { "type": "string" },
+          "nodeId": { "type": "string" },
+          "op": { "type": "string" }
+        }
+      },
+      "StorageChangeList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["changes"],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StorageChange" }
+          }
+        }
+      },
+      "CreateStorageNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parentId", "name", "kind"],
+        "properties": {
+          "parentId": { "type": "string" },
+          "name": { "type": "string" },
+          "kind": { "type": "string" }
+        }
+      },
+      "UpdateStorageNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" }
+        }
+      },
+      "MoveStorageNodeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parentId"],
+        "properties": {
+          "parentId": { "type": "string" }
+        }
+      },
+      "StorageOpen": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["spaceUrl", "href"],
+        "properties": {
+          "spaceUrl": { "type": "string" },
+          "href": { "type": "string" }
+        }
+      },
+      "CreateDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nodeIds"],
+        "properties": {
+          "nodeIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "DispatchEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One JSON object in the `application/x-ndjson` stream. The source lists these fields and does not say which of them appear on every event.",
+        "properties": {
+          "event": { "type": "string" },
+          "id": { "type": "string" },
+          "publicId": { "type": "string" },
+          "title": { "type": "string" },
+          "url": { "type": "string" },
+          "name": { "type": "string" },
+          "index": { "type": "integer" },
+          "fileCount": { "type": "integer" },
+          "copiedBytes": { "type": "integer", "format": "int64" },
+          "totalBytes": { "type": "integer", "format": "int64" },
+          "message": { "type": "string" }
+        }
+      },
+      "NotifyDispatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email"],
+        "properties": {
+          "email": { "type": "string" }
+        }
+      },
+      "DispatchNotification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "bearerAuth": [] }
+  ]
+}
