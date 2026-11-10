@@ -4,7 +4,7 @@ Generates `openapi/v1/openapi.json` from the running API using the integration t
 
 ## Prerequisites
 
-- .NET 8 SDK
+- .NET 10 SDK
 
 ## Usage
 

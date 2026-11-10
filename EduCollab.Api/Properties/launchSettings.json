@@ -34,7 +34,8 @@
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
         "ASPNETCORE_HTTPS_PORTS": "8081",
-        "ASPNETCORE_HTTP_PORTS": "8080"
+        "ASPNETCORE_HTTP_PORTS": "8080",
+        "Database__ConnectionString": "Server=host.docker.internal;Port=5433;Database=EduCollab;User Id=postgres;Password=postgres;"
       },
       "publishAllPorts": true,
       "useSSL": true
