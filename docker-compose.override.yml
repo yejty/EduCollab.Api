@@ -1,31 +1,31 @@
 # Visual Studio / VS Code merge file (see docker-compose.yml for full stack).
-# F5 with docker-compose startup project uses EduCollab.Api/Dockerfile for faster debug builds.
+# F5 with docker-compose startup project uses Hub.Api/Dockerfile for faster debug builds.
 services:
   api:
     build:
       context: .
-      dockerfile: EduCollab.Api/Dockerfile
+      dockerfile: Hub.Api/Dockerfile
     depends_on:
       mailpit:
         condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      Database__ConnectionString: Server=postgres;Port=5432;Database=EduCollab;User Id=postgres;Password=postgres;
+      Database__ConnectionString: Server=postgres;Port=5432;Database=Space;User Id=postgres;Password=postgres;
       Email__Enabled: true
       Email__SmtpHost: mailpit
       Email__SmtpPort: 1025
       Email__UseSsl: false
       Email__UserName: ""
       Email__Password: ""
-      Email__FromAddress: noreply@educollab.local
-      Email__FromDisplayName: EduCollab (dev)
+      Email__FromAddress: noreply@space.local
+      Email__FromDisplayName: Space (dev)
       WorkspaceInvitation__FrontendAcceptUrl: http://localhost:8080/workspace/join
       EmailConfirmation__FrontendConfirmUrl: http://localhost:8080/auth/confirm-email
       WorkspaceCreationApproval__AdminReviewUrlBase: http://localhost:8080/api/workspace-creation-review
       SessionJoin__SecretKey: replace-this-with-a-long-session-join-secret-key
-      SessionJoin__Issuer: EduCollab.Api
-      SessionJoin__Audience: EduCollab.CollabServer
+      SessionJoin__Issuer: Hub.Api
+      SessionJoin__Audience: Space.CollabServer
       SessionJoin__ExpirationMinutes: "10"
       SessionJoin__ColyseusEndpoint: ws://localhost:2567
       SessionJoin__FrontendGuestJoinUrl: http://localhost:8080/sessions/join
@@ -36,12 +36,12 @@ services:
       - "8080:8080"
     labels:
       com.microsoft.visualstudio.debuggee.program: "dotnet"
-      com.microsoft.visualstudio.debuggee.arguments: "EduCollab.Api.dll"
+      com.microsoft.visualstudio.debuggee.arguments: "Hub.Api.dll"
       com.microsoft.visualstudio.debuggee.workingdirectory: "/app"
 
   mailpit:
     image: axllent/mailpit:latest
-    container_name: educollab-mailpit
+    container_name: space-mailpit
     ports:
       - "1025:1025"
       - "8025:8025"

@@ -1,5 +1,5 @@
 import { Client, Room } from '@colyseus/core'
-import type { EduCollabClient } from '../api/educollabClient'
+import type { SpaceClient } from '../api/spaceClient'
 import { extractBearer } from '../auth'
 import type { CollabServerConfig } from '../config'
 import { verifyJoinTicket } from '../joinTicket'
@@ -13,7 +13,7 @@ import { ParticipantState, SessionState } from './schema'
 
 interface CollabRoomOptions {
   sessionId?: string
-  /** Short-lived join ticket minted by EduCollab API. */
+  /** Short-lived join ticket minted by Space API. */
   joinTicket?: string
   /**
    * If true, this client opts in to receive `sceneSync` broadcasts (it's
@@ -245,7 +245,7 @@ const NUMERIC = (value: unknown): number | null => {
 
 export interface CollabRoomDeps {
   config: CollabServerConfig
-  educollabClient: EduCollabClient
+  spaceClient: SpaceClient
 }
 
 interface CollabRoomShape {
@@ -321,7 +321,7 @@ export class CollabRoom extends Room<CollabRoomShape> {
       assetId: this.sessionMeta.assetId,
     })
 
-    void this.deps.educollabClient.notifyRoomStarted(this.sessionMeta.sessionId)
+    void this.deps.spaceClient.notifyRoomStarted(this.sessionMeta.sessionId)
 
     // Wrap every message handler: errors thrown here propagate up to the
     // ws-transport message frame and look like a generic 4002 close from
@@ -525,7 +525,7 @@ export class CollabRoom extends Room<CollabRoomShape> {
 
   override onDispose(): void {
     if (this.sessionMeta) {
-      void this.deps.educollabClient.notifyRoomEnded(this.sessionMeta.sessionId)
+      void this.deps.spaceClient.notifyRoomEnded(this.sessionMeta.sessionId)
     }
   }
 

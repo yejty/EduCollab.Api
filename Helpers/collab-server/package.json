@@ -1,8 +1,8 @@
 {
-  "name": "educollab-collab-server",
+  "name": "space-collab-server",
   "version": "0.2.0",
   "private": true,
-  "description": "Self-hosted Colyseus realtime server for EduCollab live sessions.",
+  "description": "Self-hosted Colyseus realtime server for Space live sessions.",
   "type": "commonjs",
   "engines": {
     "node": ">=20"

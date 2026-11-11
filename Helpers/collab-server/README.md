@@ -1,7 +1,7 @@
-# EduCollab collab-server
+# Space collab-server
 
-Self-hosted [Colyseus](https://docs.colyseus.io/) realtime server for EduCollab
-**live sessions**. Session ownership, sharing, and content live in EduCollab API;
+Self-hosted [Colyseus](https://docs.colyseus.io/) realtime server for Space
+**live sessions**. Session ownership, sharing, and content live in Space API;
 this service is realtime-only (presence, sceneSync, voice).
 
 ---
@@ -10,11 +10,11 @@ this service is realtime-only (presence, sceneSync, voice).
 
 ```
 Browser
-  │  HTTPS  create session / join-ticket / bootstrap  →  EduCollab API
+  │  HTTPS  create session / join-ticket / bootstrap  →  Space API
   │  WSS    joinOrCreate('collab', { sessionId, joinTicket })
   ▼
 ┌────────────────────────────────────────────┐
-│  educollab-collab-server                   │
+│  space-collab-server                   │
 │   • Node.js 22 + @colyseus/core 0.17       │
 │   • Join-ticket HMAC auth (no SQLite)      │
 │   • room-started / room-ended webhooks     │
@@ -31,7 +31,7 @@ Browser
 | GET    | `/`         | Same as healthz    |
 | GET    | `/colyseus` | Optional monitor   |
 
-There is **no** session REST on this server. Use EduCollab:
+There is **no** session REST on this server. Use Space:
 
 - `POST /api/workspace/sessions`
 - `POST /api/workspace/sessions/{id}/join-ticket`
@@ -42,15 +42,15 @@ There is **no** session REST on this server. Use EduCollab:
 ## Client join
 
 ```ts
-const session = await educollabApi.post('/api/workspace/sessions', {
+const session = await spaceApi.post('/api/workspace/sessions', {
   name: 'Physics lab',
   sceneId: 42,
   includeAssets: true,
 })
-const { joinTicket } = await educollabApi.post(
+const { joinTicket } = await spaceApi.post(
   `/api/workspace/sessions/${session.id}/join-ticket`,
 )
-await educollabApi.get(`/api/workspace/sessions/${session.id}/bootstrap`)
+await spaceApi.get(`/api/workspace/sessions/${session.id}/bootstrap`)
 
 const client = new Client('ws://localhost:2567')
 const room = await client.joinOrCreate('collab', {
@@ -68,11 +68,11 @@ const room = await client.joinOrCreate('collab', {
 2. Guest opens the link, enters a display name, then:
 
 ```ts
-const { joinTicket, sessionId, colyseusEndpoint } = await educollabApi.post(
+const { joinTicket, sessionId, colyseusEndpoint } = await spaceApi.post(
   '/api/public/sessions/join',
   { guestToken, displayName: 'Anna' },
 )
-const bootstrap = await educollabApi.get(
+const bootstrap = await spaceApi.get(
   `/api/public/sessions/bootstrap?guestToken=${encodeURIComponent(guestToken)}`,
 )
 const room = await client.joinOrCreate('collab', {
@@ -93,8 +93,8 @@ Requires Node.js 20+.
 ```sh
 cd Helpers/collab-server
 cp .env.example .env
-# Set EDUCOLLAB_API_BASE, SESSION_JOIN_SECRET, EDUCOLLAB_INTERNAL_API_KEY
-# to match EduCollab appsettings SessionJoin + InternalApi
+# Set SPACE_API_BASE, SESSION_JOIN_SECRET, SPACE_INTERNAL_API_KEY
+# to match Space appsettings SessionJoin + InternalApi
 npm install
 npm run dev
 ```
@@ -103,7 +103,7 @@ Smoke-test:
 
 ```sh
 curl http://localhost:2567/healthz
-# {"ok":true,"name":"educollab-collab-server"}
+# {"ok":true,"name":"space-collab-server"}
 ```
 
 ---
@@ -112,11 +112,11 @@ curl http://localhost:2567/healthz
 
 | Variable | Required | Purpose |
 | -------- | -------- | ------- |
-| `EDUCOLLAB_API_BASE` | yes | API base for webhooks |
+| `SPACE_API_BASE` | yes | API base for webhooks |
 | `SESSION_JOIN_SECRET` | yes | Same as `SessionJoin:SecretKey` |
-| `EDUCOLLAB_INTERNAL_API_KEY` | yes | Same as `InternalApi:ApiKey` |
-| `SESSION_JOIN_ISSUER` | no | Default `EduCollab.Api` |
-| `SESSION_JOIN_AUDIENCE` | no | Default `EduCollab.CollabServer` |
+| `SPACE_INTERNAL_API_KEY` | yes | Same as `InternalApi:ApiKey` |
+| `SESSION_JOIN_ISSUER` | no | Default `Hub.Api` |
+| `SESSION_JOIN_AUDIENCE` | no | Default `Space.CollabServer` |
 | `COLLAB_ALLOWED_ORIGINS` | no | CORS allowlist |
 | `COLLAB_PORT` | no | Default `2567` |
 
@@ -126,7 +126,7 @@ curl http://localhost:2567/healthz
 
 ### Local development
 
-Joins the existing EduCollab API Docker network (`educollab-collab-server` on port `2567`):
+Joins the existing Space API Docker network (`space-collab-server` on port `2567`):
 
 ```sh
 docker compose up --build
@@ -149,17 +149,17 @@ docker compose -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --bui
 
 ```sh
 cp .env.hetzner.example .env.hetzner
-# Edit: EDUCOLLAB_API_BASE, COLLAB_ALLOWED_ORIGINS,
-#       SESSION_JOIN_SECRET + EDUCOLLAB_INTERNAL_API_KEY (same as API .env.hetzner)
-docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+# Edit: SPACE_API_BASE, COLLAB_ALLOWED_ORIGINS,
+#       SESSION_JOIN_SECRET + SPACE_INTERNAL_API_KEY (same as API .env.hetzner)
+docker compose -p space-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
 ```
 
-Publishes `educollab-collab-server-v2` on host port `2568` by default (does not replace an existing `:2567` collab). Prefer a reverse proxy so clients use `wss://collab…` without the port.
+Publishes `space-collab-server-v2` on host port `2568` by default (does not replace an existing `:2567` collab). Prefer a reverse proxy so clients use `wss://collab…` without the port.
 
 Stop only the v2 instance:
 
 ```sh
-docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml down
+docker compose -p space-collab-v2 -f docker-compose.hetzner.yml down
 ```
 
 The server is **stateless** (no SQLite volume). Room state is in-memory only.

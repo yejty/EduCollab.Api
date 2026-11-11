@@ -17,6 +17,6 @@
     <None Include=".dockerignore" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="EduCollab.Api\EduCollab.Api.csproj" />
+    <ProjectReference Include="Hub.Api\Hub.Api.csproj" />
   </ItemGroup>
 </Project>

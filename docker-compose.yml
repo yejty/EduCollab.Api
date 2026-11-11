@@ -1,9 +1,9 @@
 services:
   postgres:
     image: postgres:16
-    container_name: educollab-postgres
+    container_name: space-postgres
     environment:
-      POSTGRES_DB: EduCollab
+      POSTGRES_DB: Space
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d EduCollab"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d Space"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,21 +20,21 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: educollab-api
+    container_name: space-api
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
-      Database__ConnectionString: Server=postgres;Port=5432;Database=EduCollab;User Id=postgres;Password=postgres;
-      Jwt__Issuer: EduCollab.Api
-      Jwt__Audience: EduCollab.Client
+      Database__ConnectionString: Server=postgres;Port=5432;Database=Space;User Id=postgres;Password=postgres;
+      Jwt__Issuer: Hub.Api
+      Jwt__Audience: Space.Client
       Jwt__SecretKey: replace-this-with-a-long-dev-secret-key
       Jwt__ExpirationMinutes: 60
       SessionJoin__SecretKey: replace-this-with-a-long-session-join-secret-key
-      SessionJoin__Issuer: EduCollab.Api
-      SessionJoin__Audience: EduCollab.CollabServer
+      SessionJoin__Issuer: Hub.Api
+      SessionJoin__Audience: Space.CollabServer
       SessionJoin__ExpirationMinutes: "10"
       SessionJoin__ColyseusEndpoint: ws://localhost:2567
       SessionJoin__FrontendGuestJoinUrl: ${SessionJoin__FrontendGuestJoinUrl:-http://localhost:8080/sessions/join}
@@ -60,18 +60,18 @@ services:
     build:
       context: ./Helpers/collab-server
       dockerfile: Dockerfile
-    container_name: educollab-collab-server
+    container_name: space-collab-server
     depends_on:
       - api
     environment:
       COLLAB_PORT: "2567"
       COLLAB_BIND_ADDR: "0.0.0.0"
       COLLAB_ALLOWED_ORIGINS: ${COLLAB_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost:8080}
-      EDUCOLLAB_API_BASE: http://api:8080
+      SPACE_API_BASE: http://api:8080
       SESSION_JOIN_SECRET: replace-this-with-a-long-session-join-secret-key
-      SESSION_JOIN_ISSUER: EduCollab.Api
-      SESSION_JOIN_AUDIENCE: EduCollab.CollabServer
-      EDUCOLLAB_INTERNAL_API_KEY: dev-internal-api-key-change-me
+      SESSION_JOIN_ISSUER: Hub.Api
+      SESSION_JOIN_AUDIENCE: Space.CollabServer
+      SPACE_INTERNAL_API_KEY: dev-internal-api-key-change-me
       COLLAB_LOG_LEVEL: info
       COLLAB_MONITOR_USER: admin
       COLLAB_MONITOR_PASSWORD: collab-dev

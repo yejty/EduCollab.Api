@@ -1,0 +1,129 @@
+using Hub.Api.Middleware;
+using Hub.Api.Problems;
+using Space.Application.Exceptions;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+
+namespace Hub.Api.ExceptionHandlers
+{
+    public sealed class ApiExceptionHandler(
+        ILogger<ApiExceptionHandler> logger,
+        IHostEnvironment environment) : IExceptionHandler
+    {
+        public async ValueTask<bool> TryHandleAsync(
+            HttpContext httpContext,
+            Exception exception,
+            CancellationToken cancellationToken)
+        {
+            var requestId = RequestIdMiddleware.GetRequestId(httpContext);
+            if (exception is BadHttpRequestException badRequest)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Handled exception while processing request {RequestId}.",
+                    requestId);
+
+                var modelState = new ModelStateDictionary();
+                modelState.AddModelError(
+                    string.Empty,
+                    string.IsNullOrWhiteSpace(badRequest.Message) ? "The request was invalid." : badRequest.Message);
+                var validationProblem = ApiProblemDetailsFactory.CreateValidationProblem(httpContext, modelState);
+                await ApiProblemDetailsWriter.WriteAsync(httpContext, validationProblem, cancellationToken);
+                return true;
+            }
+
+            var (statusCode, error, description) = MapException(exception);
+
+            if (statusCode >= StatusCodes.Status500InternalServerError)
+            {
+                logger.LogError(
+                    exception,
+                    "Unhandled exception while processing request {RequestId}.",
+                    requestId);
+            }
+            else
+            {
+                logger.LogWarning(
+                    exception,
+                    "Handled exception while processing request {RequestId}.",
+                    requestId);
+            }
+
+            var detail = environment.IsDevelopment()
+                ? $"{description} Details: {exception.Message}"
+                : description;
+
+            var problem = ApiProblemDetailsFactory.Create(httpContext, statusCode, error, detail);
+            if (exception is InvalidAssetReferenceException invalidAssetReference)
+            {
+                problem.Extensions["invalidAssetReferences"] = invalidAssetReference.References
+                    .Select(reference => new { assetId = reference.AssetId, reason = reference.Reason })
+                    .ToArray();
+            }
+
+            if (exception is InvalidSceneReferenceException invalidSceneReference)
+            {
+                problem.Extensions["invalidSceneReferences"] = invalidSceneReference.References
+                    .Select(reference => new { sceneId = reference.SceneId, reason = reference.Reason })
+                    .ToArray();
+            }
+
+            await ApiProblemDetailsWriter.WriteAsync(httpContext, problem, cancellationToken);
+            return true;
+        }
+
+        private static bool IsContentStorageAccessDenied(UnauthorizedAccessException exception) =>
+            exception.Message.Contains("Access to the path", StringComparison.OrdinalIgnoreCase)
+            && exception.Message.Contains("App_Data", StringComparison.OrdinalIgnoreCase);
+
+        private static (int StatusCode, string Error, string Description) MapException(Exception exception) =>
+            exception switch
+            {
+                ArgumentException => (
+                    StatusCodes.Status400BadRequest,
+                    "bad_request",
+                    "The request was invalid."),
+                InvalidOperationException => (
+                    StatusCodes.Status400BadRequest,
+                    "bad_request",
+                    "The request could not be completed."),
+                UnauthorizedAccessException unauthorizedAccess when IsContentStorageAccessDenied(unauthorizedAccess) => (
+                    StatusCodes.Status503ServiceUnavailable,
+                    "storage_unavailable",
+                    "Content storage is not writable. Check App_Data permissions."),
+                UnauthorizedAccessException => (
+                    StatusCodes.Status401Unauthorized,
+                    "unauthorized",
+                    "Authentication is required for this operation."),
+                AccessDeniedException accessDenied => (
+                    StatusCodes.Status403Forbidden,
+                    accessDenied.ErrorCode,
+                    accessDenied.Message),
+                InvalidAssetReferenceException => (
+                    StatusCodes.Status400BadRequest,
+                    "invalid_asset_reference",
+                    "One or more asset references in the scene JSON are invalid."),
+                InvalidSceneReferenceException => (
+                    StatusCodes.Status400BadRequest,
+                    "invalid_scene_reference",
+                    "One or more scene references are invalid."),
+                PreconditionFailedException preconditionFailed => (
+                    StatusCodes.Status412PreconditionFailed,
+                    "precondition_failed",
+                    preconditionFailed.Message),
+                KeyNotFoundException => (
+                    StatusCodes.Status404NotFound,
+                    "not_found",
+                    "The requested resource was not found."),
+                NotImplementedException => (
+                    StatusCodes.Status501NotImplemented,
+                    "not_implemented",
+                    "This operation has not been implemented yet."),
+                _ => (
+                    StatusCodes.Status500InternalServerError,
+                    "server_error",
+                    "An unexpected error occurred."),
+            };
+    }
+}

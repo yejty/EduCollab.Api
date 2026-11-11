@@ -1,20 +1,45 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Drive API contracts",
-    "description": "Requests the Drive app makes to the Space API through DriveAPI. 9 November 2026.\n\nEvery call uses a Bearer app token except `POST /login` and `POST /login/2fa`.\n\nThis document transcribes `Drive-API-contracts.pdf`. The source names methods, paths, request fields, and response shapes. It does not name HTTP status codes, error bodies, or nullability. Success responses below use `200` when the source shows a body and `204` when it shows no body.\n\nTwo response fields are named but not typed in the source and are modeled here as follows:\n- `DriveListing.roots` items are `StorageNode`.\n- `GET /storage/nodes/{id}/children` returns `parent` as `StorageNode` and `children` as `StorageNode[]`.",
-    "version": "2026-11-09"
+    "title": "Space / Drive API contracts",
+    "version": "2026-11-11",
+    "description": "Transcription of `Helpers/Drive-API-contracts 2.pdf` (11 November 2026).\n\nFile calls are used by Drive and the website. People, invite, and admin calls are the website only.\nWorkspace-scoped website calls also send header `X-Workspace-Id`.\n\nThe PDF names methods, paths, request fields, and response shapes. It names some HTTP statuses (201 create node, 204 deletes, 410 direct user create, 403 invite account mismatch, 502 invite resend mail failure, 409 admin delete while owning a workspace). Where the PDF is silent, success responses below use 200 for bodies and 204 for empty bodies.\n\nIdentifiers in the PDF examples are UUIDs (users, workspaces, namespaces, nodes, app tokens, dispatches). Project/group ids are integers. Invite tokens are 64 hex characters.\n\nAuthentication: `POST /login` and `POST /login/2fa` are anonymous. `GET /invites/{token}` and invite logo/inviter image routes are public. Other routes use `Authorization: Bearer`. Drive issues an app token via `POST /me/apps/tokens` after sign-in and uses that token afterward. `expiresAt` is 12 hours; `pairingExpiresAt` is 90 days.\n\nThis file does not replace `openapi/v1/openapi.json` or `openapi/v1/drive.openapi.json`."
   },
   "tags": [
-    { "name": "Sign-in" },
-    { "name": "Device token" },
-    { "name": "Listing and nodes" },
-    { "name": "Dispatch" }
+    {
+      "name": "Sign-in"
+    },
+    {
+      "name": "App tokens"
+    },
+    {
+      "name": "Storage"
+    },
+    {
+      "name": "Dispatch"
+    },
+    {
+      "name": "Users"
+    },
+    {
+      "name": "Invites"
+    },
+    {
+      "name": "Groups"
+    },
+    {
+      "name": "Profile"
+    },
+    {
+      "name": "Admin"
+    }
   ],
   "paths": {
     "/login": {
       "post": {
-        "tags": ["Sign-in"],
+        "tags": [
+          "Sign-in"
+        ],
         "summary": "Sign in with user name and password.",
         "operationId": "login",
         "security": [],
@@ -22,19 +47,25 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "LoginSuccess, or TwoFactorChallenge when a second factor is required. The source does not name an HTTP status.",
+            "description": "LoginSuccess, or TwoFactorChallenge when a second factor is required.",
             "content": {
               "application/json": {
                 "schema": {
                   "oneOf": [
-                    { "$ref": "#/components/schemas/LoginSuccess" },
-                    { "$ref": "#/components/schemas/TwoFactorChallenge" }
+                    {
+                      "$ref": "#/components/schemas/LoginSuccess"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TwoFactorChallenge"
+                    }
                   ]
                 }
               }
@@ -45,7 +76,9 @@
     },
     "/login/2fa": {
       "post": {
-        "tags": ["Sign-in"],
+        "tags": [
+          "Sign-in"
+        ],
         "summary": "Complete sign-in with a two-factor code.",
         "operationId": "loginTwoFactor",
         "security": [],
@@ -53,16 +86,20 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginTwoFactorRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LoginTwoFactorRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "LoginSuccess. The source does not name an HTTP status.",
+            "description": "LoginSuccess.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LoginSuccess" }
+                "schema": {
+                  "$ref": "#/components/schemas/LoginSuccess"
+                }
               }
             }
           }
@@ -71,23 +108,29 @@
     },
     "/me/apps/tokens": {
       "post": {
-        "tags": ["Device token"],
-        "summary": "Issue an app token.",
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Issue an app token for this computer.",
         "operationId": "createAppToken",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateAppTokenRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppTokenRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "IssuedAppToken. The source does not name an HTTP status.",
+            "description": "Issued app token. expiresAt is 12 hours; pairingExpiresAt is 90 days.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedAppToken"
+                }
               }
             }
           }
@@ -96,23 +139,30 @@
     },
     "/me/apps/tokens/refresh": {
       "post": {
-        "tags": ["Device token"],
+        "tags": [
+          "App tokens"
+        ],
         "summary": "Refresh the current app token.",
         "operationId": "refreshAppToken",
+        "description": "Authorized by the bearer app token being refreshed.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RefreshAppTokenRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RefreshAppTokenRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "IssuedAppToken. The source does not name an HTTP status.",
+            "description": "New IssuedAppToken. Client replaces the stored token.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/IssuedAppToken" }
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedAppToken"
+                }
               }
             }
           }
@@ -121,35 +171,38 @@
     },
     "/me/apps/tokens/{tokenId}": {
       "delete": {
-        "tags": ["Device token"],
+        "tags": [
+          "App tokens"
+        ],
         "summary": "Revoke an app token.",
         "operationId": "deleteAppToken",
         "parameters": [
           {
-            "name": "tokenId",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string" }
+            "$ref": "#/components/parameters/TokenId"
           }
         ],
         "responses": {
           "204": {
-            "description": "The source shows no response body and does not name an HTTP status."
+            "description": "Token revoked. No body."
           }
         }
       }
     },
     "/storage/listing": {
       "get": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "List storage namespaces and roots.",
         "operationId": "getStorageListing",
         "responses": {
           "200": {
-            "description": "DriveListing. The source does not name an HTTP status.",
+            "description": "Drives the caller can open.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DriveListing" }
+                "schema": {
+                  "$ref": "#/components/schemas/DriveListing"
+                }
               }
             }
           }
@@ -158,77 +211,101 @@
     },
     "/storage/nodes/{id}": {
       "get": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Get one storage node.",
         "operationId": "getStorageNode",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "responses": {
           "200": {
-            "description": "StorageNode. The source does not name an HTTP status.",
+            "description": "StorageNode.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNode" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNode"
+                }
               }
             }
           }
         }
       },
       "patch": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Rename a storage node.",
         "operationId": "updateStorageNode",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateStorageNodeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStorageNodeRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "StorageNode. The source does not name an HTTP status.",
+            "description": "Renamed StorageNode. Sync log gets rename.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNode" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNode"
+                }
               }
             }
           }
         }
       },
       "delete": {
-        "tags": ["Listing and nodes"],
-        "summary": "Delete a storage node.",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Trash a storage node.",
         "operationId": "deleteStorageNode",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "responses": {
           "204": {
-            "description": "The source shows no response body and does not name an HTTP status."
+            "description": "Trashed. Sets trashedAt. Sync log gets trash."
           }
         }
       }
     },
     "/storage/nodes/{id}/children": {
       "get": {
-        "tags": ["Listing and nodes"],
-        "summary": "List the children of a storage node.",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "List children of a storage node.",
         "operationId": "getStorageNodeChildren",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "responses": {
           "200": {
-            "description": "Parent node and its children. The source does not name an HTTP status.",
+            "description": "Parent and children.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNodeChildren" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNodeChildren"
+                }
               }
             }
           }
@@ -237,29 +314,40 @@
     },
     "/storage/changes": {
       "get": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "List storage changes for a namespace.",
         "operationId": "listStorageChanges",
+        "description": "Sync log. Server sends up to 500 newer rows. Drive treats trash, delete, and purge as remove-from-Finder; other ops as refresh.",
         "parameters": [
           {
             "name": "namespaceId",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "cursor",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            },
+            "description": "Last applied row."
           }
         ],
         "responses": {
           "200": {
-            "description": "Storage changes. The source does not name an HTTP status.",
+            "description": "Changes after the cursor.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageChangeList" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageChangeList"
+                }
               }
             }
           }
@@ -268,23 +356,29 @@
     },
     "/storage/nodes": {
       "post": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Create a storage node.",
         "operationId": "createStorageNode",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateStorageNodeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateStorageNodeRequest"
+              }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "StorageNode. The source does not name an HTTP status.",
+          "201": {
+            "description": "Created StorageNode. Sync log gets create.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNode" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNode"
+                }
               }
             }
           }
@@ -293,26 +387,34 @@
     },
     "/storage/nodes/{id}/move": {
       "post": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Move a storage node under another parent.",
         "operationId": "moveStorageNode",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/MoveStorageNodeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/MoveStorageNodeRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "StorageNode. The source does not name an HTTP status.",
+            "description": "Moved StorageNode. Sync log gets move.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNode" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNode"
+                }
               }
             }
           }
@@ -321,17 +423,21 @@
     },
     "/storage/nodes/{id}/content": {
       "put": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Replace the bytes of a storage node.",
         "operationId": "putStorageNodeContent",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "requestBody": {
           "required": true,
-          "description": "Raw file bytes. The source does not name a Content-Type.",
+          "description": "Raw file bytes. Content-Type is the file's type, such as application/pdf.",
           "content": {
-            "application/octet-stream": {
+            "*/*": {
               "schema": {
                 "type": "string",
                 "format": "binary"
@@ -341,27 +447,33 @@
         },
         "responses": {
           "200": {
-            "description": "StorageNode. The source does not name an HTTP status.",
+            "description": "Updated StorageNode with new byteSize and contentHash. Sync log gets content.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageNode" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageNode"
+                }
               }
             }
           }
         }
       },
       "get": {
-        "tags": ["Listing and nodes"],
+        "tags": [
+          "Storage"
+        ],
         "summary": "Download the bytes of a storage node.",
         "operationId": "getStorageNodeContent",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "responses": {
           "200": {
-            "description": "File bytes. The source does not name an HTTP status or a Content-Type.",
+            "description": "File bytes. Includes Content-Type, Content-Length, and Content-Disposition.",
             "content": {
-              "application/octet-stream": {
+              "*/*": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
@@ -374,18 +486,24 @@
     },
     "/storage/nodes/{id}/open": {
       "get": {
-        "tags": ["Listing and nodes"],
-        "summary": "Open a storage node in Space.",
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Open info for a storage node.",
         "operationId": "openStorageNode",
         "parameters": [
-          { "$ref": "#/components/parameters/NodeId" }
+          {
+            "$ref": "#/components/parameters/NodeId"
+          }
         ],
         "responses": {
           "200": {
-            "description": "StorageOpen. The source does not name an HTTP status.",
+            "description": "Scene returns spaceUrl and href. Ordinary file returns download.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/StorageOpen" }
+                "schema": {
+                  "$ref": "#/components/schemas/StorageOpen"
+                }
               }
             }
           }
@@ -394,10 +512,12 @@
     },
     "/storage/dispatches": {
       "post": {
-        "tags": ["Dispatch"],
-        "summary": "Dispatch storage nodes.",
-        "description": "The source requires `Accept: application/x-ndjson`. The response is a stream of `DispatchEvent` objects, one JSON object per line.",
+        "tags": [
+          "Dispatch"
+        ],
+        "summary": "Dispatch storage nodes as a shareable copy.",
         "operationId": "createStorageDispatch",
+        "description": "Accept must be application/x-ndjson. Response is an NDJSON stream of DispatchEvent (start, progress, done, or error). Public page is /d/{publicId}.",
         "parameters": [
           {
             "name": "Accept",
@@ -405,7 +525,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "enum": ["application/x-ndjson"]
+              "enum": [
+                "application/x-ndjson"
+              ]
             }
           }
         ],
@@ -413,16 +535,20 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateDispatchRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateDispatchRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "NDJSON stream of DispatchEvent. The source does not name an HTTP status.",
+            "description": "NDJSON stream of DispatchEvent.",
             "content": {
               "application/x-ndjson": {
-                "schema": { "$ref": "#/components/schemas/DispatchEvent" }
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchEvent"
+                }
               }
             }
           }
@@ -431,34 +557,882 @@
     },
     "/storage/dispatches/{id}/notify": {
       "post": {
-        "tags": ["Dispatch"],
+        "tags": [
+          "Dispatch"
+        ],
         "summary": "Email a notification for a dispatch.",
         "operationId": "notifyStorageDispatch",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "Dispatch id.",
-            "schema": { "type": "string" }
+            "$ref": "#/components/parameters/DispatchId"
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/NotifyDispatchRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/NotifyDispatchRequest"
+              }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Notification result. The source does not name an HTTP status.",
+            "description": "Notification result.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DispatchNotification" }
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchNotification"
+                }
               }
             }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List people in the current workspace.",
+        "operationId": "listWorkspaceUsers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of members, not wrapped.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceMember"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Direct user creation (disabled).",
+        "operationId": "createWorkspaceUserDisabled",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "responses": {
+          "410": {
+            "description": "Direct creation disabled; invite instead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisabledUserCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/my": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get the signed-in person in the current workspace.",
+        "operationId": "getMyWorkspaceUser",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WorkspaceMember.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get one workspace member.",
+        "operationId": "getWorkspaceUser",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WorkspaceMember.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a member's role, permission code, or startup scene.",
+        "operationId": "updateWorkspaceUser",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated WorkspaceMember.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Remove a member from the workspace.",
+        "operationId": "deleteWorkspaceUser",
+        "description": "Account and My Drive stay. Cannot remove self. Personal folders inside this workspace go away.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed. Empty body."
+          }
+        }
+      }
+    },
+    "/users/{id}/avatar": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a member's avatar image.",
+        "operationId": "getWorkspaceUserAvatar",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No picture."
+          }
+        }
+      }
+    },
+    "/users/{id}/add-group": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Add projects to a member.",
+        "operationId": "addUserGroups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupIdList"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Added."
+          }
+        }
+      }
+    },
+    "/users/{id}/group-access": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Replace a member's project access list.",
+        "operationId": "setUserGroupAccess",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupIdList"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated access. Projects left off are taken away.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupIdList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{id}/remove-group": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Remove projects from a member.",
+        "operationId": "removeUserGroups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupIdList"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Removed."
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/invites": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Invite someone into a workspace.",
+        "operationId": "createWorkspaceInvite",
+        "description": "Invite lasts 7 days. A previous pending invite for the same email is revoked. Token in the link is 64 hex characters.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending invite with inviteUrl.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "List pending workspace invites.",
+        "operationId": "listWorkspaceInvites",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdPath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending invites.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInviteList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/invites/{inviteId}/resend": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Resend a pending invite.",
+        "operationId": "resendWorkspaceInvite",
+        "description": "Moves expiry 7 days forward. If mail fails, status is 502 and the link is still in the answer.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/InviteId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pending invite plus emailSent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Mail failed; invite link still returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workspaces/{workspaceId}/invites/{inviteId}": {
+      "delete": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Withdraw a pending invite.",
+        "operationId": "revokeWorkspaceInvite",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/InviteId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invite removed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedInviteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/invites": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "List invites waiting for the signed-in person.",
+        "operationId": "listMyInvites",
+        "description": "Matched by email. No workspace header.",
+        "responses": {
+          "200": {
+            "description": "My invites.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyInviteList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{token}": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Public invite preview.",
+        "operationId": "previewInvite",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invite preview.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Used, withdrawn, or expired."
+          }
+        }
+      }
+    },
+    "/invites/{token}/logo": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Workspace logo for the invite page.",
+        "operationId": "getInviteLogo",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing picture."
+          }
+        }
+      }
+    },
+    "/invites/{token}/inviter": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Inviter avatar for the invite page.",
+        "operationId": "getInviteInviterAvatar",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing picture."
+          }
+        }
+      }
+    },
+    "/invites/{token}/accept": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Accept an invite.",
+        "operationId": "acceptInvite",
+        "security": [],
+        "description": "New accounts must send username and password. Existing accounts must be signed in as the invited email; body may be empty. Wrong signed-in user returns 403 with accountMismatch.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInviteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Joined workspace; returns sign-in token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptInviteResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signed in as the wrong person.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountMismatchError"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Used, withdrawn, or expired."
+          }
+        }
+      }
+    },
+    "/groups/{id}/members": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "List members and available people for a project.",
+        "operationId": "getGroupMembers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/GroupId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Members and available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMembersResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Add people to a project.",
+        "operationId": "addGroupMembers",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/GroupId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddGroupMembersRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Added. Users must already belong to the workspace."
+          }
+        }
+      }
+    },
+    "/groups/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Remove one person from a project.",
+        "operationId": "removeGroupMember",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed. Personal folder under that project goes away."
+          }
+        }
+      }
+    },
+    "/me/profile/delete-request": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Request account deletion code.",
+        "operationId": "requestAccountDeletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Challenge and masked email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteChallengeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/profile/delete-confirm": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Confirm account deletion.",
+        "operationId": "confirmAccountDeletion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account deleted. Sign-in token stops working.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List platform accounts.",
+        "operationId": "listAdminUsers",
+        "responses": {
+          "200": {
+            "description": "Platform users.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update app flags and Drive quota.",
+        "operationId": "updateAdminUser",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAdminUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated admin user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateAdminUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete an account as platform administrator.",
+        "operationId": "deleteAdminUser",
+        "description": "No email code. 409 if the account still owns a workspace. Administrator cannot delete self.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account still owns a workspace."
           }
         }
       }
@@ -469,288 +1443,1440 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Bearer app token. Not used by POST /login or POST /login/2fa."
+        "description": "Login token or issued app token. Not used by POST /login, POST /login/2fa, or public invite preview/image routes."
       }
     },
     "parameters": {
+      "WorkspaceIdHeader": {
+        "name": "X-Workspace-Id",
+        "in": "header",
+        "required": true,
+        "description": "Current workspace id. Required on website workspace-scoped people and group calls.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
       "NodeId": {
         "name": "id",
         "in": "path",
         "required": true,
-        "description": "Storage node id.",
-        "schema": { "type": "string" }
+        "description": "Storage node id (UUID).",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "UserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "User id (UUID).",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "WorkspaceIdPath": {
+        "name": "workspaceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "InviteId": {
+        "name": "inviteId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "InviteToken": {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "64 hex characters.",
+        "schema": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "GroupId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Project / group number.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "TokenId": {
+        "name": "tokenId",
+        "in": "path",
+        "required": true,
+        "description": "App token id (UUID).",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "DispatchId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Dispatch id from the start event (not publicId).",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       }
     },
     "schemas": {
       "LoginRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["userName", "password"],
+        "required": [
+          "userName",
+          "password"
+        ],
         "properties": {
-          "userName": { "type": "string" },
-          "password": { "type": "string" }
+          "userName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Username or email."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "format": "password"
+          }
         }
       },
       "LoginTwoFactorRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["loginChallenge", "code"],
+        "required": [
+          "loginChallenge",
+          "code"
+        ],
         "properties": {
-          "loginChallenge": { "type": "string" },
-          "code": { "type": "string" }
+          "loginChallenge": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 8,
+            "description": "6 to 8 characters."
+          }
+        }
+      },
+      "UserApps": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "works",
+          "connector",
+          "plan",
+          "drive"
+        ],
+        "properties": {
+          "works": {
+            "type": "boolean"
+          },
+          "connector": {
+            "type": "boolean"
+          },
+          "plan": {
+            "type": "boolean"
+          },
+          "drive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AuthUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "name",
+          "fullName",
+          "role",
+          "apps",
+          "driveQuotaBytes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "apps": {
+            "$ref": "#/components/schemas/UserApps"
+          },
+          "driveQuotaBytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Default for a new account is 5368709120 (5 GB)."
+          }
+        }
+      },
+      "AuthWorkspace": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Workspace membership summary on sign-in / invite accept.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "LoginSuccess": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["token", "user"],
+        "required": [
+          "token",
+          "user"
+        ],
         "properties": {
-          "token": { "type": "string" },
+          "token": {
+            "type": "string"
+          },
           "user": {
-            "type": "object",
-            "description": "Authenticated user. The source names this property and does not list its fields.",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "canCreateWorkspace": {
+            "type": "boolean"
+          },
+          "totpEnabled": {
+            "type": "boolean"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthWorkspace"
+            }
           }
         }
       },
       "TwoFactorChallenge": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["requiresTwoFactor", "loginChallenge", "method", "email", "message"],
+        "required": [
+          "requiresTwoFactor",
+          "method",
+          "loginChallenge",
+          "email"
+        ],
         "properties": {
-          "requiresTwoFactor": { "type": "boolean" },
-          "loginChallenge": { "type": "string" },
-          "method": { "type": "string" },
-          "email": { "type": "string" },
-          "message": { "type": "string" }
+          "requiresTwoFactor": {
+            "type": "boolean"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "email",
+              "totp"
+            ]
+          },
+          "loginChallenge": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
         }
       },
       "CreateAppTokenRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["app", "name"],
+        "required": [
+          "app",
+          "name"
+        ],
         "properties": {
-          "app": { "type": "string" },
-          "name": { "type": "string" }
+          "app": {
+            "type": "string",
+            "enum": [
+              "drive.space",
+              "connector.space",
+              "collab.space"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Computer or installation label."
+          }
         }
       },
       "RefreshAppTokenRequest": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Empty object, as shown in the source."
+        "description": "Empty object."
       },
       "IssuedAppToken": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["token", "app", "id", "expiresAt", "pairingExpiresAt"],
+        "required": [
+          "token",
+          "app",
+          "id",
+          "expiresAt",
+          "pairingExpiresAt"
+        ],
         "properties": {
-          "token": { "type": "string" },
-          "app": { "type": "string" },
-          "id": { "type": "string" },
-          "expiresAt": { "type": "string", "format": "date-time" },
-          "pairingExpiresAt": { "type": "string", "format": "date-time" }
-        }
-      },
-      "DriveListing": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["namespaces", "roots"],
-        "properties": {
-          "namespaces": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/StorageNamespace" }
+          "token": {
+            "type": "string"
           },
-          "roots": {
-            "type": "array",
-            "description": "The source names `roots` and does not give the item schema. Each item is modeled as StorageNode.",
-            "items": { "$ref": "#/components/schemas/StorageNode" }
+          "app": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "12 hours from issue."
+          },
+          "pairingExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "90 days from issue. Pairing call is not defined in the PDF."
           }
         }
       },
       "StorageNamespace": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "title", "userId", "organizationId", "workspaceId", "rootNodeId"],
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "userId",
+          "organizationId",
+          "workspaceId",
+          "rootNodeId"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "kind": { "type": "string" },
-          "title": { "type": "string" },
-          "userId": { "type": "string" },
-          "organizationId": { "type": "string" },
-          "workspaceId": { "type": "string" },
-          "rootNodeId": { "type": "string" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "personal",
+              "org",
+              "workspace"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "rootNodeId": {
+            "type": "string",
+            "format": "uuid"
+          }
         }
       },
       "StorageNode": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Fields listed in the source shapes section. The source does not state which values may be null.",
+        "description": "File or folder record. Full field set appears on GET by id; list/children examples may return a subset.",
         "required": [
           "id",
-          "namespaceId",
-          "parentId",
           "name",
-          "kind",
-          "appKind",
-          "mime",
-          "assetId",
-          "groupId",
-          "inheritGrants",
-          "byteSize",
-          "contentHash",
-          "readOnly",
-          "cloudOnly",
-          "extension",
-          "role",
-          "isPersonal",
-          "trashedAt",
-          "createdAt",
-          "updatedAt"
+          "kind"
         ],
         "properties": {
-          "id": { "type": "string" },
-          "namespaceId": { "type": "string" },
-          "parentId": { "type": "string" },
-          "name": { "type": "string" },
-          "kind": { "type": "string" },
-          "appKind": { "type": "string" },
-          "mime": { "type": "string" },
-          "assetId": { "type": "string" },
-          "groupId": { "type": "string" },
-          "inheritGrants": { "type": "boolean" },
-          "byteSize": { "type": "integer", "format": "int64" },
-          "contentHash": { "type": "string" },
-          "readOnly": { "type": "boolean" },
-          "cloudOnly": { "type": "boolean" },
-          "extension": { "type": "string" },
-          "role": { "type": "string" },
-          "isPersonal": { "type": "boolean" },
-          "trashedAt": { "type": "string", "format": "date-time" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "file",
+              "project",
+              "shortcut"
+            ]
+          },
+          "appKind": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "project",
+              "file",
+              "scene",
+              "object",
+              "material",
+              "flow",
+              "configuration",
+              "shortcut"
+            ]
+          },
+          "mime": {
+            "type": "string",
+            "nullable": true
+          },
+          "byteSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "contentHash": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "description": "SHA-256 of bytes, 64 hex characters.",
+            "nullable": true
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "cloudOnly": {
+            "type": "boolean"
+          },
+          "extension": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "viewer",
+              "editor",
+              "owner"
+            ]
+          },
+          "isPersonal": {
+            "type": "boolean"
+          },
+          "trashedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DriveListing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "namespaces",
+          "roots"
+        ],
+        "properties": {
+          "namespaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StorageNamespace"
+            }
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StorageNode"
+            }
+          }
         }
       },
       "StorageNodeChildren": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["parent", "children"],
+        "required": [
+          "parent",
+          "children"
+        ],
         "properties": {
           "parent": {
-            "description": "The source names `parent` and does not give its schema. Modeled as StorageNode.",
-            "allOf": [{ "$ref": "#/components/schemas/StorageNode" }]
+            "$ref": "#/components/schemas/StorageNode"
           },
           "children": {
             "type": "array",
-            "description": "The source names `children` and does not give the item schema. Each item is modeled as StorageNode.",
-            "items": { "$ref": "#/components/schemas/StorageNode" }
+            "items": {
+              "$ref": "#/components/schemas/StorageNode"
+            }
           }
         }
       },
       "StorageChange": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["cursor", "namespaceId", "nodeId", "op"],
+        "required": [
+          "cursor",
+          "namespaceId",
+          "nodeId",
+          "op"
+        ],
         "properties": {
-          "cursor": { "type": "string" },
-          "namespaceId": { "type": "string" },
-          "nodeId": { "type": "string" },
-          "op": { "type": "string" }
+          "cursor": {
+            "type": "string",
+            "description": "Row number as a string."
+          },
+          "namespaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nodeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "rename",
+              "move",
+              "content",
+              "trash",
+              "delete",
+              "restore",
+              "share"
+            ]
+          },
+          "actorUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "StorageChangeList": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["changes"],
+        "required": [
+          "changes"
+        ],
         "properties": {
           "changes": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/StorageChange" }
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/StorageChange"
+            }
           }
         }
       },
       "CreateStorageNodeRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["parentId", "name", "kind"],
+        "required": [
+          "parentId",
+          "name"
+        ],
         "properties": {
-          "parentId": { "type": "string" },
-          "name": { "type": "string" },
-          "kind": { "type": "string" }
+          "parentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "file",
+              "project"
+            ],
+            "default": "folder"
+          }
         }
       },
       "UpdateStorageNodeRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string" }
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
         }
       },
       "MoveStorageNodeRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["parentId"],
+        "required": [
+          "parentId"
+        ],
         "properties": {
-          "parentId": { "type": "string" }
+          "parentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Optional new name. Drive sends only parentId."
+          }
         }
       },
       "StorageOpen": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["spaceUrl", "href"],
         "properties": {
-          "spaceUrl": { "type": "string" },
-          "href": { "type": "string" }
+          "node": {
+            "$ref": "#/components/schemas/StorageNode"
+          },
+          "spaceUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "nullable": true
+          },
+          "download": {
+            "type": "string",
+            "nullable": true,
+            "description": "Download URL for ordinary files; null for scenes."
+          }
         }
       },
       "CreateDispatchRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["nodeIds"],
+        "required": [
+          "nodeIds"
+        ],
         "properties": {
           "nodeIds": {
             "type": "array",
-            "items": { "type": "string" }
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
       "DispatchEvent": {
         "type": "object",
         "additionalProperties": false,
-        "description": "One JSON object in the `application/x-ndjson` stream. The source lists these fields and does not say which of them appear on every event.",
+        "description": "One NDJSON line. event is start, progress, done, or error. Fields vary by event.",
         "properties": {
-          "event": { "type": "string" },
-          "id": { "type": "string" },
-          "publicId": { "type": "string" },
-          "title": { "type": "string" },
-          "url": { "type": "string" },
-          "name": { "type": "string" },
-          "index": { "type": "integer" },
-          "fileCount": { "type": "integer" },
-          "copiedBytes": { "type": "integer", "format": "int64" },
-          "totalBytes": { "type": "integer", "format": "int64" },
-          "message": { "type": "string" }
+          "event": {
+            "type": "string",
+            "enum": [
+              "start",
+              "progress",
+              "done",
+              "error"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "publicId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "description": "Public page /d/{publicId}."
+          },
+          "name": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer"
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "copiedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          }
         }
       },
       "NotifyDispatchRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["email"],
+        "required": [
+          "email"
+        ],
         "properties": {
-          "email": { "type": "string" }
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
         }
       },
       "DispatchNotification": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["message"],
+        "required": [
+          "ok",
+          "delivered",
+          "message"
+        ],
         "properties": {
-          "message": { "type": "string" }
+          "ok": {
+            "type": "boolean"
+          },
+          "delivered": {
+            "type": "boolean",
+            "description": "False when mail is not configured; the link is still ready."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "GroupAccessItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentGroupId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "isPersonal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "fullName",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Owner",
+              "Manager",
+              "Creator",
+              "Viewer",
+              "Customer",
+              "Custom"
+            ]
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lowercase role, or null for a custom mix."
+          },
+          "permissionCode": {
+            "type": "string",
+            "description": "Rights sorted and joined with |."
+          },
+          "description": {
+            "type": "string"
+          },
+          "isPlatformAdmin": {
+            "type": "boolean"
+          },
+          "hasAvatar": {
+            "type": "boolean"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "groupAccess": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupAccessItem"
+            }
+          }
+        }
+      },
+      "UpdateWorkspaceMemberRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Changes role, permission code, or startup scene. Does not change name, email, or password.",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "Owner",
+              "Manager",
+              "Creator",
+              "Viewer",
+              "Customer",
+              "Custom"
+            ]
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateInviteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "role",
+          "permissionCode"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string"
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "integer",
+            "description": "Required unless the invite is for an Owner."
+          },
+          "createPersonalGroup": {
+            "type": "boolean"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Required for Customer invites."
+          }
+        }
+      },
+      "PendingInvite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "groupId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "createPersonalGroup": {
+            "type": "boolean"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "emailSent": {
+            "type": "boolean"
+          },
+          "inviteUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "PendingInviteList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invites"
+        ],
+        "properties": {
+          "invites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingInvite"
+            }
+          }
+        }
+      },
+      "MyInvite": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "hasLogo": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acceptPath": {
+            "type": "string"
+          }
+        }
+      },
+      "MyInviteList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invites"
+        ],
+        "properties": {
+          "invites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyInvite"
+            }
+          }
+        }
+      },
+      "InvitePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "hasLogo": {
+                "type": "boolean"
+              }
+            }
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "existingUser": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "invitedBy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "hasAvatar": {
+                "type": "boolean"
+              }
+            }
+          },
+          "group": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AcceptInviteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Required for a new account. May be empty when the invited account already exists and is signed in.",
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "format": "password"
+          },
+          "fullName": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptInviteResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "isNewUser",
+          "user",
+          "workspace"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "isNewUser": {
+            "type": "boolean"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/AuthWorkspace"
+          }
+        }
+      },
+      "AccountMismatchError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accountMismatch": {
+            "type": "boolean"
+          },
+          "invitedEmail": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "GroupIdList": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "description": "Project numbers."
+      },
+      "GroupMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "GroupMembersResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "members",
+          "available"
+        ],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          },
+          "available": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            }
+          }
+        }
+      },
+      "AddGroupMembersRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userIds"
+        ],
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "DeleteChallengeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deleteChallenge",
+          "email"
+        ],
+        "properties": {
+          "deleteChallenge": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "Masked address."
+          }
+        }
+      },
+      "ConfirmDeleteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deleteChallenge",
+          "code"
+        ],
+        "properties": {
+          "deleteChallenge": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6
+          }
+        }
+      },
+      "OkResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AdminUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "isPlatformAdmin": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apps": {
+            "$ref": "#/components/schemas/UserApps"
+          },
+          "driveQuotaBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "driveUsedBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AdminUserList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "users"
+        ],
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          }
+        }
+      },
+      "UpdateAdminUserRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "apps",
+          "driveQuotaBytes"
+        ],
+        "description": "Body must include all three app flags and the quota. Drive itself stays on.",
+        "properties": {
+          "apps": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "works",
+              "connector",
+              "plan"
+            ],
+            "properties": {
+              "works": {
+                "type": "boolean"
+              },
+              "connector": {
+                "type": "boolean"
+              },
+              "plan": {
+                "type": "boolean"
+              }
+            }
+          },
+          "driveQuotaBytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "UpdateAdminUserResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "user"
+        ],
+        "properties": {
+          "user": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "apps": {
+                "$ref": "#/components/schemas/UserApps"
+              },
+              "driveQuotaBytes": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        }
+      },
+      "RemovedInviteResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DisabledUserCreateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          }
         }
       }
     }
   },
   "security": [
-    { "bearerAuth": [] }
+    {
+      "bearerAuth": []
+    }
   ]
 }

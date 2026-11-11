@@ -34,4 +34,4 @@ Unity-style admin UI (dark). Keep in sync with `src/index.css` `@theme` and `.da
 
 ## Transactional email
 
-HTML emails mirror these tokens via `EduCollab.Application/Services/Notifications/EmailDesignTokens.cs` (inline styles; keep in sync when tokens change).
+HTML emails mirror these tokens via `Space.Application/Services/Notifications/EmailDesignTokens.cs` (inline styles; keep in sync when tokens change).

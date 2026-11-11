@@ -1,0 +1,150 @@
+using System.Net;
+using System.Net.Http.Json;
+using Space.Contracts.Requests.Workspaces;
+using Space.Contracts.Responses.Users;
+using Space.Contracts.Responses.Workspaces;
+
+namespace Space.Api.Tests.Integration;
+
+[Trait("Category", "Integration")]
+public sealed class WorkspaceCreationApprovalIntegrationTests
+{
+    [Fact]
+    public async Task WorkspaceCreation_RequiresApprovalToken_FromAdminEmailButtons()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var userClient = factory.CreateClient();
+        using var reviewClient = factory.CreateClient();
+
+        var userEmail = $"requester-{Guid.NewGuid():N}@example.com";
+        const string userPassword = "Requester123!";
+
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Request User", userEmail, userPassword);
+        userClient.SetBearerToken(userTokens.AccessToken);
+
+        var createWithoutTokenResponse = await userClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
+        {
+            Name = "Blocked Workspace",
+            Description = "Should fail without token",
+            ApprovalToken = string.Empty,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, createWithoutTokenResponse.StatusCode);
+
+        var submitResponse = await userClient.PostAsJsonAsync("/api/workspace/creation-requests", new RequestWorkspaceCreationRequest
+        {
+            Name = "Approved Workspace",
+            Description = "Pending review",
+            Type = "classroom",
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var pendingRequest = await submitResponse.ReadAsJsonAsync<WorkspaceCreationRequestResponse>();
+        Assert.Equal("Pending", pendingRequest.Status);
+        Assert.Equal("classroom", pendingRequest.Type);
+
+        var adminNotification = factory.EmailSender.GetLatest("admin@space.local", "New Space workspace creation request");
+        Assert.Contains("Approved Workspace", adminNotification.Content.PlainText, StringComparison.Ordinal);
+        Assert.Contains("Type: classroom", adminNotification.Content.PlainText, StringComparison.Ordinal);
+        Assert.Contains("/approve", adminNotification.Content.PlainText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("/deny", adminNotification.Content.PlainText, StringComparison.OrdinalIgnoreCase);
+
+        var approvePath = factory.GetWorkspaceCreationAdminApprovePath();
+        var approveResponse = await reviewClient.GetAsync(approvePath);
+        approveResponse.EnsureSuccessStatusCode();
+        Assert.Contains("Request approved", await approveResponse.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
+        var approvalToken = factory.GetWorkspaceCreationApprovalToken(userEmail);
+
+        var createResponse = await userClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
+        {
+            Name = "Approved Workspace",
+            Description = "Pending review",
+            ApprovalToken = approvalToken,
+        });
+        createResponse.EnsureSuccessStatusCode();
+        var workspace = await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("Approved Workspace", workspace.Name);
+        Assert.Equal("classroom", workspace.Type);
+        Assert.Equal("Owner", workspace.CurrentUserRole);
+
+        var getWorkspaceResponse = await userClient.GetAsync("/api/workspace");
+        getWorkspaceResponse.EnsureSuccessStatusCode();
+        var currentWorkspace = await getWorkspaceResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("classroom", currentWorkspace.Type);
+    }
+
+    [Fact]
+    public async Task WorkspaceCreation_AllowsOwnerToCreateSecondWorkspace_WhenAlreadyMemberOfAnother()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var userClient = factory.CreateClient();
+        using var reviewClient = factory.CreateClient();
+
+        var userEmail = $"multi-owner-{Guid.NewGuid():N}@example.com";
+        const string userPassword = "Requester123!";
+
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Multi Owner", userEmail, userPassword);
+        userClient.SetBearerToken(userTokens.AccessToken);
+
+        var firstWorkspace = await userClient.CreateApprovedWorkspaceAsync(factory, userEmail, "First Workspace");
+
+        var submitResponse = await userClient.PostAsJsonAsync("/api/workspace/creation-requests", new RequestWorkspaceCreationRequest
+        {
+            Name = "Second Workspace",
+            Description = "Another approved workspace",
+        });
+        submitResponse.EnsureSuccessStatusCode();
+
+        var approvePath = factory.GetWorkspaceCreationAdminApprovePath();
+        var approveResponse = await reviewClient.GetAsync(approvePath);
+        approveResponse.EnsureSuccessStatusCode();
+
+        var approvalToken = factory.GetWorkspaceCreationApprovalToken(userEmail);
+
+        var createResponse = await userClient.PostAsJsonAsync("/api/workspace", new CreateWorkspaceRequest
+        {
+            Name = "Second Workspace",
+            Description = "Another approved workspace",
+            ApprovalToken = approvalToken,
+        });
+        createResponse.EnsureSuccessStatusCode();
+        var secondWorkspace = await createResponse.ReadAsJsonAsync<WorkspaceResponse>();
+        Assert.Equal("Second Workspace", secondWorkspace.Name);
+        Assert.Equal("Owner", secondWorkspace.CurrentUserRole);
+
+        var workspacesResponse = await userClient.GetAsync("/api/users/me/workspaces");
+        workspacesResponse.EnsureSuccessStatusCode();
+        var workspaces = await workspacesResponse.ReadAsJsonAsync<UserWorkspacesResponse>();
+        Assert.Equal(2, workspaces.Workspaces.Count);
+        Assert.Contains(workspaces.Workspaces, w => w.WorkspaceName == "First Workspace" && w.Role == "Owner");
+        Assert.Contains(workspaces.Workspaces, w => w.WorkspaceName == "Second Workspace" && w.Role == "Owner" && w.IsActive);
+        Assert.NotEqual(firstWorkspace.Id, secondWorkspace.Id);
+    }
+
+    [Fact]
+    public async Task WorkspaceCreationRequest_CanBeDenied_FromAdminEmailButton()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var userClient = factory.CreateClient();
+        using var reviewClient = factory.CreateClient();
+
+        var userEmail = $"denied-{Guid.NewGuid():N}@example.com";
+        const string userPassword = "Requester123!";
+
+        var userTokens = await userClient.RegisterAndConfirmAsync(factory, "Denied User", userEmail, userPassword);
+        userClient.SetBearerToken(userTokens.AccessToken);
+
+        var submitResponse = await userClient.PostAsJsonAsync("/api/workspace/creation-requests", new RequestWorkspaceCreationRequest
+        {
+            Name = "Denied Workspace",
+        });
+        submitResponse.EnsureSuccessStatusCode();
+
+        var denyPath = factory.GetWorkspaceCreationAdminDenyPath();
+        var denyResponse = await reviewClient.GetAsync(denyPath);
+        denyResponse.EnsureSuccessStatusCode();
+        Assert.Contains("Request denied", await denyResponse.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
+        var denialEmail = factory.EmailSender.GetLatest(userEmail, "Your Space workspace request was denied");
+        Assert.Contains("Denied Workspace", denialEmail.Content.PlainText, StringComparison.Ordinal);
+    }
+}

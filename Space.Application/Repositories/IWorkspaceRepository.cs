@@ -1,0 +1,69 @@
+using Space.Application.Models;
+
+namespace Space.Application.Repositories
+{
+    public interface IWorkspaceRepository
+    {
+        Task<Workspace?> GetWorkspaceByIdAsync(int id, CancellationToken cancellationToken);
+
+        Task<List<Workspace>> GetAllWorkspacesAsync(CancellationToken cancellationToken);
+
+        Task<Workspace?> UpdateWorkspaceAsync(Workspace workspace, int userId, CancellationToken cancellationToken);
+
+        Task<bool> SoftDeleteWorkspaceAsync(int workspaceId, int userId, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+        Task<List<WorkspaceMember>> GetWorkspaceMembersAsync(int workspaceId, CancellationToken cancellationToken);
+
+        Task<WorkspaceMember?> GetWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+
+        Task<int> CreateWorkspaceWithOwnerAsync(Workspace workspace, int ownerUserId, DateTimeOffset now, CancellationToken cancellationToken);
+
+        Task<List<WorkspaceMember>> GetWorkspaceMembershipsForUserAsync(int userId, CancellationToken cancellationToken);
+
+        Task<List<Workspace>> GetWorkspacesForUserAsync(int userId, CancellationToken cancellationToken);
+
+        Task<bool> IsUserWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+
+        Task<bool> IsEmailMemberOfWorkspaceAsync(int workspaceId, string email, CancellationToken cancellationToken);
+
+        Task RevokePendingWorkspaceInvitationsAsync(int workspaceId, string email, DateTimeOffset revokedAtUtc, CancellationToken cancellationToken);
+
+        Task<long> InsertWorkspaceInvitationAsync(
+            int workspaceId,
+            string email,
+            string tokenHashSha256Hex,
+            WorkspaceRole role,
+            IReadOnlySet<string> parameters,
+            int groupId,
+            DateTimeOffset expiresAtUtc,
+            DateTimeOffset createdAtUtc,
+            int invitedByUserId,
+            CancellationToken cancellationToken);
+
+        Task<WorkspaceInvitationDetails?> GetActiveWorkspaceInvitationAsync(
+            string tokenHashSha256Hex,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
+        Task<int?> AcceptWorkspaceInvitationAndRegisterUserAsync(
+            int workspaceId,
+            string tokenHashSha256Hex,
+            string email,
+            string fullName,
+            string plainPassword,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
+        Task<WorkspaceMember?> AcceptWorkspaceInvitationForExistingUserAsync(
+            int workspaceId,
+            string tokenHashSha256Hex,
+            int userId,
+            string email,
+            DateTimeOffset utcNow,
+            CancellationToken cancellationToken);
+
+        Task<bool> RemoveWorkspaceMemberAsync(int workspaceId, int userId, CancellationToken cancellationToken);
+
+        Task<WorkspaceMember?> UpdateWorkspaceMemberAsync(int id, int userId, WorkspaceMember member, CancellationToken cancellationToken);
+    }
+}

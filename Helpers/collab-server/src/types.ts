@@ -19,7 +19,7 @@ export function isParticipantRole(value: unknown): value is ParticipantRole {
 export const ASSET_KINDS = ['scene', 'flow'] as const
 export type SessionAssetKind = (typeof ASSET_KINDS)[number]
 
-/** Identity derived from an EduCollab join ticket. */
+/** Identity derived from an Space join ticket. */
 export interface JoinIdentity {
   principal: string
   displayName: string

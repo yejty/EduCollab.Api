@@ -2,22 +2,22 @@
 #
 # Deploy (from this directory on the collab host):
 #   cp .env.hetzner.example .env.hetzner
-#   docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
+#   docker compose -p space-collab-v2 -f docker-compose.hetzner.yml --env-file .env.hetzner up -d --build
 #
 # Tear down only this instance:
-#   docker compose -p educollab-collab-v2 -f docker-compose.hetzner.yml down
+#   docker compose -p space-collab-v2 -f docker-compose.hetzner.yml down
 #
 # On the API host (.env.hetzner):
 #   SessionJoin__ColyseusEndpoint=wss://<your-host-or-proxy>:2568
 
-name: educollab-collab-v2
+name: space-collab-v2
 
 services:
   collab-server:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: educollab-collab-server-v2
+    container_name: space-collab-server-v2
     restart: unless-stopped
     ports:
       # Host 2568 keeps existing collab on 2567 untouched
@@ -27,11 +27,11 @@ services:
       COLLAB_BIND_ADDR: "0.0.0.0"
       COLLAB_ALLOWED_ORIGINS: ${COLLAB_ALLOWED_ORIGINS}
       # Public URL of the API on the other server (HTTPS, no trailing slash)
-      EDUCOLLAB_API_BASE: ${EDUCOLLAB_API_BASE}
+      SPACE_API_BASE: ${SPACE_API_BASE}
       SESSION_JOIN_SECRET: ${SESSION_JOIN_SECRET}
-      SESSION_JOIN_ISSUER: ${SESSION_JOIN_ISSUER:-EduCollab.Api}
-      SESSION_JOIN_AUDIENCE: ${SESSION_JOIN_AUDIENCE:-EduCollab.CollabServer}
-      EDUCOLLAB_INTERNAL_API_KEY: ${EDUCOLLAB_INTERNAL_API_KEY}
+      SESSION_JOIN_ISSUER: ${SESSION_JOIN_ISSUER:-Hub.Api}
+      SESSION_JOIN_AUDIENCE: ${SESSION_JOIN_AUDIENCE:-Space.CollabServer}
+      SPACE_INTERNAL_API_KEY: ${SPACE_INTERNAL_API_KEY}
       COLLAB_LOG_LEVEL: ${COLLAB_LOG_LEVEL:-info}
       COLLAB_MONITOR_USER: ${COLLAB_MONITOR_USER:-}
       COLLAB_MONITOR_PASSWORD: ${COLLAB_MONITOR_PASSWORD:-}

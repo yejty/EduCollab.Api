@@ -55,7 +55,7 @@ function readBool(value: unknown): boolean {
 }
 
 /**
- * Verify an EduCollab session join ticket (HMAC-SHA256 JWT).
+ * Verify an Space session join ticket (HMAC-SHA256 JWT).
  * Returns null when the signature, expiry, or claims are invalid.
  */
 export function verifyJoinTicket(

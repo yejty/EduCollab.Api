@@ -1,0 +1,329 @@
+using System.Net;
+using System.Net.Http.Json;
+using Space.Application.Models;
+using Space.Contracts.Requests.Groups;
+using Space.Contracts.Requests.Users;
+using Space.Contracts.Requests.Workspaces;
+using Space.Contracts.Responses;
+using Space.Contracts.Responses.Groups;
+using Space.Contracts.Responses.Users;
+
+namespace Space.Api.Tests.Integration;
+
+[Trait("Category", "Integration")]
+public sealed class GroupMembershipAuthorizationIntegrationTests
+{
+    [Fact]
+    public async Task WorkspaceManager_NotInGroup_CannotAddMembers_IncludingSelf()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var managerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Group Membership Auth Workspace",
+            "Group membership authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
+
+        factory.EmailSender.Clear();
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = managerEmail,
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
+        });
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+        var invitationToken = factory.GetInvitationToken(managerEmail);
+        var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
+        {
+            FullName = "Workspace Manager",
+            Email = managerEmail,
+            Password = password,
+        });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var managerTokens = await managerClient.LoginAsync(managerEmail, password);
+        managerClient.SetBearerToken(managerTokens.AccessToken);
+
+        var groupResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Owner Group",
+            Description = "Group created by owner",
+        });
+        groupResponse.EnsureSuccessStatusCode();
+        var group = await groupResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var managerMeResponse = await managerClient.GetAsync("/api/users/me");
+        managerMeResponse.EnsureSuccessStatusCode();
+        var managerUser = await managerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addSelfResponse = await managerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{group.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)managerUser.Id) });
+        Assert.Equal(HttpStatusCode.Forbidden, addSelfResponse.StatusCode);
+        var forbiddenBody = await addSelfResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Equal("forbidden", forbiddenBody.Error);
+    }
+
+    [Fact]
+    public async Task WorkspaceManager_InGroup_CanAddMembers()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var managerClient = factory.CreateClient();
+        using var viewerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
+        var viewerEmail = $"viewer-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Group Membership Auth Workspace",
+            "Group membership authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
+
+        foreach (var (email, role, client, first, last) in new[]
+        {
+            (managerEmail, WorkspaceRole.Manager, managerClient, "Workspace", "Manager"),
+            (viewerEmail, WorkspaceRole.Viewer, viewerClient, "Workspace", "Viewer"),
+        })
+        {
+            factory.EmailSender.Clear();
+            var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+            {
+                Email = email,
+                GroupId = invitationGroup.Id,
+                Parameters = WorkspaceParameterTestHelpers.ParametersForRole(role),
+            });
+            Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+            var invitationToken = factory.GetInvitationToken(email);
+            var acceptResponse = await client.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
+            {
+                FullName = $"{first} {last}",
+                Email = email,
+                Password = password,
+            });
+            acceptResponse.EnsureSuccessStatusCode();
+
+            var tokens = await client.LoginAsync(email, password);
+            client.SetBearerToken(tokens.AccessToken);
+        }
+
+        var groupResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Shared Group",
+            Description = "Group for manager membership test",
+        });
+        groupResponse.EnsureSuccessStatusCode();
+        var group = await groupResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var managerMeResponse = await managerClient.GetAsync("/api/users/me");
+        managerMeResponse.EnsureSuccessStatusCode();
+        var managerUser = await managerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addManagerResponse = await ownerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{group.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)managerUser.Id) });
+        addManagerResponse.EnsureSuccessStatusCode();
+
+        var viewerMeResponse = await viewerClient.GetAsync("/api/users/me");
+        viewerMeResponse.EnsureSuccessStatusCode();
+        var viewerUser = await viewerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addViewerResponse = await managerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{group.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)viewerUser.Id) });
+        Assert.Equal(HttpStatusCode.Created, addViewerResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateGroup_RejectsParentGroupIdWhenManagerHasNoAccess()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var managerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Group Parent Access Workspace",
+            "Group parent access authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
+
+        factory.EmailSender.Clear();
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = managerEmail,
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
+        });
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+        var invitationToken = factory.GetInvitationToken(managerEmail);
+        var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
+        {
+            FullName = "Workspace Manager",
+            Email = managerEmail,
+            Password = password,
+        });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var managerTokens = await managerClient.LoginAsync(managerEmail, password);
+        managerClient.SetBearerToken(managerTokens.AccessToken);
+
+        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Science",
+            Description = "Group the manager can access",
+        });
+        scienceResponse.EnsureSuccessStatusCode();
+        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var artsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Arts",
+            Description = "Group the manager cannot access",
+        });
+        artsResponse.EnsureSuccessStatusCode();
+        var arts = await artsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var physicsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Physics",
+            Description = "Science subgroup",
+            ParentGroupId = science.Id,
+        });
+        physicsResponse.EnsureSuccessStatusCode();
+        var physics = await physicsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var managerMeResponse = await managerClient.GetAsync("/api/users/me");
+        managerMeResponse.EnsureSuccessStatusCode();
+        var managerUser = await managerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addManagerResponse = await ownerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)managerUser.Id) });
+        addManagerResponse.EnsureSuccessStatusCode();
+
+        var moveUnderInaccessibleParentResponse = await managerClient.PutAsJsonAsync(
+            $"/api/workspace/groups/{physics.Id}",
+            new UpdateGroupRequest { ParentGroupId = arts.Id });
+        Assert.Equal(HttpStatusCode.Forbidden, moveUnderInaccessibleParentResponse.StatusCode);
+        var forbiddenBody = await moveUnderInaccessibleParentResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Contains("member of this group", forbiddenBody.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateGroup_RejectsParentGroupIdWhenManagerHasNoAccess()
+    {
+        await using var factory = await PostgresIntegrationApiFactory.CreateInitializedAsync();
+        using var ownerClient = factory.CreateClient();
+        using var managerClient = factory.CreateClient();
+
+        var ownerEmail = $"owner-{Guid.NewGuid():N}@example.com";
+        var managerEmail = $"manager-{Guid.NewGuid():N}@example.com";
+        const string password = "Test123!";
+
+        var ownerTokens = await ownerClient.RegisterAndConfirmAsync(factory, "Owner User", ownerEmail, password);
+        ownerClient.SetBearerToken(ownerTokens.AccessToken);
+
+        await ownerClient.CreateApprovedWorkspaceAsync(
+            factory,
+            ownerEmail,
+            "Group Parent Access Workspace",
+            "Group parent access authorization test");
+        var invitationGroup = await ownerClient.CreateGroupAsync();
+
+        factory.EmailSender.Clear();
+        var inviteResponse = await ownerClient.PostAsJsonAsync("/api/workspace/invitations", new InviteUserRequest
+        {
+            Email = managerEmail,
+            GroupId = invitationGroup.Id,
+            Parameters = WorkspaceParameterTestHelpers.ParametersForRole(WorkspaceRole.Manager),
+        });
+        Assert.Equal(HttpStatusCode.OK, inviteResponse.StatusCode);
+
+        var invitationToken = factory.GetInvitationToken(managerEmail);
+        var acceptResponse = await managerClient.PostAsJsonAsync($"/api/workspace-invitations/{invitationToken}/accept", new RegisterUserRequest
+        {
+            FullName = "Workspace Manager",
+            Email = managerEmail,
+            Password = password,
+        });
+        acceptResponse.EnsureSuccessStatusCode();
+
+        var managerTokens = await managerClient.LoginAsync(managerEmail, password);
+        managerClient.SetBearerToken(managerTokens.AccessToken);
+
+        var scienceResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Science",
+            Description = "Group the manager can access",
+        });
+        scienceResponse.EnsureSuccessStatusCode();
+        var science = await scienceResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var artsResponse = await ownerClient.PostAsJsonAsync("/api/workspace/groups", new CreateGroupRequest
+        {
+            Name = "Arts",
+            Description = "Group the manager cannot access",
+        });
+        artsResponse.EnsureSuccessStatusCode();
+        var arts = await artsResponse.ReadAsJsonAsync<GroupResponse>();
+
+        var managerMeResponse = await managerClient.GetAsync("/api/users/me");
+        managerMeResponse.EnsureSuccessStatusCode();
+        var managerUser = await managerMeResponse.ReadAsJsonAsync<UserResponse>();
+
+        var addManagerResponse = await ownerClient.PostAsJsonAsync(
+            $"/api/workspace/groups/{science.Id}/users",
+            new CreateGroupMemberRequest { UserId = checked((int)managerUser.Id) });
+        addManagerResponse.EnsureSuccessStatusCode();
+
+        var createUnderInaccessibleParentResponse = await managerClient.PostAsJsonAsync(
+            "/api/workspace/groups",
+            new CreateGroupRequest
+            {
+                Name = "Blocked Subgroup",
+                Description = "Should not be created under Arts",
+                ParentGroupId = arts.Id,
+            });
+        Assert.Equal(HttpStatusCode.Forbidden, createUnderInaccessibleParentResponse.StatusCode);
+        var forbiddenBody = await createUnderInaccessibleParentResponse.ReadAsJsonAsync<ApiProblemDetailsTestResponse>();
+        Assert.Contains("member of this group", forbiddenBody.Detail, StringComparison.OrdinalIgnoreCase);
+
+        var createUnderAccessibleParentResponse = await managerClient.PostAsJsonAsync(
+            "/api/workspace/groups",
+            new CreateGroupRequest
+            {
+                Name = "Physics",
+                Description = "Allowed subgroup under Science",
+                ParentGroupId = science.Id,
+            });
+        createUnderAccessibleParentResponse.EnsureSuccessStatusCode();
+    }
+}

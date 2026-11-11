@@ -21,13 +21,14 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore EduCollab.Api.sln
+        run: dotnet restore Space.Api.sln
+        # Hub.Api is the management host; Drive.Api is parked.
 
       # Unit + OpenAPI/Postman contract tests only.
       # Integration tests (Postgres on :5433) are run locally — not in CI.
       - name: Run unit and contract tests
         run: >
-          dotnet test EduCollab.Api.Tests/EduCollab.Api.Tests.csproj
+          dotnet test Space.Api.Tests/Space.Api.Tests.csproj
           --configuration Release
           --no-restore
           --settings .github/ci.runsettings

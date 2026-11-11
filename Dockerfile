@@ -1,14 +1,15 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY ["EduCollab.Api/EduCollab.Api.csproj", "EduCollab.Api/"]
-COPY ["EduCollab.Application/EduCollab.Application.csproj", "EduCollab.Application/"]
-COPY ["EduCollab.Contracts/EduCollab.Contracts.csproj", "EduCollab.Contracts/"]
-RUN dotnet restore "EduCollab.Api/EduCollab.Api.csproj"
+COPY ["Hub.Api/Hub.Api.csproj", "Hub.Api/"]
+COPY ["Space.Application/Space.Application.csproj", "Space.Application/"]
+COPY ["Space.Contracts/Space.Contracts.csproj", "Space.Contracts/"]
+COPY ["Space.Infrastructure/Space.Infrastructure.csproj", "Space.Infrastructure/"]
+RUN dotnet restore "Hub.Api/Hub.Api.csproj"
 
 COPY . .
-WORKDIR "/src/EduCollab.Api"
-RUN dotnet publish "EduCollab.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+WORKDIR "/src/Hub.Api"
+RUN dotnet publish "Hub.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
@@ -20,7 +21,7 @@ RUN apt-get update \
     && chown -R 1654:1654 App_Data
 
 COPY --from=build /app/publish .
-COPY EduCollab.Api/docker-entrypoint.sh /docker-entrypoint.sh
+COPY Hub.Api/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 ENV APP_UID=1654
@@ -28,4 +29,4 @@ ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["dotnet", "EduCollab.Api.dll"]
+CMD ["dotnet", "Hub.Api.dll"]

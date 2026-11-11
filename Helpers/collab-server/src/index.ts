@@ -9,13 +9,13 @@ import cors from 'cors'
 import { Server, matchMaker } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
 import { monitor } from '@colyseus/monitor'
-import { createEduCollabClient } from './api/educollabClient'
+import { createSpaceClient } from './api/spaceClient'
 import { loadConfig } from './config'
 import { CollabRoom } from './rooms/CollabRoom'
 
 async function main(): Promise<void> {
   const config = loadConfig()
-  const educollabClient = createEduCollabClient(config)
+  const spaceClient = createSpaceClient(config)
 
   const app = express()
   app.disable('x-powered-by')
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
 
   app.get('/healthz', (_req, res) => {
     res.json({
-      name: 'educollab-collab-server',
+      name: 'space-collab-server',
       ok: true,
       buildTime: new Date().toISOString(),
     })
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
 
   app.get('/', (_req, res) => {
     res.json({
-      name: 'educollab-collab-server',
+      name: 'space-collab-server',
       ok: true,
       buildTime: new Date().toISOString(),
     })
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
   }
 
   const httpServer = createServer(app)
-  CollabRoom.configure({ config, educollabClient })
+  CollabRoom.configure({ config, spaceClient })
 
   // `ws` defaults `maxPayload` to 100 MB. Any inbound WebSocket frame larger
   // than this triggers an unprefixed "Max payload size exceeded" error and

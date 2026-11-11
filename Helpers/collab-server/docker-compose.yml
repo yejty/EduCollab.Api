@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: educollab-collab-server
+    container_name: space-collab-server
     restart: unless-stopped
     ports:
       - "2567:2567"
@@ -16,20 +16,20 @@ services:
       COLLAB_PORT: "2567"
       COLLAB_BIND_ADDR: "0.0.0.0"
       COLLAB_ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://localhost:2567"
-      # Same Docker network as educollab-api (container DNS name)
-      EDUCOLLAB_API_BASE: "http://educollab-api:8080"
+      # Same Docker network as space-api (container DNS name)
+      SPACE_API_BASE: "http://space-api:8080"
       SESSION_JOIN_SECRET: "replace-this-with-a-long-session-join-secret-key"
-      SESSION_JOIN_ISSUER: "EduCollab.Api"
-      SESSION_JOIN_AUDIENCE: "EduCollab.CollabServer"
-      EDUCOLLAB_INTERNAL_API_KEY: "dev-internal-api-key-change-me"
+      SESSION_JOIN_ISSUER: "Hub.Api"
+      SESSION_JOIN_AUDIENCE: "Space.CollabServer"
+      SPACE_INTERNAL_API_KEY: "dev-internal-api-key-change-me"
       COLLAB_LOG_LEVEL: "info"
       COLLAB_MONITOR_USER: "admin"
       COLLAB_MONITOR_PASSWORD: "collab-dev"
     networks:
-      - educollab
+      - space
 
 networks:
-  educollab:
+  space:
     external: true
     # Default network from Visual Studio / existing docker compose stack
     name: dockercompose438470530036710049_default

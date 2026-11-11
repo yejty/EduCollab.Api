@@ -26,7 +26,7 @@ export interface CollabServerConfig {
   port: number
   bindAddr: string
   allowedOrigins: string[]
-  educollabApiBase: string
+  spaceApiBase: string
   sessionJoinSecret: string
   sessionJoinIssuer: string
   sessionJoinAudience: string
@@ -55,13 +55,13 @@ export function loadConfig(): CollabServerConfig {
       // Same-origin monitor UI at /colyseus (module scripts send this Origin)
       'http://localhost:2567',
     ]),
-    educollabApiBase: requireEnv('EDUCOLLAB_API_BASE').replace(/\/+$/, ''),
+    spaceApiBase: requireEnv('SPACE_API_BASE').replace(/\/+$/, ''),
     sessionJoinSecret: requireEnv('SESSION_JOIN_SECRET'),
     sessionJoinIssuer:
-      process.env.SESSION_JOIN_ISSUER?.trim() || 'EduCollab.Api',
+      process.env.SESSION_JOIN_ISSUER?.trim() || 'Space.Api',
     sessionJoinAudience:
-      process.env.SESSION_JOIN_AUDIENCE?.trim() || 'EduCollab.CollabServer',
-    internalApiKey: requireEnv('EDUCOLLAB_INTERNAL_API_KEY'),
+      process.env.SESSION_JOIN_AUDIENCE?.trim() || 'Space.CollabServer',
+    internalApiKey: requireEnv('SPACE_INTERNAL_API_KEY'),
     monitorUser: process.env.COLLAB_MONITOR_USER?.trim() || '',
     monitorPassword: process.env.COLLAB_MONITOR_PASSWORD ?? '',
     logLevel,
