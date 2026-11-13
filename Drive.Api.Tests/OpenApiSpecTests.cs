@@ -39,7 +39,7 @@ public sealed class OpenApiSpecTests
 
         Assert.True(
             JsonSemanticEquals(expectedJson, actualJson),
-            "Committed openapi/v1/drive-host.openapi.json is out of date. Run scripts/export-openapi.ps1.");
+            "Committed docs/drive-target.openapi.json is out of date. Run scripts/export-openapi.ps1.");
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class OpenApiSpecTests
     public static string ResolveCommittedSpecPath()
     {
         var root = ResolveRepoRoot();
-        return Path.Combine(root, "openapi", "v1", "drive-host.openapi.json");
+        return Path.Combine(root, "docs", "drive-target.openapi.json");
     }
 
     public static string ResolveRepoRoot()

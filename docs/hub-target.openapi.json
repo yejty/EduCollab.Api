@@ -1,0 +1,3167 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Space Hub API (target)",
+    "version": "1.0",
+    "description": "Binding OpenAPI for Hub under `/api/v1`. Hand-written target contract. `scripts/export-openapi.ps1` does not generate or overwrite this file.\n\n## Document role\nThis file is the **binding source of truth** for Hub `/api/v1` implementation (auth, JWKS, people, invites, project membership, admin).\nIt is **not** the PDF domain transcript and **not** the exported host reality (`hub.openapi.json`), which may lag the target.\n\nDomain intent lives in `docs/Drive-API-contracts 2.pdf` and `docs/Drive-API-contracts.openapi.json`. Map PDF requirements into this file before implementing.\n\nDrive storage/content/dispatches live in `docs/drive.openapi.json`. Hub is the sole JWT issuer; Drive verifies via JWKS.\n\n## Base URL\nAll routes are under `/api/v1`.\n\n## Resource URL rules\n- Plural resource nouns; interactions are named after the thing created (`invite-resends`, `account-deletions`), not verbs.\n- Related 1:1 media use pseudoresources (`user-avatars/{id}`, `invite-logos/{token}`).\n- Filtered collections use query parameters (`project-members?projectId=`, `project-member-candidates?projectId=`), not nested parent paths.\n- Workspace-scoped people/invite admin calls send `X-Workspace-Id`.\n- Project references use `projectId` / `projectName` (not `groupId`) on Hub v1 invites and members.\n- Canonical GET/PATCH/POST success bodies for the same resource use one representation.\n- Related collections return ids; login/token responses may include workspace role fields needed to bootstrap the client.\n\n## Authentication\n- `POST /api/v1/sign-ins` and `POST /api/v1/two-factor-confirmations` are anonymous.\n- Public invite preview and invite logo/inviter-avatar routes are anonymous.\n- `POST /api/v1/invite-acceptances` is anonymous (token in body).\n- Every other route requires `Authorization: Bearer` with a Hub-issued access JWT (or Hub-issued app token where noted).\n- `loginChallenge` is a temporary backend session key for a login attempt, not a password.\n\n## JWT claims (minimum)\n`sub` (user id), plus workspace memberships with workspace role (`Owner|Manager|Creator|Viewer|Customer|Custom`). No project or file permissions in the token.\n\n## Lists\nCollection GETs use `page` (default 1), `pageSize` (default 20, maximum 100), and `sort`.\nValues outside the allowed ranges return `400` with `error: invalid_pagination` or `invalid_sort` and are not clamped.\nResponse envelope: `{ page, pageSize, totalCount, items }`.\n\n## Image negotiation\nAvatar and invite image GETs: omitted `Accept`, `*/*`, or `image/*` returns image bytes. Other types return `406`.\n\n## Errors\nEvery `4xx` and `5xx` is `application/problem+json` (`ProblemDetails`). Every response includes `X-Request-Id`.\nPriority: `401` → `403` → `400` → `404` → `406` / `409` / `410` / `502` as documented per operation.\nInvite accept account mismatch uses ProblemDetails with `error: account_mismatch` and `invitedEmail`.\n\n## Legacy mapping\nReshaped operations also set `x-legacy-paths` and a `Replaces:` line in the operation description.\n\n| New | Old (prior hub-target / PDF) |\n|-----|------------------------------|\n| `GET/PATCH /api/v1/users/current` | `GET/PATCH /api/v1/me` |\n| `POST /api/v1/account-deletion-challenges` | `POST /api/v1/me/profile/delete-request`; PDF `/me/profile/delete-request` |\n| `POST /api/v1/account-deletions` | `POST /api/v1/me/profile/delete-confirm`; PDF `/me/profile/delete-confirm` |\n| `GET /api/v1/user-avatars/{id}` | `GET /api/v1/users/{id}/avatar`; PDF `/users/{id}/avatar` |\n| `POST /api/v1/project-memberships` | `POST /api/v1/users/{id}/project-memberships`; PDF `/users/{id}/add-group` |\n| `PUT /api/v1/user-project-accesses/{userId}` | `PUT /api/v1/users/{id}/project-memberships`; PDF `/users/{id}/group-access` |\n| `POST /api/v1/project-membership-removals` | `POST /api/v1/users/{id}/project-membership-removals`; PDF `/users/{id}/remove-group` |\n| `GET/POST /api/v1/invites` + `X-Workspace-Id` | `GET/POST /api/v1/workspaces/{workspaceId}/invites`; PDF `/workspaces/{workspaceId}/invites` |\n| `GET /api/v1/invites?mine=true` | `GET /api/v1/me/invites`; PDF `/me/invites` |\n| `DELETE /api/v1/invites/{inviteId}` | `DELETE /api/v1/workspaces/{workspaceId}/invites/{inviteId}` |\n| `POST /api/v1/invite-resends` | `POST .../invites/{inviteId}/resend`; PDF `.../resend` |\n| `POST /api/v1/invite-acceptances` | `POST /api/v1/invites/{token}/accept`; PDF `/invites/{token}/accept` |\n| `GET /api/v1/invite-previews/{token}` | `GET /api/v1/invites/{token}`; PDF `/invites/{token}` |\n| `GET /api/v1/invite-logos/{token}` | `GET /api/v1/invites/{token}/logo`; PDF `/invites/{token}/logo` |\n| `GET /api/v1/invite-inviter-avatars/{token}` | `GET /api/v1/invites/{token}/inviter`; PDF `/invites/{token}/inviter` |\n| `GET /api/v1/project-member-candidates` | `available[]` on prior `GET .../members` / `GET .../project-members` |\n| `GET/POST /api/v1/project-members` | `GET/POST /api/v1/group-members` (prior target); `GET/POST /api/v1/groups/{id}/members`; PDF `/groups/{id}/members` |\n| `POST /api/v1/project-member-removals` | `POST /api/v1/group-member-removals` (prior target); `DELETE /api/v1/groups/{id}/members/{userId}`; PDF same |\n"
+  },
+  "tags": [
+    {
+      "name": "Sign-in"
+    },
+    {
+      "name": "Tokens"
+    },
+    {
+      "name": "App tokens"
+    },
+    {
+      "name": "Users"
+    },
+    {
+      "name": "Invites"
+    },
+    {
+      "name": "Projects"
+    },
+    {
+      "name": "Admin"
+    },
+    {
+      "name": "Health"
+    }
+  ],
+  "paths": {
+    "/api/v1/sign-ins": {
+      "post": {
+        "tags": [
+          "Sign-in"
+        ],
+        "summary": "Sign in with user name and password.",
+        "description": "Unchanged from prior hub-target. Starts a login attempt. When two-factor is required, returns a loginChallenge. Tokens are issued only by two-factor-confirmations.",
+        "operationId": "createSignIn",
+        "responses": {
+          "200": {
+            "description": "A second factor is required.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/two-factor-confirmations": {
+      "post": {
+        "tags": [
+          "Sign-in"
+        ],
+        "summary": "Complete sign-in with a two-factor code.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "createTwoFactorConfirmation",
+        "responses": {
+          "201": {
+            "description": "Login succeeded. Access and refresh JWTs are in the body; no Location.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginTwoFactorRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/token-refreshes": {
+      "post": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Refresh the access token.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "createTokenRefresh",
+        "responses": {
+          "201": {
+            "description": "New access and refresh tokens.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRefreshRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/.well-known/jwks.json": {
+      "get": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Public JWKS for verifying Hub-issued JWTs.",
+        "description": "Unchanged from prior hub-target. Consumed by Hub and Drive. Anonymous.",
+        "operationId": "getJwks",
+        "responses": {
+          "200": {
+            "description": "JWKS document.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonWebKeySet"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/app-tokens": {
+      "post": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Issue an app/session token for an editor or Drive client.",
+        "description": "Unchanged from prior hub-target. Issued by Hub. Drive only consumes the token.",
+        "operationId": "createAppToken",
+        "responses": {
+          "201": {
+            "description": "App token issued.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Location": {
+                "$ref": "#/components/headers/Location"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedAppToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppTokenRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/app-tokens/{tokenId}": {
+      "delete": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Revoke an app token.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "deleteAppToken",
+        "responses": {
+          "204": {
+            "description": "The app token was revoked.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/TokenId"
+          }
+        ]
+      }
+    },
+    "/api/v1/app-token-refreshes": {
+      "post": {
+        "tags": [
+          "App tokens"
+        ],
+        "summary": "Refresh the current app token.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "createAppTokenRefresh",
+        "responses": {
+          "201": {
+            "description": "A new app token was issued.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Location": {
+                "$ref": "#/components/headers/Location"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedAppToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshAppTokenRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/current": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get the current user.",
+        "description": "Replaces: GET /api/v1/me. Signed-in account in context.",
+        "operationId": "getCurrentUser",
+        "responses": {
+          "200": {
+            "description": "Current user.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/me"
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update the current user profile.",
+        "description": "Replaces: PATCH /api/v1/me.",
+        "operationId": "updateCurrentUser",
+        "responses": {
+          "200": {
+            "description": "Updated user.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "x-legacy-paths": [
+          "PATCH /api/v1/me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCurrentUserRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account-deletion-challenges": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Request an account deletion challenge code.",
+        "description": "Replaces: POST /api/v1/me/profile/delete-request; POST /me/profile/delete-request (PDF).",
+        "operationId": "createAccountDeletionChallenge",
+        "responses": {
+          "201": {
+            "description": "Challenge and masked email. No Location; challenge is not an addressable resource URL.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletionChallenge"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/me/profile/delete-request",
+          "POST /me/profile/delete-request"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/account-deletions": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Confirm account deletion.",
+        "description": "Replaces: POST /api/v1/me/profile/delete-confirm; POST /me/profile/delete-confirm (PDF). Tokens stop working.",
+        "operationId": "createAccountDeletion",
+        "responses": {
+          "201": {
+            "description": "Account deleted. No Location.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/me/profile/delete-confirm",
+          "POST /me/profile/delete-confirm"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccountDeletionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List members of the current workspace.",
+        "description": "Unchanged path from prior hub-target; list now uses page/pageSize/sort and a paged envelope.",
+        "operationId": "listWorkspaceUsers",
+        "responses": {
+          "200": {
+            "description": "Paged workspace members.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedWorkspaceMembers"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/SortUsers"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Direct user creation (disabled).",
+        "description": "Unchanged from prior hub-target. Direct creation disabled; invite instead.",
+        "operationId": "createWorkspaceUserDisabled",
+        "responses": {
+          "410": {
+            "description": "Direct creation disabled; invite instead. ProblemDetails error body.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get one workspace member.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "getWorkspaceUser",
+        "responses": {
+          "200": {
+            "description": "Workspace member.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a member's workspace role, permission code, or startup scene.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "updateWorkspaceUser",
+        "responses": {
+          "200": {
+            "description": "Updated member.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceMember"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkspaceMemberRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Remove a member from the workspace.",
+        "description": "Unchanged from prior hub-target. Triggers Drive membership sync for that workspace.",
+        "operationId": "deleteWorkspaceUser",
+        "responses": {
+          "204": {
+            "description": "Removed from workspace.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ]
+      }
+    },
+    "/api/v1/user-avatars/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a member's avatar image.",
+        "description": "Replaces: GET /api/v1/users/{id}/avatar; GET /users/{id}/avatar (PDF).",
+        "operationId": "getUserAvatar",
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/users/{id}/avatar",
+          "GET /users/{id}/avatar"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptImage"
+          }
+        ]
+      }
+    },
+    "/api/v1/project-memberships": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Add projects to a member.",
+        "description": "Replaces: POST /api/v1/users/{id}/project-memberships; POST /users/{id}/add-group (PDF). No role per project. Hub syncs membership into Drive DB.",
+        "operationId": "createProjectMemberships",
+        "responses": {
+          "201": {
+            "description": "Projects added. Body echoes projectIds. No Location for batch create.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectIdList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/users/{id}/project-memberships",
+          "POST /users/{id}/add-group"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectMembershipsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user-project-accesses/{userId}": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Replace a member's project access list.",
+        "description": "Replaces: PUT /api/v1/users/{id}/project-memberships; PUT /users/{id}/group-access (PDF). Projects left off are removed. Hub syncs into Drive DB Pseudoresource: full replacement of that user's project access list.",
+        "operationId": "replaceUserProjectAccess",
+        "responses": {
+          "200": {
+            "description": "Updated access list.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectIdList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "PUT /api/v1/users/{id}/project-memberships",
+          "PUT /users/{id}/group-access"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/UserIdPathAsUserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectIdList"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/project-membership-removals": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Remove projects from a member.",
+        "description": "Replaces: POST /api/v1/users/{id}/project-membership-removals; POST /users/{id}/remove-group (PDF). Hub syncs deletes into Drive DB.",
+        "operationId": "createProjectMembershipRemovals",
+        "responses": {
+          "201": {
+            "description": "Projects removed. No Location.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/users/{id}/project-membership-removals",
+          "POST /users/{id}/remove-group"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectMembershipRemovalsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invites": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "List invites.",
+        "description": "Replaces: GET /api/v1/workspaces/{workspaceId}/invites; GET /api/v1/me/invites; GET /workspaces/{workspaceId}/invites (PDF); GET /me/invites (PDF). With X-Workspace-Id: pending workspace invites. With mine=true (no workspace header): invites for the signed-in person. Sending both mine=true and X-Workspace-Id returns 400 invalid combination.",
+        "operationId": "listInvites",
+        "responses": {
+          "200": {
+            "description": "Paged invites.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedInvites"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/workspaces/{workspaceId}/invites",
+          "GET /api/v1/me/invites",
+          "GET /workspaces/{workspaceId}/invites",
+          "GET /me/invites"
+        ],
+        "parameters": [
+          {
+            "name": "X-Workspace-Id",
+            "in": "header",
+            "required": false,
+            "description": "Required when mine is false or omitted. Forbidden/ignored when mine=true.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/MineInvites"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/SortInvites"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Invite someone into a workspace.",
+        "description": "Replaces: POST /api/v1/workspaces/{workspaceId}/invites; POST /workspaces/{workspaceId}/invites (PDF). Workspace from X-Workspace-Id.",
+        "operationId": "createInvite",
+        "responses": {
+          "201": {
+            "description": "Pending invite created.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              },
+              "Location": {
+                "$ref": "#/components/headers/Location"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/workspaces/{workspaceId}/invites",
+          "POST /workspaces/{workspaceId}/invites"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invites/{inviteId}": {
+      "delete": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Withdraw a pending invite.",
+        "description": "Replaces: DELETE /api/v1/workspaces/{workspaceId}/invites/{inviteId}; DELETE /workspaces/{workspaceId}/invites/{inviteId} (PDF).",
+        "operationId": "deleteInvite",
+        "responses": {
+          "204": {
+            "description": "Invite removed.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "DELETE /api/v1/workspaces/{workspaceId}/invites/{inviteId}",
+          "DELETE /workspaces/{workspaceId}/invites/{inviteId}"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/InviteId"
+          }
+        ]
+      }
+    },
+    "/api/v1/invite-resends": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Resend a pending invite email.",
+        "description": "Replaces: POST /api/v1/workspaces/{workspaceId}/invites/{inviteId}/resend; POST /workspaces/{workspaceId}/invites/{inviteId}/resend (PDF).",
+        "operationId": "createInviteResend",
+        "responses": {
+          "201": {
+            "description": "Resend accepted; invite returned with emailSent.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Mail failed; invite link still returned as PendingInvite.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingInvite"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/workspaces/{workspaceId}/invites/{inviteId}/resend",
+          "POST /workspaces/{workspaceId}/invites/{inviteId}/resend"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteResendRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invite-previews/{token}": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Public invite preview.",
+        "description": "Replaces: GET /api/v1/invites/{token}; GET /invites/{token} (PDF).",
+        "operationId": "getInvitePreview",
+        "responses": {
+          "200": {
+            "description": "Invite preview.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreview"
+                }
+              }
+            }
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        },
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          }
+        ],
+        "x-legacy-paths": [
+          "GET /api/v1/invites/{token}",
+          "GET /invites/{token}"
+        ]
+      }
+    },
+    "/api/v1/invite-logos/{token}": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Workspace logo for the invite page.",
+        "description": "Replaces: GET /api/v1/invites/{token}/logo; GET /invites/{token}/logo (PDF).",
+        "operationId": "getInviteLogo",
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/invites/{token}/logo",
+          "GET /invites/{token}/logo"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptImage"
+          }
+        ]
+      }
+    },
+    "/api/v1/invite-inviter-avatars/{token}": {
+      "get": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Inviter avatar for the invite page.",
+        "description": "Replaces: GET /api/v1/invites/{token}/inviter; GET /invites/{token}/inviter (PDF).",
+        "operationId": "getInviteInviterAvatar",
+        "responses": {
+          "200": {
+            "description": "Image bytes.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/invites/{token}/inviter",
+          "GET /invites/{token}/inviter"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InviteToken"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptImage"
+          }
+        ]
+      }
+    },
+    "/api/v1/invite-acceptances": {
+      "post": {
+        "tags": [
+          "Invites"
+        ],
+        "summary": "Accept an invite.",
+        "description": "Replaces: POST /api/v1/invites/{token}/accept; POST /invites/{token}/accept (PDF). On success Hub syncs assigned project membership into Drive DB. Wrong signed-in user → 403 ProblemDetails error account_mismatch.",
+        "operationId": "createInviteAcceptance",
+        "responses": {
+          "201": {
+            "description": "Joined workspace; returns Hub JWTs. No Location.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptInviteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/invites/{token}/accept",
+          "POST /invites/{token}/accept"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteAcceptanceRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/project-members": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List members of a project.",
+        "description": "Replaces: GET /api/v1/group-members; GET /api/v1/groups/{id}/members; GET /groups/{id}/members (PDF). Filter: projectId (required). Does not include available people; use GET /api/v1/project-member-candidates.",
+        "operationId": "listProjectMembers",
+        "responses": {
+          "200": {
+            "description": "Paged project members.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMembersPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "GET /api/v1/group-members",
+          "GET /api/v1/groups/{id}/members",
+          "GET /groups/{id}/members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/SortProjectMembers"
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Add people to a project.",
+        "description": "Replaces: POST /api/v1/group-members; POST /api/v1/groups/{id}/members; POST /groups/{id}/members (PDF). Users must already belong to the workspace. Hub syncs membership into Drive DB.",
+        "operationId": "createProjectMembers",
+        "responses": {
+          "201": {
+            "description": "Members added. Body lists created memberships (same ProjectMember shape as GET).",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ProjectMember"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/group-members",
+          "POST /api/v1/groups/{id}/members",
+          "POST /groups/{id}/members"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectMembersRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/project-member-candidates": {
+      "get": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List workspace people available to add to a project.",
+        "description": "Replaces: available[] nested on GET /api/v1/groups/{id}/members and GET /api/v1/project-members. Filter: projectId (required).",
+        "operationId": "listProjectMemberCandidates",
+        "x-legacy-paths": [
+          "GET /api/v1/project-members (available field)",
+          "GET /api/v1/groups/{id}/members (available field)"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/SortProjectMembers"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paged candidates not yet in the project.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMembersPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/v1/project-member-removals": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Remove one person from a project.",
+        "description": "Replaces: POST /api/v1/group-member-removals; DELETE /api/v1/groups/{id}/members/{userId}; DELETE /groups/{id}/members/{userId} (PDF). Hub syncs membership delete into Drive DB.",
+        "operationId": "createProjectMemberRemoval",
+        "responses": {
+          "201": {
+            "description": "Removed. No Location.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "x-legacy-paths": [
+          "POST /api/v1/group-member-removals",
+          "DELETE /api/v1/groups/{id}/members/{userId}",
+          "DELETE /groups/{id}/members/{userId}"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WorkspaceIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectMemberRemovalRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List platform accounts.",
+        "description": "Unchanged path from prior hub-target; list now uses page/pageSize/sort and a paged envelope.",
+        "operationId": "listAdminUsers",
+        "responses": {
+          "200": {
+            "description": "Paged platform users.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedAdminUsers"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/SortAdminUsers"
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete an account as platform administrator.",
+        "description": "Unchanged path from prior hub-target; success is 204 with empty body. 409 if the account still owns a workspace.",
+        "operationId": "deleteAdminUser",
+        "responses": {
+          "204": {
+            "description": "Deleted.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UserId"
+          }
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Hub health.",
+        "description": "Unchanged from prior hub-target.",
+        "operationId": "getHubHealth",
+        "responses": {
+          "200": {
+            "description": "Healthy.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unhealthy.",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Hub-issued access JWT or app token. Not used by anonymous sign-in or public invite routes."
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Server-generated request id. Matches requestId in ProblemDetails.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Location": {
+        "description": "URL of the created resource.",
+        "schema": {
+          "type": "string",
+          "format": "uri-reference"
+        }
+      }
+    },
+    "parameters": {
+      "WorkspaceIdHeader": {
+        "name": "X-Workspace-Id",
+        "in": "header",
+        "required": true,
+        "description": "Current workspace id for website people/invite/group calls.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "UserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "User id.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "InviteId": {
+        "name": "inviteId",
+        "in": "path",
+        "required": true,
+        "description": "Invite id.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "InviteToken": {
+        "name": "token",
+        "in": "path",
+        "required": true,
+        "description": "64 hex characters.",
+        "schema": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "TokenId": {
+        "name": "tokenId",
+        "in": "path",
+        "required": true,
+        "description": "App token id.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "UserIdPathAsUserId": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "description": "User id.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "description": "1-based page index. Default 1. Values below 1 return 400 invalid_pagination.",
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "PageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "required": false,
+        "description": "Page size. Default 20. Values outside 1–100 return 400 invalid_pagination and are not clamped.",
+        "schema": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "SortUsers": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Allowed: email, fullName, role, id. Prefix - for descending. Default email. Unknown → 400 invalid_sort.",
+        "schema": {
+          "type": "string",
+          "default": "email"
+        }
+      },
+      "SortInvites": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Allowed: createdAt, email, expiresAt, id. Prefix - for descending. Default -createdAt.",
+        "schema": {
+          "type": "string",
+          "default": "-createdAt"
+        }
+      },
+      "SortProjectMembers": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Allowed: email, fullName, id. Prefix - for descending. Default email.",
+        "schema": {
+          "type": "string",
+          "default": "email"
+        }
+      },
+      "SortAdminUsers": {
+        "name": "sort",
+        "in": "query",
+        "required": false,
+        "description": "Allowed: email, fullName, createdAt, id. Prefix - for descending. Default email.",
+        "schema": {
+          "type": "string",
+          "default": "email"
+        }
+      },
+      "MineInvites": {
+        "name": "mine",
+        "in": "query",
+        "required": false,
+        "description": "When true, list invites for the signed-in person (matched by email). Do not send X-Workspace-Id. Equality match.",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "AcceptImage": {
+        "name": "Accept",
+        "in": "header",
+        "required": false,
+        "description": "omitted, */*, or image/* returns image bytes. Any other value returns 406.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ProjectIdQuery": {
+        "name": "projectId",
+        "in": "query",
+        "required": true,
+        "description": "Project id. Equality match. (Legacy name: groupId.)",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The query or body is invalid. error is validation_failed, invalid_pagination, or invalid_sort.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication failed. Wins over validation, missing resource, and unacceptable Accept.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authenticated but not allowed. Invite accept account mismatch uses error account_mismatch and invitedEmail.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The resource does not exist or is not visible to the caller.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "NotAcceptable": {
+        "description": "The Accept value cannot be produced.",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict with current state (for example admin delete while the account still owns a workspace).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "Gone": {
+        "description": "No longer available (used, withdrawn, or expired invite; disabled create).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      },
+      "BadGateway": {
+        "description": "Upstream dependency failed (for example invite resend mail failure).",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetails"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "description": "RFC 9457 problem body used for every 4xx and 5xx response. May include invitedEmail when error is account_mismatch.",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "error",
+          "requestId"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Problem type, such as urn:space:error:validation_failed.",
+            "example": "urn:space:error:not_found"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Machine-readable code. validation_failed, invalid_pagination, invalid_sort, account_mismatch, …"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Server-generated request id. Matches the X-Request-Id header."
+          },
+          "errors": {
+            "type": "object",
+            "nullable": true,
+            "description": "Present when error is validation_failed. Keys are camelCase field names.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "invitedEmail": {
+            "type": "string",
+            "format": "email",
+            "nullable": true,
+            "description": "Present when error is account_mismatch."
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userName",
+          "password"
+        ],
+        "properties": {
+          "userName": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Account email or username."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "format": "password"
+          }
+        }
+      },
+      "LoginTwoFactorRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "loginChallenge",
+          "code"
+        ],
+        "properties": {
+          "loginChallenge": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Challenge from TwoFactorChallenge. Temporary login-attempt key, not a password."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 8,
+            "description": "One-time sign-in code."
+          }
+        }
+      },
+      "WorkspaceRole": {
+        "type": "string",
+        "enum": [
+          "Owner",
+          "Manager",
+          "Creator",
+          "Viewer",
+          "Customer",
+          "Custom"
+        ]
+      },
+      "AuthWorkspace": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AuthUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "fullName"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "user"
+        ],
+        "description": "Hub-issued JWTs after successful two-factor confirmation or token refresh.",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthWorkspace"
+            }
+          },
+          "canCreateWorkspace": {
+            "type": "boolean"
+          },
+          "totpEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TwoFactorChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requiresTwoFactor",
+          "loginChallenge",
+          "method",
+          "email"
+        ],
+        "properties": {
+          "requiresTwoFactor": {
+            "type": "boolean"
+          },
+          "loginChallenge": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "description": "How the code was sent, such as email or totp."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenRefreshRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "refreshToken"
+        ],
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "JsonWebKeySet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "keys"
+        ],
+        "description": "JWKS document for verifying Hub-issued JWTs.",
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "kty",
+                "kid"
+              ],
+              "properties": {
+                "kty": {
+                  "type": "string"
+                },
+                "kid": {
+                  "type": "string"
+                },
+                "use": {
+                  "type": "string"
+                },
+                "alg": {
+                  "type": "string"
+                },
+                "n": {
+                  "type": "string"
+                },
+                "e": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CreateAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "app",
+          "name"
+        ],
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "description": "App identifier supplied by the editor/Drive client."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Device or installation name."
+          }
+        }
+      },
+      "RefreshAppTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Empty object. Authorized by the bearer app token being refreshed."
+      },
+      "IssuedAppToken": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token",
+          "app",
+          "id",
+          "expiresAt",
+          "pairingExpiresAt"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "app": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pairingExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CurrentUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "fullName"
+        ],
+        "description": "Signed-in account. Same shape for GET and PATCH /users/current.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "workspaceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Workspace membership ids. Details via workspace-scoped people routes."
+          }
+        }
+      },
+      "UpdateCurrentUserRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AccountDeletionChallenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deleteChallenge",
+          "email"
+        ],
+        "properties": {
+          "deleteChallenge": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "Masked address."
+          }
+        }
+      },
+      "CreateAccountDeletionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deleteChallenge",
+          "code"
+        ],
+        "properties": {
+          "deleteChallenge": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6
+          }
+        }
+      },
+      "OkResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkspaceMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "fullName",
+          "email",
+          "role"
+        ],
+        "description": "Workspace member. projectIds are project/group ids only; no roles per project.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isPlatformAdmin": {
+            "type": "boolean"
+          },
+          "hasAvatar": {
+            "type": "boolean"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Project/group ids the member can access."
+          }
+        }
+      },
+      "UpdateWorkspaceMemberRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "description": "Changes workspace role, permission code, or startup scene. No project roles.",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PagedWorkspaceMembers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "items"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceMember"
+            }
+          }
+        }
+      },
+      "ProjectIdList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectIds"
+        ],
+        "description": "Project/group ids only. No roles per project.",
+        "properties": {
+          "projectIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "CreateProjectMembershipsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userId",
+          "projectIds"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "CreateProjectMembershipRemovalsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userId",
+          "projectIds"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "CreateInviteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "role",
+          "permissionCode"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectId": {
+            "type": "string",
+            "description": "Required unless the invite is for an Owner. Legacy: groupId."
+          },
+          "createPersonalProject": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PendingInvite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "emailSent": {
+            "type": "boolean"
+          },
+          "inviteUrl": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "createPersonalProject": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PagedInvites": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "items"
+        ],
+        "description": "Paged invites. Same InviteListItem shape for workspace lists and mine=true.",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InviteListItem"
+            }
+          }
+        }
+      },
+      "CreateInviteResendRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "inviteId"
+        ],
+        "properties": {
+          "inviteId": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "InvitePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Public invite preview. Flat fields; no nested workspace/inviter objects.",
+        "properties": {
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "workspaceSlug": {
+            "type": "string"
+          },
+          "hasLogo": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "existingUser": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "inviterName": {
+            "type": "string"
+          },
+          "inviterEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "inviterHasAvatar": {
+            "type": "boolean"
+          },
+          "projectId": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateInviteAcceptanceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "token"
+        ],
+        "description": "token is required. username/password/fullName required for a new account; may omit when already signed in as the invited email.",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9a-fA-F]{64}$"
+          },
+          "username": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "format": "password"
+          },
+          "fullName": {
+            "type": "string"
+          }
+        }
+      },
+      "AcceptInviteResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "isNewUser",
+          "user",
+          "workspaceId",
+          "workspaceRole"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "isNewUser": {
+            "type": "boolean"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceRole": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "workspaceName": {
+            "type": "string"
+          },
+          "permissionCode": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "fullName"
+        ]
+      },
+      "ProjectMembersPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "items"
+        ],
+        "description": "Paged members of a project. Available candidates: GET /api/v1/project-member-candidates.",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectMember"
+            }
+          }
+        }
+      },
+      "CreateProjectMembersRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "userIds"
+        ],
+        "properties": {
+          "userIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Project id (legacy: groupId)."
+          }
+        }
+      },
+      "CreateProjectMemberRemovalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projectId",
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Project id (legacy: groupId)."
+          }
+        }
+      },
+      "AdminUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "isPlatformAdmin": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "PagedAdminUsers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "items"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InviteListItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "description": "Invite row for paged lists. workspaceId/workspaceName set for mine=true; project fields set for workspace-scoped pending invites.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkspaceRole"
+          },
+          "rolePreset": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissionCode": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "workspaceName": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasLogo": {
+            "type": "boolean"
+          },
+          "projectId": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createPersonalProject": {
+            "type": "boolean"
+          },
+          "startupSceneAssetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "emailSent": {
+            "type": "boolean"
+          },
+          "inviteUrl": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

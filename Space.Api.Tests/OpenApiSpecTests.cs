@@ -66,7 +66,7 @@ public sealed class OpenApiSpecTests
 
         Assert.True(
             JsonSemanticEquals(expectedJson, actualJson),
-            "Committed openapi/v1/hub.openapi.json is out of date. Run scripts/export-openapi.ps1 and commit the result.");
+            "Committed docs/hub.openapi.json is out of date. Run scripts/export-openapi.ps1 and commit the result.");
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class OpenApiSpecTests
 
     public static string ResolveCommittedSpecPath()
     {
-        return Path.Combine(ResolveRepoRoot(), "openapi", "v1", "hub.openapi.json");
+        return Path.Combine(ResolveRepoRoot(), "docs", "hub.openapi.json");
     }
 
     public static string ResolveRepoRoot()

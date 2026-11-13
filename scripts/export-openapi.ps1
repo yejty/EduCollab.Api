@@ -3,8 +3,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $hubTestProject = Join-Path $repoRoot "Space.Api.Tests\Space.Api.Tests.csproj"
 $driveTestProject = Join-Path $repoRoot "Drive.Api.Tests\Drive.Api.Tests.csproj"
-$hubOutputFile = Join-Path $repoRoot "openapi\v1\hub.openapi.json"
-$driveHostOutputFile = Join-Path $repoRoot "openapi\v1\drive-host.openapi.json"
+$hubOutputFile = Join-Path $repoRoot "docs\hub.openapi.json"
+$driveHostOutputFile = Join-Path $repoRoot "docs\drive-target.openapi.json"
 
 Push-Location $repoRoot
 try {
@@ -34,7 +34,7 @@ try {
     }
 
     Write-Host "Drive host OpenAPI spec exported to $driveHostOutputFile"
-    Write-Host "Left openapi/v1/drive.openapi.json untouched (hand-written target contract)."
+    Write-Host "Left binding targets untouched: docs/hub-target.openapi.json, docs/drive.openapi.json."
 }
 finally {
     Remove-Item Env:EXPORT_OPENAPI -ErrorAction SilentlyContinue

@@ -86,8 +86,9 @@ namespace Hub.Api.Swagger
                 "Every response includes an `X-Request-Id` header matching `requestId` in error bodies when present.",
                 "",
                 "## Contract source",
-                "This document is generated from the running API (Swashbuckle). The committed copy lives at `openapi/v1/hub.openapi.json`.",
-                "Regenerate with `scripts/export-openapi.ps1`.");
+                "This document is generated from the running API (Swashbuckle). The committed copy lives at `docs/hub.openapi.json` (exported reality).",
+                "Regenerate with `scripts/export-openapi.ps1`. Binding Hub target (not overwritten by export): `docs/hub-target.openapi.json`.",
+                "Binding Drive target: `docs/drive.openapi.json`. PDF transcript is domain intent only — see `docs/README.md`.");
         }
     }
 }

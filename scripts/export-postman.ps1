@@ -7,7 +7,7 @@ $environmentFile = Join-Path $repoRoot "Space.Api.postman_environment.json"
 
 Push-Location $repoRoot
 try {
-    Write-Host "Exporting Postman collection from openapi/v1/hub.openapi.json ..."
+    Write-Host "Exporting Postman collection from docs/hub.openapi.json ..."
     $env:EXPORT_POSTMAN = "1"
 
     dotnet test $testProject `
